@@ -591,3 +591,91 @@ func (ht *HashType) Decode(encoded []byte, offset int) (interface{}, error) {
 
 	return hash, nil
 }
+
+// =============================================================================
+// Bytes32Type - Fixed 32-byte Type
+// =============================================================================
+
+// Bytes32Type represents fixed 32-byte values (similar to HashType but decodes to []byte)
+type Bytes32Type struct {
+	baseType
+}
+
+// NewBytes32Type creates a new bytes32 type
+func NewBytes32Type(name string) (*Bytes32Type, error) {
+	return &Bytes32Type{
+		baseType: baseType{name: name},
+	}, nil
+}
+
+// Encode encodes a bytes32 value to 32 bytes
+func (bt *Bytes32Type) Encode(value interface{}) ([]byte, error) {
+	switch v := value.(type) {
+	case string:
+		// Try parsing as hex string
+		if len(v) > 2 && v[:2] == "0x" {
+			v = v[2:] // Remove 0x prefix
+		}
+
+		// Decode hex string
+		if len(v) != 64 {
+			return nil, fmt.Errorf("invalid hex string length: expected 64 chars, got %d", len(v))
+		}
+
+		bytes := make([]byte, 32)
+		for i := 0; i < 32; i++ {
+			_, err := fmt.Sscanf(v[i*2:i*2+2], "%x", &bytes[i])
+			if err != nil {
+				return nil, fmt.Errorf("invalid hex string: %w", err)
+			}
+		}
+		return bytes, nil
+
+	case []byte:
+		// Byte slice must be exactly 32 bytes or less (will be right-padded)
+		if len(v) > 32 {
+			return nil, fmt.Errorf("byte slice too long: expected max 32 bytes, got %d", len(v))
+		}
+
+		result := make([]byte, 32)
+		copy(result, v)
+		return result, nil
+
+	case *big.Int:
+		// Encode as big.Int (for numeric values)
+		return EncodeIntBig(v), nil
+
+	case int, int8, int16, int32, int64:
+		// Convert to big.Int and encode
+		var bigInt *big.Int
+		switch val := v.(type) {
+		case int:
+			bigInt = big.NewInt(int64(val))
+		case int8:
+			bigInt = big.NewInt(int64(val))
+		case int16:
+			bigInt = big.NewInt(int64(val))
+		case int32:
+			bigInt = big.NewInt(int64(val))
+		case int64:
+			bigInt = big.NewInt(val)
+		}
+		return EncodeIntBig(bigInt), nil
+
+	default:
+		return nil, fmt.Errorf("unsupported value type for bytes32 encoding: %T", value)
+	}
+}
+
+// Decode decodes a bytes32 value from encoded bytes at offset
+func (bt *Bytes32Type) Decode(encoded []byte, offset int) (interface{}, error) {
+	if len(encoded) < offset+Int32Size {
+		return nil, fmt.Errorf("insufficient bytes for decoding bytes32")
+	}
+
+	// Extract 32 bytes
+	result := make([]byte, Int32Size)
+	copy(result, encoded[offset:offset+Int32Size])
+
+	return result, nil
+}

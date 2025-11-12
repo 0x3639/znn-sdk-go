@@ -1758,3 +1758,359 @@ func TestHashType_IsDynamicType(t *testing.T) {
 		t.Errorf("HashType.IsDynamicType() = %v, want false", got)
 	}
 }
+
+// =============================================================================
+// Bytes32Type Tests
+// =============================================================================
+
+func TestNewBytes32Type(t *testing.T) {
+	bt, err := NewBytes32Type("bytes32")
+	if err != nil {
+		t.Fatalf("NewBytes32Type() error = %v", err)
+	}
+
+	if bt.GetName() != "bytes32" {
+		t.Errorf("Bytes32Type.GetName() = %v, want 'bytes32'", bt.GetName())
+	}
+}
+
+func TestBytes32Type_GetCanonicalName(t *testing.T) {
+	bt, err := NewBytes32Type("bytes32")
+	if err != nil {
+		t.Fatalf("NewBytes32Type() error = %v", err)
+	}
+
+	if bt.GetCanonicalName() != "bytes32" {
+		t.Errorf("Bytes32Type.GetCanonicalName() = %v, want 'bytes32'", bt.GetCanonicalName())
+	}
+}
+
+func TestBytes32Type_Encode_HexString(t *testing.T) {
+	bt, err := NewBytes32Type("bytes32")
+	if err != nil {
+		t.Fatalf("NewBytes32Type() error = %v", err)
+	}
+
+	tests := []struct {
+		name    string
+		value   string
+		wantErr bool
+		wantHex string
+	}{
+		{
+			name:    "hex string without 0x",
+			value:   "c51c6c118265d36db508a1a3d0c16b11b3a3c5d8f6f0f1c5a5f5c5f5c5f5c5f5",
+			wantErr: false,
+			wantHex: "c51c6c118265d36db508a1a3d0c16b11b3a3c5d8f6f0f1c5a5f5c5f5c5f5c5f5",
+		},
+		{
+			name:    "hex string with 0x",
+			value:   "0xc51c6c118265d36db508a1a3d0c16b11b3a3c5d8f6f0f1c5a5f5c5f5c5f5c5f5",
+			wantErr: false,
+			wantHex: "c51c6c118265d36db508a1a3d0c16b11b3a3c5d8f6f0f1c5a5f5c5f5c5f5c5f5",
+		},
+		{
+			name:    "zero bytes",
+			value:   "0000000000000000000000000000000000000000000000000000000000000000",
+			wantErr: false,
+			wantHex: "0000000000000000000000000000000000000000000000000000000000000000",
+		},
+		{
+			name:    "invalid hex string (too short)",
+			value:   "c51c6c118265d36db508a1a3d0c16b11",
+			wantErr: true,
+		},
+		{
+			name:    "invalid hex string (too long)",
+			value:   "c51c6c118265d36db508a1a3d0c16b11b3a3c5d8f6f0f1c5a5f5c5f5c5f5c5f5ff",
+			wantErr: true,
+		},
+		{
+			name:    "invalid hex characters",
+			value:   "not-a-valid-hex-string-with-64-characters-here-padding-it",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			encoded, err := bt.Encode(tt.value)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Bytes32Type.Encode() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if !tt.wantErr {
+				if len(encoded) != Int32Size {
+					t.Errorf("Bytes32Type.Encode() returned %d bytes, want %d", len(encoded), Int32Size)
+					return
+				}
+
+				if tt.wantHex != "" {
+					actualHex := fmt.Sprintf("%x", encoded)
+					if actualHex != tt.wantHex {
+						t.Errorf("Bytes32Type.Encode() = %s, want %s", actualHex, tt.wantHex)
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestBytes32Type_Encode_ByteSlice(t *testing.T) {
+	bt, err := NewBytes32Type("bytes32")
+	if err != nil {
+		t.Fatalf("NewBytes32Type() error = %v", err)
+	}
+
+	// Valid 32-byte slice
+	validBytes := make([]byte, 32)
+	for i := range validBytes {
+		validBytes[i] = byte(i)
+	}
+
+	encoded, err := bt.Encode(validBytes)
+	if err != nil {
+		t.Errorf("Bytes32Type.Encode() with valid byte slice error = %v", err)
+		return
+	}
+
+	if len(encoded) != Int32Size {
+		t.Errorf("Bytes32Type.Encode() returned %d bytes, want %d", len(encoded), Int32Size)
+	}
+
+	if !bytes.Equal(encoded, validBytes) {
+		t.Errorf("Bytes32Type.Encode() modified bytes")
+	}
+
+	// Shorter byte slice (should be right-padded with zeros)
+	shortBytes := []byte{1, 2, 3, 4, 5}
+	encoded, err = bt.Encode(shortBytes)
+	if err != nil {
+		t.Errorf("Bytes32Type.Encode() with short byte slice error = %v", err)
+		return
+	}
+
+	if len(encoded) != Int32Size {
+		t.Errorf("Bytes32Type.Encode() returned %d bytes, want %d", len(encoded), Int32Size)
+	}
+
+	// Check first 5 bytes match
+	if !bytes.Equal(encoded[:5], shortBytes) {
+		t.Errorf("Bytes32Type.Encode() did not copy bytes correctly")
+	}
+
+	// Check remaining bytes are zero
+	for i := 5; i < 32; i++ {
+		if encoded[i] != 0 {
+			t.Errorf("Bytes32Type.Encode() byte %d = %x, want 0x00 (padding)", i, encoded[i])
+		}
+	}
+
+	// Invalid byte slice (too long)
+	longBytes := make([]byte, 33)
+	_, err = bt.Encode(longBytes)
+	if err == nil {
+		t.Error("Bytes32Type.Encode() with too long byte slice should return error")
+	}
+}
+
+func TestBytes32Type_Encode_Numeric(t *testing.T) {
+	bt, err := NewBytes32Type("bytes32")
+	if err != nil {
+		t.Fatalf("NewBytes32Type() error = %v", err)
+	}
+
+	tests := []struct {
+		name    string
+		value   interface{}
+		wantErr bool
+	}{
+		{"int", int(42), false},
+		{"int8", int8(42), false},
+		{"int16", int16(42), false},
+		{"int32", int32(42), false},
+		{"int64", int64(42), false},
+		{"big.Int", big.NewInt(42), false},
+		{"negative big.Int", big.NewInt(-42), false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			encoded, err := bt.Encode(tt.value)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Bytes32Type.Encode() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if !tt.wantErr {
+				if len(encoded) != Int32Size {
+					t.Errorf("Bytes32Type.Encode() returned %d bytes, want %d", len(encoded), Int32Size)
+				}
+			}
+		})
+	}
+}
+
+func TestBytes32Type_Encode_UnsupportedType(t *testing.T) {
+	bt, err := NewBytes32Type("bytes32")
+	if err != nil {
+		t.Fatalf("NewBytes32Type() error = %v", err)
+	}
+
+	_, err = bt.Encode(3.14) // float64
+	if err == nil {
+		t.Error("Bytes32Type.Encode() with unsupported type should return error")
+	}
+}
+
+func TestBytes32Type_Decode(t *testing.T) {
+	bt, err := NewBytes32Type("bytes32")
+	if err != nil {
+		t.Fatalf("NewBytes32Type() error = %v", err)
+	}
+
+	tests := []struct {
+		name       string
+		encodedHex string
+		offset     int
+		wantBytes  string
+		wantErr    bool
+	}{
+		{
+			name:       "valid bytes at offset 0",
+			encodedHex: "c51c6c118265d36db508a1a3d0c16b11b3a3c5d8f6f0f1c5a5f5c5f5c5f5c5f5",
+			offset:     0,
+			wantBytes:  "c51c6c118265d36db508a1a3d0c16b11b3a3c5d8f6f0f1c5a5f5c5f5c5f5c5f5",
+			wantErr:    false,
+		},
+		{
+			name:       "zero bytes",
+			encodedHex: "0000000000000000000000000000000000000000000000000000000000000000",
+			offset:     0,
+			wantBytes:  "0000000000000000000000000000000000000000000000000000000000000000",
+			wantErr:    false,
+		},
+		{
+			name:       "valid bytes at offset 32",
+			encodedHex: "0000000000000000000000000000000000000000000000000000000000000000c51c6c118265d36db508a1a3d0c16b11b3a3c5d8f6f0f1c5a5f5c5f5c5f5c5f5",
+			offset:     32,
+			wantBytes:  "c51c6c118265d36db508a1a3d0c16b11b3a3c5d8f6f0f1c5a5f5c5f5c5f5c5f5",
+			wantErr:    false,
+		},
+		{
+			name:       "insufficient bytes",
+			encodedHex: "c51c6c118265d36db508a1a3d0c16b11",
+			offset:     0,
+			wantErr:    true,
+		},
+		{
+			name:       "offset too large",
+			encodedHex: "c51c6c118265d36db508a1a3d0c16b11b3a3c5d8f6f0f1c5a5f5c5f5c5f5c5f5",
+			offset:     100,
+			wantErr:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Convert hex string to bytes
+			encoded := make([]byte, len(tt.encodedHex)/2)
+			for i := 0; i < len(encoded); i++ {
+				fmt.Sscanf(tt.encodedHex[i*2:i*2+2], "%x", &encoded[i])
+			}
+
+			decoded, err := bt.Decode(encoded, tt.offset)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Bytes32Type.Decode() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if !tt.wantErr {
+				result, ok := decoded.([]byte)
+				if !ok {
+					t.Errorf("Bytes32Type.Decode() returned non-[]byte type: %T", decoded)
+					return
+				}
+
+				if len(result) != 32 {
+					t.Errorf("Bytes32Type.Decode() returned %d bytes, want 32", len(result))
+					return
+				}
+
+				resultHex := fmt.Sprintf("%x", result)
+				if resultHex != tt.wantBytes {
+					t.Errorf("Bytes32Type.Decode() = %s, want %s", resultHex, tt.wantBytes)
+				}
+			}
+		})
+	}
+}
+
+func TestBytes32Type_RoundTrip(t *testing.T) {
+	bt, err := NewBytes32Type("bytes32")
+	if err != nil {
+		t.Fatalf("NewBytes32Type() error = %v", err)
+	}
+
+	tests := []struct {
+		name  string
+		value string
+	}{
+		{"normal bytes", "c51c6c118265d36db508a1a3d0c16b11b3a3c5d8f6f0f1c5a5f5c5f5c5f5c5f5"},
+		{"zero bytes", "0000000000000000000000000000000000000000000000000000000000000000"},
+		{"all ones", "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Encode
+			encoded, err := bt.Encode(tt.value)
+			if err != nil {
+				t.Errorf("Bytes32Type.Encode() error = %v", err)
+				return
+			}
+
+			// Decode
+			decoded, err := bt.Decode(encoded, 0)
+			if err != nil {
+				t.Errorf("Bytes32Type.Decode() error = %v", err)
+				return
+			}
+
+			result, ok := decoded.([]byte)
+			if !ok {
+				t.Errorf("Bytes32Type.Decode() returned non-[]byte: %T", decoded)
+				return
+			}
+
+			// Compare
+			resultHex := fmt.Sprintf("%x", result)
+			if resultHex != tt.value {
+				t.Errorf("Round trip failed: original = %v, decoded = %v", tt.value, resultHex)
+			}
+		})
+	}
+}
+
+func TestBytes32Type_GetFixedSize(t *testing.T) {
+	bt, err := NewBytes32Type("bytes32")
+	if err != nil {
+		t.Fatalf("NewBytes32Type() error = %v", err)
+	}
+
+	if got := bt.GetFixedSize(); got != Int32Size {
+		t.Errorf("Bytes32Type.GetFixedSize() = %v, want %v", got, Int32Size)
+	}
+}
+
+func TestBytes32Type_IsDynamicType(t *testing.T) {
+	bt, err := NewBytes32Type("bytes32")
+	if err != nil {
+		t.Fatalf("NewBytes32Type() error = %v", err)
+	}
+
+	if got := bt.IsDynamicType(); got != false {
+		t.Errorf("Bytes32Type.IsDynamicType() = %v, want false", got)
+	}
+}

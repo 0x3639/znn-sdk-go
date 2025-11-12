@@ -93,11 +93,11 @@
   - [x] `Decode(encoded, offset)` - Decode to types.Hash
   - [x] Unit test: Hash encoding/decoding
 
-- [ ] `Bytes32Type`
-  - [ ] Constructor with size parameter
-  - [ ] `Encode(value)` - Encode fixed 32-byte value
-  - [ ] `Decode(encoded, offset)` - Decode 32 bytes
-  - [ ] Unit test: Fixed-size encoding
+- [x] `Bytes32Type`
+  - [x] Constructor with name parameter
+  - [x] `Encode(value)` - Encode fixed 32-byte value
+  - [x] `Decode(encoded, offset)` - Decode 32 bytes
+  - [x] Unit test: Fixed-size encoding
 
 #### Token Standard Type
 - [ ] `TokenStandardType`

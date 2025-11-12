@@ -100,13 +100,13 @@
   - [x] Unit test: Fixed-size encoding
 
 #### Token Standard Type
-- [ ] `TokenStandardType`
-  - [ ] Constructor (extends IntType)
-  - [ ] `Encode(value)` - Encode TokenStandard
-  - [ ] `Decode(encoded, offset)` - Decode to types.ZenonTokenStandard
-  - [ ] Unit test: ZNN token standard
-  - [ ] Unit test: QSR token standard
-  - [ ] Unit test: Custom ZTS
+- [x] `TokenStandardType`
+  - [x] Constructor
+  - [x] `Encode(value)` - Encode TokenStandard
+  - [x] `Decode(encoded, offset)` - Decode to types.ZenonTokenStandard
+  - [x] Unit test: ZNN token standard
+  - [x] Unit test: QSR token standard
+  - [x] Unit test: Custom ZTS
 
 #### Bytes Types
 - [ ] `BytesType` (dynamic bytes)

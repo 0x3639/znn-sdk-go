@@ -679,3 +679,70 @@ func (bt *Bytes32Type) Decode(encoded []byte, offset int) (interface{}, error) {
 
 	return result, nil
 }
+
+// =============================================================================
+// TokenStandardType - Token Standard Type
+// =============================================================================
+
+// TokenStandardType represents Zenon token standard values (10 bytes, left-padded to 32)
+type TokenStandardType struct {
+	baseType
+}
+
+// NewTokenStandardType creates a new token standard type
+func NewTokenStandardType() (*TokenStandardType, error) {
+	return &TokenStandardType{
+		baseType: baseType{name: "tokenStandard"},
+	}, nil
+}
+
+// Encode encodes a token standard value to 32 bytes (10-byte ZTS left-padded with 22 zero bytes)
+func (tst *TokenStandardType) Encode(value interface{}) ([]byte, error) {
+	var zts types.ZenonTokenStandard
+	var err error
+
+	switch v := value.(type) {
+	case string:
+		zts, err = types.ParseZTS(v)
+		if err != nil {
+			return nil, fmt.Errorf("invalid token standard string: %s, error: %w", v, err)
+		}
+
+	case types.ZenonTokenStandard:
+		zts = v
+
+	case *types.ZenonTokenStandard:
+		if v == nil {
+			return nil, fmt.Errorf("nil token standard pointer")
+		}
+		zts = *v
+
+	default:
+		return nil, fmt.Errorf("unsupported value type for token standard encoding: %T", value)
+	}
+
+	// ZTS is 10 bytes, needs to be left-padded to 32 bytes
+	// Result: [22 zero bytes][10 ZTS bytes]
+	result := make([]byte, Int32Size)
+	ztsBytes := zts.Bytes()
+	copy(result[22:], ztsBytes)
+
+	return result, nil
+}
+
+// Decode decodes a token standard value from encoded bytes at offset
+func (tst *TokenStandardType) Decode(encoded []byte, offset int) (interface{}, error) {
+	if len(encoded) < offset+Int32Size {
+		return nil, fmt.Errorf("insufficient bytes for decoding token standard")
+	}
+
+	// ZTS bytes are at offset+22 (skip 22 padding bytes) and are 10 bytes long
+	ztsBytes := encoded[offset+22 : offset+Int32Size]
+
+	zts, err := types.BytesToZTS(ztsBytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode token standard: %w", err)
+	}
+
+	return zts, nil
+}

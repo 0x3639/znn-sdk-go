@@ -2114,3 +2114,292 @@ func TestBytes32Type_IsDynamicType(t *testing.T) {
 		t.Errorf("Bytes32Type.IsDynamicType() = %v, want false", got)
 	}
 }
+
+// =============================================================================
+// TokenStandardType Tests
+// =============================================================================
+
+func TestNewTokenStandardType(t *testing.T) {
+	tst, err := NewTokenStandardType()
+	if err != nil {
+		t.Fatalf("NewTokenStandardType() error = %v", err)
+	}
+
+	if tst.GetName() != "tokenStandard" {
+		t.Errorf("TokenStandardType.GetName() = %v, want 'tokenStandard'", tst.GetName())
+	}
+}
+
+func TestTokenStandardType_GetCanonicalName(t *testing.T) {
+	tst, err := NewTokenStandardType()
+	if err != nil {
+		t.Fatalf("NewTokenStandardType() error = %v", err)
+	}
+
+	if tst.GetCanonicalName() != "tokenStandard" {
+		t.Errorf("TokenStandardType.GetCanonicalName() = %v, want 'tokenStandard'", tst.GetCanonicalName())
+	}
+}
+
+func TestTokenStandardType_Encode(t *testing.T) {
+	tst, err := NewTokenStandardType()
+	if err != nil {
+		t.Fatalf("NewTokenStandardType() error = %v", err)
+	}
+
+	tests := []struct {
+		name        string
+		value       interface{}
+		wantErr     bool
+		wantHexPart string // Expected hex of the last 10 bytes (ZTS part)
+	}{
+		{
+			name:        "ZNN token standard string",
+			value:       "zts1znnxxxxxxxxxxxxx9z4ulx",
+			wantErr:     false,
+			wantHexPart: "14e66318c6318c6318c6",
+		},
+		{
+			name:        "QSR token standard string",
+			value:       "zts1qsrxxxxxxxxxxxxxmrhjll",
+			wantErr:     false,
+			wantHexPart: "04066318c6318c6318c6",
+		},
+		{
+			name:    "invalid string",
+			value:   "not-a-token-standard",
+			wantErr: true,
+		},
+		{
+			name:    "unsupported type",
+			value:   123,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			encoded, err := tst.Encode(tt.value)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("TokenStandardType.Encode() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if !tt.wantErr {
+				if len(encoded) != Int32Size {
+					t.Errorf("TokenStandardType.Encode() returned %d bytes, want %d", len(encoded), Int32Size)
+					return
+				}
+
+				// Check first 22 bytes are zero (padding)
+				for i := 0; i < 22; i++ {
+					if encoded[i] != 0 {
+						t.Errorf("TokenStandardType.Encode() byte %d = %x, want 0x00 (padding)", i, encoded[i])
+					}
+				}
+
+				// Check last 10 bytes match expected ZTS
+				if tt.wantHexPart != "" {
+					actualHex := fmt.Sprintf("%x", encoded[22:])
+					if actualHex != tt.wantHexPart {
+						t.Errorf("TokenStandardType.Encode() ZTS bytes = %s, want %s", actualHex, tt.wantHexPart)
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestTokenStandardType_Encode_ZTSValue(t *testing.T) {
+	tst, err := NewTokenStandardType()
+	if err != nil {
+		t.Fatalf("NewTokenStandardType() error = %v", err)
+	}
+
+	// Test with types.ZenonTokenStandard value
+	zts := types.ZnnTokenStandard
+	encoded, err := tst.Encode(zts)
+	if err != nil {
+		t.Errorf("TokenStandardType.Encode() with ZTS value error = %v", err)
+		return
+	}
+
+	if len(encoded) != Int32Size {
+		t.Errorf("TokenStandardType.Encode() returned %d bytes, want %d", len(encoded), Int32Size)
+	}
+
+	expectedHex := "14e66318c6318c6318c6"
+	actualHex := fmt.Sprintf("%x", encoded[22:])
+	if actualHex != expectedHex {
+		t.Errorf("TokenStandardType.Encode() ZTS bytes = %s, want %s", actualHex, expectedHex)
+	}
+}
+
+func TestTokenStandardType_Encode_ZTSPointer(t *testing.T) {
+	tst, err := NewTokenStandardType()
+	if err != nil {
+		t.Fatalf("NewTokenStandardType() error = %v", err)
+	}
+
+	// Test with *types.ZenonTokenStandard value
+	zts := types.QsrTokenStandard
+	encoded, err := tst.Encode(&zts)
+	if err != nil {
+		t.Errorf("TokenStandardType.Encode() with *ZTS value error = %v", err)
+		return
+	}
+
+	if len(encoded) != Int32Size {
+		t.Errorf("TokenStandardType.Encode() returned %d bytes, want %d", len(encoded), Int32Size)
+	}
+
+	// Test with nil pointer
+	var nilZTS *types.ZenonTokenStandard
+	_, err = tst.Encode(nilZTS)
+	if err == nil {
+		t.Error("TokenStandardType.Encode() with nil pointer should return error")
+	}
+}
+
+func TestTokenStandardType_Decode(t *testing.T) {
+	tst, err := NewTokenStandardType()
+	if err != nil {
+		t.Fatalf("NewTokenStandardType() error = %v", err)
+	}
+
+	tests := []struct {
+		name       string
+		encodedHex string
+		offset     int
+		wantZTS    string
+		wantErr    bool
+	}{
+		{
+			name:       "ZNN token standard at offset 0",
+			encodedHex: "0000000000000000000000000000000000000000000014e66318c6318c6318c6",
+			offset:     0,
+			wantZTS:    "zts1znnxxxxxxxxxxxxx9z4ulx",
+			wantErr:    false,
+		},
+		{
+			name:       "QSR token standard at offset 0",
+			encodedHex: "0000000000000000000000000000000000000000000004066318c6318c6318c6",
+			offset:     0,
+			wantZTS:    "zts1qsrxxxxxxxxxxxxxmrhjll",
+			wantErr:    false,
+		},
+		{
+			name:       "ZNN token standard at offset 32",
+			encodedHex: "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000014e66318c6318c6318c6",
+			offset:     32,
+			wantZTS:    "zts1znnxxxxxxxxxxxxx9z4ulx",
+			wantErr:    false,
+		},
+		{
+			name:       "insufficient bytes",
+			encodedHex: "000000000000000000000000000000000000000000000014e6",
+			offset:     0,
+			wantErr:    true,
+		},
+		{
+			name:       "offset too large",
+			encodedHex: "000000000000000000000000000000000000000000000014e66318c6318c6318c6",
+			offset:     100,
+			wantErr:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Convert hex string to bytes
+			encoded := make([]byte, len(tt.encodedHex)/2)
+			for i := 0; i < len(encoded); i++ {
+				fmt.Sscanf(tt.encodedHex[i*2:i*2+2], "%x", &encoded[i])
+			}
+
+			decoded, err := tst.Decode(encoded, tt.offset)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("TokenStandardType.Decode() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if !tt.wantErr {
+				zts, ok := decoded.(types.ZenonTokenStandard)
+				if !ok {
+					t.Errorf("TokenStandardType.Decode() returned non-ZenonTokenStandard type: %T", decoded)
+					return
+				}
+
+				if zts.String() != tt.wantZTS {
+					t.Errorf("TokenStandardType.Decode() = %v, want %v", zts.String(), tt.wantZTS)
+				}
+			}
+		})
+	}
+}
+
+func TestTokenStandardType_RoundTrip(t *testing.T) {
+	tst, err := NewTokenStandardType()
+	if err != nil {
+		t.Fatalf("NewTokenStandardType() error = %v", err)
+	}
+
+	tests := []struct {
+		name string
+		zts  string
+	}{
+		{"ZNN token standard", "zts1znnxxxxxxxxxxxxx9z4ulx"},
+		{"QSR token standard", "zts1qsrxxxxxxxxxxxxxmrhjll"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Encode
+			encoded, err := tst.Encode(tt.zts)
+			if err != nil {
+				t.Errorf("TokenStandardType.Encode() error = %v", err)
+				return
+			}
+
+			// Decode
+			decoded, err := tst.Decode(encoded, 0)
+			if err != nil {
+				t.Errorf("TokenStandardType.Decode() error = %v", err)
+				return
+			}
+
+			zts, ok := decoded.(types.ZenonTokenStandard)
+			if !ok {
+				t.Errorf("TokenStandardType.Decode() returned non-ZenonTokenStandard: %T", decoded)
+				return
+			}
+
+			// Compare
+			if zts.String() != tt.zts {
+				t.Errorf("Round trip failed: original = %v, decoded = %v", tt.zts, zts.String())
+			}
+		})
+	}
+}
+
+func TestTokenStandardType_GetFixedSize(t *testing.T) {
+	tst, err := NewTokenStandardType()
+	if err != nil {
+		t.Fatalf("NewTokenStandardType() error = %v", err)
+	}
+
+	if got := tst.GetFixedSize(); got != Int32Size {
+		t.Errorf("TokenStandardType.GetFixedSize() = %v, want %v", got, Int32Size)
+	}
+}
+
+func TestTokenStandardType_IsDynamicType(t *testing.T) {
+	tst, err := NewTokenStandardType()
+	if err != nil {
+		t.Fatalf("NewTokenStandardType() error = %v", err)
+	}
+
+	if got := tst.IsDynamicType(); got != false {
+		t.Errorf("TokenStandardType.IsDynamicType() = %v, want false", got)
+	}
+}

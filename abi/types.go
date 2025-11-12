@@ -381,3 +381,74 @@ func bigIntToBytes(b *big.Int, numBytes int) []byte {
 
 	return bytes
 }
+
+// =============================================================================
+// BoolType - Boolean Type
+// =============================================================================
+
+// BoolType represents boolean values (encoded as uint256: 0 or 1)
+type BoolType struct {
+	IntType
+}
+
+// NewBoolType creates a new boolean type
+func NewBoolType() (*BoolType, error) {
+	// Create an int256 type as the base (bool is encoded as int256)
+	intType, err := NewIntType("int256")
+	if err != nil {
+		return nil, err
+	}
+
+	// Override the name to "bool"
+	intType.name = "bool"
+
+	return &BoolType{
+		IntType: *intType,
+	}, nil
+}
+
+// Encode encodes a boolean value as 0 (false) or 1 (true)
+func (bt *BoolType) Encode(value interface{}) ([]byte, error) {
+	switch v := value.(type) {
+	case bool:
+		if v {
+			return bt.IntType.Encode(1)
+		}
+		return bt.IntType.Encode(0)
+
+	case string:
+		if v == "true" || v == "True" || v == "TRUE" || v == "1" {
+			return bt.IntType.Encode(1)
+		}
+		return bt.IntType.Encode(0)
+
+	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
+		// Allow numeric input: 0 = false, anything else = true
+		bigInt, err := bt.EncodeInternal(value)
+		if err != nil {
+			return nil, err
+		}
+		if bigInt.Sign() == 0 {
+			return bt.IntType.Encode(0)
+		}
+		return bt.IntType.Encode(1)
+
+	default:
+		return nil, fmt.Errorf("unsupported value type for boolean encoding: %T", value)
+	}
+}
+
+// Decode decodes a boolean value (0 = false, non-zero = true)
+func (bt *BoolType) Decode(encoded []byte, offset int) (interface{}, error) {
+	result, err := bt.IntType.Decode(encoded, offset)
+	if err != nil {
+		return nil, err
+	}
+
+	bigInt, ok := result.(*big.Int)
+	if !ok {
+		return nil, fmt.Errorf("unexpected decode result type: %T", result)
+	}
+
+	return bigInt.Sign() != 0, nil
+}

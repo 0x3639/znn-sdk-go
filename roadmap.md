@@ -69,13 +69,13 @@
   - [x] Unit test: Max values (2^255, max uint64)
 
 #### Boolean Type
-- [ ] `BoolType`
-  - [ ] Constructor
-  - [ ] `Encode(value)` - Encode as 0/1
-  - [ ] `Decode(encoded, offset)` - Decode to bool
-  - [ ] Unit test: true encoding
-  - [ ] Unit test: false encoding
-  - [ ] Unit test: Invalid values
+- [x] `BoolType`
+  - [x] Constructor
+  - [x] `Encode(value)` - Encode as 0/1
+  - [x] `Decode(encoded, offset)` - Decode to bool
+  - [x] Unit test: true encoding
+  - [x] Unit test: false encoding
+  - [x] Unit test: Invalid values
 
 #### Address Types
 - [ ] `AddressType`

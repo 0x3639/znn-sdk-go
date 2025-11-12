@@ -831,3 +831,317 @@ func TestDecodeUint(t *testing.T) {
 		})
 	}
 }
+
+// =============================================================================
+// BoolType Tests
+// =============================================================================
+
+func TestNewBoolType(t *testing.T) {
+	bt, err := NewBoolType()
+	if err != nil {
+		t.Fatalf("NewBoolType() error = %v", err)
+	}
+	if bt.GetName() != "bool" {
+		t.Errorf("NewBoolType() name = %v, want 'bool'", bt.GetName())
+	}
+}
+
+func TestBoolType_Encode(t *testing.T) {
+	bt, err := NewBoolType()
+	if err != nil {
+		t.Fatalf("NewBoolType() error = %v", err)
+	}
+
+	tests := []struct {
+		name      string
+		value     interface{}
+		want      []byte
+		wantError bool
+	}{
+		{
+			name:  "bool true",
+			value: true,
+			want: []byte{
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+			},
+		},
+		{
+			name:  "bool false",
+			value: false,
+			want: []byte{
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+			},
+		},
+		{
+			name:  "string 'true'",
+			value: "true",
+			want: []byte{
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+			},
+		},
+		{
+			name:  "string 'True'",
+			value: "True",
+			want: []byte{
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+			},
+		},
+		{
+			name:  "string 'TRUE'",
+			value: "TRUE",
+			want: []byte{
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+			},
+		},
+		{
+			name:  "string '1'",
+			value: "1",
+			want: []byte{
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+			},
+		},
+		{
+			name:  "string 'false'",
+			value: "false",
+			want: []byte{
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+			},
+		},
+		{
+			name:  "string 'False'",
+			value: "False",
+			want: []byte{
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+			},
+		},
+		{
+			name:  "string '0'",
+			value: "0",
+			want: []byte{
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+			},
+		},
+		{
+			name:  "string empty",
+			value: "",
+			want: []byte{
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+			},
+		},
+		{
+			name:  "int 0",
+			value: 0,
+			want: []byte{
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+			},
+		},
+		{
+			name:  "int 1",
+			value: 1,
+			want: []byte{
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+			},
+		},
+		{
+			name:  "int 42 (truthy)",
+			value: 42,
+			want: []byte{
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+			},
+		},
+		{
+			name:  "uint64 0",
+			value: uint64(0),
+			want: []byte{
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+			},
+		},
+		{
+			name:  "uint64 1",
+			value: uint64(1),
+			want: []byte{
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+			},
+		},
+		{
+			name:      "unsupported type",
+			value:     []byte{1, 2, 3},
+			wantError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := bt.Encode(tt.value)
+			if (err != nil) != tt.wantError {
+				t.Errorf("BoolType.Encode() error = %v, wantError %v", err, tt.wantError)
+				return
+			}
+			if !tt.wantError && !bytes.Equal(got, tt.want) {
+				t.Errorf("BoolType.Encode() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestBoolType_Decode(t *testing.T) {
+	bt, err := NewBoolType()
+	if err != nil {
+		t.Fatalf("NewBoolType() error = %v", err)
+	}
+
+	tests := []struct {
+		name    string
+		encoded []byte
+		offset  int
+		want    bool
+	}{
+		{
+			name: "zero = false",
+			encoded: []byte{
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+			},
+			offset: 0,
+			want:   false,
+		},
+		{
+			name: "one = true",
+			encoded: []byte{
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+			},
+			offset: 0,
+			want:   true,
+		},
+		{
+			name: "non-zero = true (42)",
+			encoded: []byte{
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 42,
+			},
+			offset: 0,
+			want:   true,
+		},
+		{
+			name: "non-zero = true (255)",
+			encoded: []byte{
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255,
+			},
+			offset: 0,
+			want:   true,
+		},
+		{
+			name: "with offset",
+			encoded: []byte{
+				// Offset bytes (ignored)
+				99, 99, 99, 99,
+				// Actual value (1 = true)
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+			},
+			offset: 4,
+			want:   true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := bt.Decode(tt.encoded, tt.offset)
+			if err != nil {
+				t.Errorf("BoolType.Decode() error = %v", err)
+				return
+			}
+			gotBool, ok := got.(bool)
+			if !ok {
+				t.Errorf("BoolType.Decode() returned non-bool: %T", got)
+				return
+			}
+			if gotBool != tt.want {
+				t.Errorf("BoolType.Decode() = %v, want %v", gotBool, tt.want)
+			}
+		})
+	}
+}
+
+func TestBoolType_RoundTrip(t *testing.T) {
+	bt, err := NewBoolType()
+	if err != nil {
+		t.Fatalf("NewBoolType() error = %v", err)
+	}
+
+	tests := []struct {
+		name  string
+		value bool
+	}{
+		{"true", true},
+		{"false", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Encode
+			encoded, err := bt.Encode(tt.value)
+			if err != nil {
+				t.Errorf("BoolType.Encode() error = %v", err)
+				return
+			}
+
+			// Decode
+			decoded, err := bt.Decode(encoded, 0)
+			if err != nil {
+				t.Errorf("BoolType.Decode() error = %v", err)
+				return
+			}
+
+			decodedBool, ok := decoded.(bool)
+			if !ok {
+				t.Errorf("BoolType.Decode() returned non-bool: %T", decoded)
+				return
+			}
+
+			// Compare
+			if decodedBool != tt.value {
+				t.Errorf("Round trip failed: original = %v, decoded = %v", tt.value, decodedBool)
+			}
+		})
+	}
+}
+
+func TestBoolType_GetFixedSize(t *testing.T) {
+	bt, err := NewBoolType()
+	if err != nil {
+		t.Fatalf("NewBoolType() error = %v", err)
+	}
+
+	if got := bt.GetFixedSize(); got != Int32Size {
+		t.Errorf("BoolType.GetFixedSize() = %v, want %v", got, Int32Size)
+	}
+}
+
+func TestBoolType_IsDynamicType(t *testing.T) {
+	bt, err := NewBoolType()
+	if err != nil {
+		t.Fatalf("NewBoolType() error = %v", err)
+	}
+
+	if got := bt.IsDynamicType(); got != false {
+		t.Errorf("BoolType.IsDynamicType() = %v, want false", got)
+	}
+}

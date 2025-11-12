@@ -272,3 +272,112 @@ func decodeBigInt(bytes []byte) *big.Int {
 	}
 	return result
 }
+
+// =============================================================================
+// UnsignedIntType - Unsigned Integer Type
+// =============================================================================
+
+// UnsignedIntType represents unsigned integer types (uint8 to uint256)
+type UnsignedIntType struct {
+	NumericType
+	size int // Size in bits
+}
+
+// NewUnsignedIntType creates a new unsigned integer type
+func NewUnsignedIntType(name string) (*UnsignedIntType, error) {
+	uit := &UnsignedIntType{}
+	uit.name = name
+
+	// Parse size from name (e.g., "uint256" -> 256)
+	if name == "uint" {
+		uit.size = 256
+	} else if strings.HasPrefix(name, "uint") {
+		sizeStr := strings.TrimPrefix(name, "uint")
+		size, err := strconv.Atoi(sizeStr)
+		if err != nil {
+			return nil, fmt.Errorf("invalid uint type name: %s", name)
+		}
+
+		// Validate size (must be 8-256 in increments of 8)
+		if size < 8 || size > 256 || size%8 != 0 {
+			return nil, fmt.Errorf("invalid uint size: %d (must be 8-256 in increments of 8)", size)
+		}
+		uit.size = size
+	} else {
+		return nil, fmt.Errorf("invalid uint type name: %s", name)
+	}
+
+	return uit, nil
+}
+
+// GetCanonicalName returns the canonical name (uint defaults to uint256)
+func (uit *UnsignedIntType) GetCanonicalName() string {
+	if uit.name == "uint" {
+		return "uint256"
+	}
+	return uit.name
+}
+
+// Encode encodes an unsigned integer value
+func (uit *UnsignedIntType) Encode(value interface{}) ([]byte, error) {
+	bigInt, err := uit.EncodeInternal(value)
+	if err != nil {
+		return nil, err
+	}
+	return EncodeUintBig(bigInt)
+}
+
+// Decode decodes an unsigned integer value
+func (uit *UnsignedIntType) Decode(encoded []byte, offset int) (interface{}, error) {
+	return DecodeUint(encoded, offset)
+}
+
+// EncodeUint encodes an unsigned int to 32 bytes
+func EncodeUint(i uint64) ([]byte, error) {
+	return EncodeUintBig(new(big.Int).SetUint64(i))
+}
+
+// EncodeUintBig encodes a big.Int to 32 bytes (unsigned)
+// Returns error if the value is negative
+func EncodeUintBig(bigInt *big.Int) ([]byte, error) {
+	if bigInt.Sign() < 0 {
+		return nil, fmt.Errorf("cannot encode negative value as unsigned integer: %s", bigInt.String())
+	}
+	return bigIntToBytes(bigInt, Int32Size), nil
+}
+
+// DecodeUint decodes an unsigned integer from encoded bytes at offset
+func DecodeUint(encoded []byte, offset int) (*big.Int, error) {
+	if len(encoded) < offset+Int32Size {
+		return nil, fmt.Errorf("insufficient bytes for decoding uint")
+	}
+
+	bytes := encoded[offset : offset+Int32Size]
+	return decodeBigInt(bytes), nil
+}
+
+// bigIntToBytes converts a big.Int to a fixed-size byte array (unsigned)
+func bigIntToBytes(b *big.Int, numBytes int) []byte {
+	// Create byte array filled with zeros
+	bytes := make([]byte, numBytes)
+
+	// Get big.Int bytes
+	biBytes := b.Bytes()
+
+	// Calculate where to start copying
+	start := 0
+	length := len(biBytes)
+
+	// Handle case where encoded value has extra leading byte
+	if length == numBytes+1 {
+		start = 1
+		length = numBytes
+	} else if length > numBytes {
+		length = numBytes
+	}
+
+	// Copy bytes to the end of the array (big-endian)
+	copy(bytes[numBytes-length:], biBytes[start:start+length])
+
+	return bytes
+}

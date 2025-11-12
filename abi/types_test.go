@@ -418,3 +418,416 @@ func TestDecodeInt(t *testing.T) {
 		})
 	}
 }
+
+// =============================================================================
+// UnsignedIntType Tests
+// =============================================================================
+
+func TestNewUnsignedIntType(t *testing.T) {
+	tests := []struct {
+		name      string
+		typeName  string
+		wantSize  int
+		wantError bool
+	}{
+		{"uint defaults to uint256", "uint", 256, false},
+		{"uint8", "uint8", 8, false},
+		{"uint16", "uint16", 16, false},
+		{"uint32", "uint32", 32, false},
+		{"uint64", "uint64", 64, false},
+		{"uint128", "uint128", 128, false},
+		{"uint256", "uint256", 256, false},
+		{"invalid size", "uint7", 0, true},
+		{"invalid size too large", "uint512", 0, true},
+		{"invalid name", "unsigned", 0, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := NewUnsignedIntType(tt.typeName)
+			if (err != nil) != tt.wantError {
+				t.Errorf("NewUnsignedIntType() error = %v, wantError %v", err, tt.wantError)
+				return
+			}
+			if !tt.wantError && got.size != tt.wantSize {
+				t.Errorf("NewUnsignedIntType() size = %v, want %v", got.size, tt.wantSize)
+			}
+		})
+	}
+}
+
+func TestUnsignedIntType_GetCanonicalName(t *testing.T) {
+	tests := []struct {
+		name     string
+		typeName string
+		want     string
+	}{
+		{"uint becomes uint256", "uint", "uint256"},
+		{"uint32 stays uint32", "uint32", "uint32"},
+		{"uint256 stays uint256", "uint256", "uint256"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			uit, err := NewUnsignedIntType(tt.typeName)
+			if err != nil {
+				t.Fatalf("NewUnsignedIntType() error = %v", err)
+			}
+			if got := uit.GetCanonicalName(); got != tt.want {
+				t.Errorf("UnsignedIntType.GetCanonicalName() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestUnsignedIntType_Encode(t *testing.T) {
+	uit, err := NewUnsignedIntType("uint256")
+	if err != nil {
+		t.Fatalf("NewUnsignedIntType() error = %v", err)
+	}
+
+	tests := []struct {
+		name      string
+		value     interface{}
+		want      []byte
+		wantError bool
+	}{
+		{
+			name:  "zero",
+			value: 0,
+			want: []byte{
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+			},
+		},
+		{
+			name:  "positive small",
+			value: uint64(1),
+			want: []byte{
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+			},
+		},
+		{
+			name:  "positive 255",
+			value: uint64(255),
+			want: []byte{
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255,
+			},
+		},
+		{
+			name:  "max uint64",
+			value: uint64(18446744073709551615),
+			want: []byte{
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 255, 255, 255, 255,
+			},
+		},
+		{
+			name:  "big.Int positive",
+			value: big.NewInt(12345),
+			want: []byte{
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x30, 0x39,
+			},
+		},
+		{
+			name:  "string decimal",
+			value: "42",
+			want: []byte{
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 42,
+			},
+		},
+		{
+			name:  "string hex with 0x prefix",
+			value: "0xFF",
+			want: []byte{
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255,
+			},
+		},
+		{
+			name:      "negative value rejected",
+			value:     -1,
+			wantError: true,
+		},
+		{
+			name:      "negative big.Int rejected",
+			value:     big.NewInt(-100),
+			wantError: true,
+		},
+		{
+			name:      "invalid string",
+			value:     "not a number",
+			wantError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := uit.Encode(tt.value)
+			if (err != nil) != tt.wantError {
+				t.Errorf("UnsignedIntType.Encode() error = %v, wantError %v", err, tt.wantError)
+				return
+			}
+			if !tt.wantError && !bytes.Equal(got, tt.want) {
+				t.Errorf("UnsignedIntType.Encode() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestUnsignedIntType_Decode(t *testing.T) {
+	uit, err := NewUnsignedIntType("uint256")
+	if err != nil {
+		t.Fatalf("NewUnsignedIntType() error = %v", err)
+	}
+
+	tests := []struct {
+		name    string
+		encoded []byte
+		offset  int
+		want    *big.Int
+	}{
+		{
+			name: "zero",
+			encoded: []byte{
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+			},
+			offset: 0,
+			want:   big.NewInt(0),
+		},
+		{
+			name: "positive 1",
+			encoded: []byte{
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+			},
+			offset: 0,
+			want:   big.NewInt(1),
+		},
+		{
+			name: "positive 255",
+			encoded: []byte{
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255,
+			},
+			offset: 0,
+			want:   big.NewInt(255),
+		},
+		{
+			name: "max uint64",
+			encoded: []byte{
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 255, 255, 255, 255,
+			},
+			offset: 0,
+			want:   new(big.Int).SetUint64(18446744073709551615),
+		},
+		{
+			name: "large value (2^255)",
+			encoded: []byte{
+				128, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+			},
+			offset: 0,
+			want:   new(big.Int).Exp(big.NewInt(2), big.NewInt(255), nil),
+		},
+		{
+			name: "with offset",
+			encoded: []byte{
+				// Offset bytes (ignored)
+				99, 99, 99, 99,
+				// Actual value (12345)
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x30, 0x39,
+			},
+			offset: 4,
+			want:   big.NewInt(12345),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := uit.Decode(tt.encoded, tt.offset)
+			if err != nil {
+				t.Errorf("UnsignedIntType.Decode() error = %v", err)
+				return
+			}
+			gotBigInt, ok := got.(*big.Int)
+			if !ok {
+				t.Errorf("UnsignedIntType.Decode() returned non-*big.Int: %T", got)
+				return
+			}
+			if gotBigInt.Cmp(tt.want) != 0 {
+				t.Errorf("UnsignedIntType.Decode() = %v, want %v", gotBigInt, tt.want)
+			}
+		})
+	}
+}
+
+func TestUnsignedIntType_RoundTrip(t *testing.T) {
+	uit, err := NewUnsignedIntType("uint256")
+	if err != nil {
+		t.Fatalf("NewUnsignedIntType() error = %v", err)
+	}
+
+	tests := []struct {
+		name  string
+		value *big.Int
+	}{
+		{"zero", big.NewInt(0)},
+		{"one", big.NewInt(1)},
+		{"max uint64", new(big.Int).SetUint64(18446744073709551615)},
+		{"large positive", new(big.Int).Exp(big.NewInt(2), big.NewInt(200), nil)},
+		{"2^255", new(big.Int).Exp(big.NewInt(2), big.NewInt(255), nil)},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Encode
+			encoded, err := uit.Encode(tt.value)
+			if err != nil {
+				t.Errorf("UnsignedIntType.Encode() error = %v", err)
+				return
+			}
+
+			// Decode
+			decoded, err := uit.Decode(encoded, 0)
+			if err != nil {
+				t.Errorf("UnsignedIntType.Decode() error = %v", err)
+				return
+			}
+
+			decodedBigInt, ok := decoded.(*big.Int)
+			if !ok {
+				t.Errorf("UnsignedIntType.Decode() returned non-*big.Int: %T", decoded)
+				return
+			}
+
+			// Compare
+			if decodedBigInt.Cmp(tt.value) != 0 {
+				t.Errorf("Round trip failed: original = %v, decoded = %v", tt.value, decodedBigInt)
+			}
+		})
+	}
+}
+
+func TestUnsignedIntType_GetFixedSize(t *testing.T) {
+	uit, err := NewUnsignedIntType("uint256")
+	if err != nil {
+		t.Fatalf("NewUnsignedIntType() error = %v", err)
+	}
+
+	if got := uit.GetFixedSize(); got != Int32Size {
+		t.Errorf("UnsignedIntType.GetFixedSize() = %v, want %v", got, Int32Size)
+	}
+}
+
+func TestUnsignedIntType_IsDynamicType(t *testing.T) {
+	uit, err := NewUnsignedIntType("uint256")
+	if err != nil {
+		t.Fatalf("NewUnsignedIntType() error = %v", err)
+	}
+
+	if got := uit.IsDynamicType(); got != false {
+		t.Errorf("UnsignedIntType.IsDynamicType() = %v, want false", got)
+	}
+}
+
+func TestEncodeUint(t *testing.T) {
+	tests := []struct {
+		name  string
+		value uint64
+		want  []byte
+	}{
+		{
+			name:  "zero",
+			value: 0,
+			want: []byte{
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+			},
+		},
+		{
+			name:  "positive",
+			value: 100,
+			want: []byte{
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100,
+			},
+		},
+		{
+			name:  "max uint64",
+			value: 18446744073709551615,
+			want: []byte{
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 255, 255, 255, 255,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := EncodeUint(tt.value)
+			if err != nil {
+				t.Errorf("EncodeUint() error = %v", err)
+				return
+			}
+			if !bytes.Equal(got, tt.want) {
+				t.Errorf("EncodeUint() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestEncodeUintBig_NegativeRejection(t *testing.T) {
+	_, err := EncodeUintBig(big.NewInt(-1))
+	if err == nil {
+		t.Error("EncodeUintBig() should reject negative values")
+	}
+}
+
+func TestDecodeUint(t *testing.T) {
+	tests := []struct {
+		name    string
+		encoded []byte
+		offset  int
+		want    *big.Int
+		wantErr bool
+	}{
+		{
+			name: "valid positive",
+			encoded: []byte{
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 42,
+			},
+			offset: 0,
+			want:   big.NewInt(42),
+		},
+		{
+			name: "insufficient bytes",
+			encoded: []byte{
+				0, 0, 0, 0,
+			},
+			offset:  0,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := DecodeUint(tt.encoded, tt.offset)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("DecodeUint() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !tt.wantErr && got.Cmp(tt.want) != 0 {
+				t.Errorf("DecodeUint() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

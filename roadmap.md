@@ -55,18 +55,18 @@
   - [x] Unit test: Zero value
   - [x] Unit test: Max/min values
 
-- [ ] `UnsignedIntType` (unsigned integers)
-  - [ ] Constructor with size validation (uint8 to uint256)
-  - [ ] `GetCanonicalName()` - Returns "uintN"
-  - [ ] `Encode(value)` - Encode unsigned integer
-  - [ ] `Decode(encoded, offset)` - Decode to big.Int
-  - [ ] `DecodeInt(encoded, offset)` - Static unsigned decoder
-  - [ ] `EncodeInt(i int)` - Static encoder
-  - [ ] `EncodeIntBig(bigInt *big.Int)` - Validate non-negative
-  - [ ] Unit test: uint8 encoding/decoding
-  - [ ] Unit test: uint256 encoding/decoding
-  - [ ] Unit test: Reject negative values
-  - [ ] Unit test: Max values (2^256-1)
+- [x] `UnsignedIntType` (unsigned integers)
+  - [x] Constructor with size validation (uint8 to uint256)
+  - [x] `GetCanonicalName()` - Returns "uintN"
+  - [x] `Encode(value)` - Encode unsigned integer
+  - [x] `Decode(encoded, offset)` - Decode to big.Int
+  - [x] `DecodeUint(encoded, offset)` - Static unsigned decoder
+  - [x] `EncodeUint(i uint64)` - Static encoder
+  - [x] `EncodeUintBig(bigInt *big.Int)` - Validate non-negative
+  - [x] Unit test: uint8 encoding/decoding
+  - [x] Unit test: uint256 encoding/decoding
+  - [x] Unit test: Reject negative values
+  - [x] Unit test: Max values (2^255, max uint64)
 
 #### Boolean Type
 - [ ] `BoolType`

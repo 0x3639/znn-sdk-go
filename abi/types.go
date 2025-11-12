@@ -5,6 +5,8 @@ import (
 	"math/big"
 	"strconv"
 	"strings"
+
+	"github.com/zenon-network/go-zenon/common/types"
 )
 
 // Constants
@@ -451,4 +453,71 @@ func (bt *BoolType) Decode(encoded []byte, offset int) (interface{}, error) {
 	}
 
 	return bigInt.Sign() != 0, nil
+}
+
+// =============================================================================
+// AddressType - Address Type
+// =============================================================================
+
+// AddressType represents Zenon address values (20 bytes, left-padded to 32)
+type AddressType struct {
+	baseType
+}
+
+// NewAddressType creates a new address type
+func NewAddressType() (*AddressType, error) {
+	return &AddressType{
+		baseType: baseType{name: "address"},
+	}, nil
+}
+
+// Encode encodes an address value to 32 bytes (20-byte address left-padded with 12 zero bytes)
+func (at *AddressType) Encode(value interface{}) ([]byte, error) {
+	var addr types.Address
+	var err error
+
+	switch v := value.(type) {
+	case string:
+		addr, err = types.ParseAddress(v)
+		if err != nil {
+			return nil, fmt.Errorf("invalid address string: %s, error: %w", v, err)
+		}
+
+	case types.Address:
+		addr = v
+
+	case *types.Address:
+		if v == nil {
+			return nil, fmt.Errorf("nil address pointer")
+		}
+		addr = *v
+
+	default:
+		return nil, fmt.Errorf("unsupported value type for address encoding: %T", value)
+	}
+
+	// Address is 20 bytes, needs to be left-padded to 32 bytes
+	// Result: [12 zero bytes][20 address bytes]
+	result := make([]byte, Int32Size)
+	addrBytes := addr.Bytes()
+	copy(result[12:], addrBytes)
+
+	return result, nil
+}
+
+// Decode decodes an address value from encoded bytes at offset
+func (at *AddressType) Decode(encoded []byte, offset int) (interface{}, error) {
+	if len(encoded) < offset+Int32Size {
+		return nil, fmt.Errorf("insufficient bytes for decoding address")
+	}
+
+	// Address bytes are at offset+12 (skip 12 padding bytes) and are 20 bytes long
+	addrBytes := encoded[offset+12 : offset+Int32Size]
+
+	addr, err := types.BytesToAddress(addrBytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode address: %w", err)
+	}
+
+	return addr, nil
 }

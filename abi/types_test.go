@@ -2,8 +2,11 @@ package abi
 
 import (
 	"bytes"
+	"fmt"
 	"math/big"
 	"testing"
+
+	"github.com/zenon-network/go-zenon/common/types"
 )
 
 // =============================================================================
@@ -1143,5 +1146,294 @@ func TestBoolType_IsDynamicType(t *testing.T) {
 
 	if got := bt.IsDynamicType(); got != false {
 		t.Errorf("BoolType.IsDynamicType() = %v, want false", got)
+	}
+}
+
+// =============================================================================
+// AddressType Tests
+// =============================================================================
+
+func TestNewAddressType(t *testing.T) {
+	at, err := NewAddressType()
+	if err != nil {
+		t.Fatalf("NewAddressType() error = %v", err)
+	}
+
+	if at.GetName() != "address" {
+		t.Errorf("AddressType.GetName() = %v, want 'address'", at.GetName())
+	}
+}
+
+func TestAddressType_GetCanonicalName(t *testing.T) {
+	at, err := NewAddressType()
+	if err != nil {
+		t.Fatalf("NewAddressType() error = %v", err)
+	}
+
+	if at.GetCanonicalName() != "address" {
+		t.Errorf("AddressType.GetCanonicalName() = %v, want 'address'", at.GetCanonicalName())
+	}
+}
+
+func TestAddressType_Encode(t *testing.T) {
+	at, err := NewAddressType()
+	if err != nil {
+		t.Fatalf("NewAddressType() error = %v", err)
+	}
+
+	tests := []struct {
+		name        string
+		value       interface{}
+		wantErr     bool
+		wantHexPart string // Expected hex of the last 20 bytes (address part)
+	}{
+		{
+			name:        "string address",
+			value:       "z1qqjnwjjpnue8xmmpanz6csze6tcmtzzdtfsww7",
+			wantErr:     false,
+			wantHexPart: "0025374a419f32736f61ecc5ac4059d2f1b5884d",
+		},
+		{
+			name:        "zero address string",
+			value:       "z1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqsggv2f",
+			wantErr:     false,
+			wantHexPart: "0000000000000000000000000000000000000000",
+		},
+		{
+			name:    "invalid string",
+			value:   "not-an-address",
+			wantErr: true,
+		},
+		{
+			name:    "unsupported type",
+			value:   123,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			encoded, err := at.Encode(tt.value)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("AddressType.Encode() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if !tt.wantErr {
+				if len(encoded) != Int32Size {
+					t.Errorf("AddressType.Encode() returned %d bytes, want %d", len(encoded), Int32Size)
+					return
+				}
+
+				// Check first 12 bytes are zero (padding)
+				for i := 0; i < 12; i++ {
+					if encoded[i] != 0 {
+						t.Errorf("AddressType.Encode() byte %d = %x, want 0x00 (padding)", i, encoded[i])
+					}
+				}
+
+				// Check last 20 bytes match expected address
+				if tt.wantHexPart != "" {
+					actualHex := fmt.Sprintf("%x", encoded[12:])
+					if actualHex != tt.wantHexPart {
+						t.Errorf("AddressType.Encode() address bytes = %s, want %s", actualHex, tt.wantHexPart)
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestAddressType_Encode_AddressValue(t *testing.T) {
+	at, err := NewAddressType()
+	if err != nil {
+		t.Fatalf("NewAddressType() error = %v", err)
+	}
+
+	// Test with types.Address value
+	addr := types.ParseAddressPanic("z1qqjnwjjpnue8xmmpanz6csze6tcmtzzdtfsww7")
+	encoded, err := at.Encode(addr)
+	if err != nil {
+		t.Errorf("AddressType.Encode() with Address value error = %v", err)
+		return
+	}
+
+	if len(encoded) != Int32Size {
+		t.Errorf("AddressType.Encode() returned %d bytes, want %d", len(encoded), Int32Size)
+	}
+
+	expectedHex := "0025374a419f32736f61ecc5ac4059d2f1b5884d"
+	actualHex := fmt.Sprintf("%x", encoded[12:])
+	if actualHex != expectedHex {
+		t.Errorf("AddressType.Encode() address bytes = %s, want %s", actualHex, expectedHex)
+	}
+}
+
+func TestAddressType_Encode_AddressPointer(t *testing.T) {
+	at, err := NewAddressType()
+	if err != nil {
+		t.Fatalf("NewAddressType() error = %v", err)
+	}
+
+	// Test with *types.Address value
+	addr := types.ParseAddressPanic("z1qqjnwjjpnue8xmmpanz6csze6tcmtzzdtfsww7")
+	encoded, err := at.Encode(&addr)
+	if err != nil {
+		t.Errorf("AddressType.Encode() with *Address value error = %v", err)
+		return
+	}
+
+	if len(encoded) != Int32Size {
+		t.Errorf("AddressType.Encode() returned %d bytes, want %d", len(encoded), Int32Size)
+	}
+
+	// Test with nil pointer
+	var nilAddr *types.Address
+	_, err = at.Encode(nilAddr)
+	if err == nil {
+		t.Error("AddressType.Encode() with nil pointer should return error")
+	}
+}
+
+func TestAddressType_Decode(t *testing.T) {
+	at, err := NewAddressType()
+	if err != nil {
+		t.Fatalf("NewAddressType() error = %v", err)
+	}
+
+	tests := []struct {
+		name         string
+		encodedHex   string
+		offset       int
+		wantAddr     string
+		wantErr      bool
+	}{
+		{
+			name:       "valid address at offset 0",
+			encodedHex: "0000000000000000000000000025374a419f32736f61ecc5ac4059d2f1b5884d",
+			offset:     0,
+			wantAddr:   "z1qqjnwjjpnue8xmmpanz6csze6tcmtzzdtfsww7",
+			wantErr:    false,
+		},
+		{
+			name:       "zero address",
+			encodedHex: "0000000000000000000000000000000000000000000000000000000000000000",
+			offset:     0,
+			wantAddr:   "z1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqsggv2f",
+			wantErr:    false,
+		},
+		{
+			name:       "valid address at offset 32",
+			encodedHex: "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000025374a419f32736f61ecc5ac4059d2f1b5884d",
+			offset:     32,
+			wantAddr:   "z1qqjnwjjpnue8xmmpanz6csze6tcmtzzdtfsww7",
+			wantErr:    false,
+		},
+		{
+			name:       "insufficient bytes",
+			encodedHex: "0000000000000000000000000025374a419f32",
+			offset:     0,
+			wantErr:    true,
+		},
+		{
+			name:       "offset too large",
+			encodedHex: "0000000000000000000000000025374a419f32736f61ecc5ac4059d2f1b5884d",
+			offset:     100,
+			wantErr:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Convert hex string to bytes
+			encoded := make([]byte, len(tt.encodedHex)/2)
+			for i := 0; i < len(encoded); i++ {
+				fmt.Sscanf(tt.encodedHex[i*2:i*2+2], "%x", &encoded[i])
+			}
+
+			decoded, err := at.Decode(encoded, tt.offset)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("AddressType.Decode() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if !tt.wantErr {
+				addr, ok := decoded.(types.Address)
+				if !ok {
+					t.Errorf("AddressType.Decode() returned non-Address type: %T", decoded)
+					return
+				}
+
+				if addr.String() != tt.wantAddr {
+					t.Errorf("AddressType.Decode() = %v, want %v", addr.String(), tt.wantAddr)
+				}
+			}
+		})
+	}
+}
+
+func TestAddressType_RoundTrip(t *testing.T) {
+	at, err := NewAddressType()
+	if err != nil {
+		t.Fatalf("NewAddressType() error = %v", err)
+	}
+
+	tests := []struct {
+		name  string
+		addr  string
+	}{
+		{"normal address", "z1qqjnwjjpnue8xmmpanz6csze6tcmtzzdtfsww7"},
+		{"zero address", "z1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqsggv2f"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Encode
+			encoded, err := at.Encode(tt.addr)
+			if err != nil {
+				t.Errorf("AddressType.Encode() error = %v", err)
+				return
+			}
+
+			// Decode
+			decoded, err := at.Decode(encoded, 0)
+			if err != nil {
+				t.Errorf("AddressType.Decode() error = %v", err)
+				return
+			}
+
+			addr, ok := decoded.(types.Address)
+			if !ok {
+				t.Errorf("AddressType.Decode() returned non-Address: %T", decoded)
+				return
+			}
+
+			// Compare
+			if addr.String() != tt.addr {
+				t.Errorf("Round trip failed: original = %v, decoded = %v", tt.addr, addr.String())
+			}
+		})
+	}
+}
+
+func TestAddressType_GetFixedSize(t *testing.T) {
+	at, err := NewAddressType()
+	if err != nil {
+		t.Fatalf("NewAddressType() error = %v", err)
+	}
+
+	if got := at.GetFixedSize(); got != Int32Size {
+		t.Errorf("AddressType.GetFixedSize() = %v, want %v", got, Int32Size)
+	}
+}
+
+func TestAddressType_IsDynamicType(t *testing.T) {
+	at, err := NewAddressType()
+	if err != nil {
+		t.Fatalf("NewAddressType() error = %v", err)
+	}
+
+	if got := at.IsDynamicType(); got != false {
+		t.Errorf("AddressType.IsDynamicType() = %v, want false", got)
 	}
 }

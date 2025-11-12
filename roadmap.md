@@ -78,13 +78,13 @@
   - [x] Unit test: Invalid values
 
 #### Address Types
-- [ ] `AddressType`
-  - [ ] Constructor
-  - [ ] `Encode(value)` - Encode Address with padding
-  - [ ] `Decode(encoded, offset)` - Decode to types.Address
-  - [ ] Unit test: Valid address encoding
-  - [ ] Unit test: Address decoding
-  - [ ] Unit test: Invalid address handling
+- [x] `AddressType`
+  - [x] Constructor
+  - [x] `Encode(value)` - Encode Address with padding
+  - [x] `Decode(encoded, offset)` - Decode to types.Address
+  - [x] Unit test: Valid address encoding
+  - [x] Unit test: Address decoding
+  - [x] Unit test: Invalid address handling
 
 #### Hash Types
 - [ ] `HashType`

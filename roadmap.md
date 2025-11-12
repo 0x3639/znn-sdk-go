@@ -119,13 +119,13 @@
   - [x] Unit test: Large bytes (> 32)
   - [x] Unit test: Padding verification
 
-- [ ] `StringType` (extends BytesType)
-  - [ ] Constructor
-  - [ ] `Encode(value)` - Encode UTF-8 string
-  - [ ] `Decode(encoded, offset)` - Decode to string
-  - [ ] Unit test: ASCII string
-  - [ ] Unit test: UTF-8 string
-  - [ ] Unit test: Empty string
+- [x] `StringType` (extends BytesType)
+  - [x] Constructor
+  - [x] `Encode(value)` - Encode UTF-8 string
+  - [x] `Decode(encoded, offset)` - Decode to string
+  - [x] Unit test: ASCII string
+  - [x] Unit test: UTF-8 string
+  - [x] Unit test: Empty string
 
 #### Array Types
 - [ ] `ArrayType` interface

@@ -2,8 +2,11 @@ package abi
 
 import (
 	"bytes"
+	"encoding/binary"
+	"encoding/hex"
 	"fmt"
 	"math/big"
+	"strings"
 	"testing"
 
 	"github.com/zenon-network/go-zenon/common/types"
@@ -2586,6 +2589,312 @@ func TestBytesType_Decode(t *testing.T) {
 
 			if !bytes.Equal(result, tt.data) {
 				t.Errorf("Round trip failed: length mismatch got %d want %d", len(result), len(tt.data))
+			}
+		})
+	}
+}
+
+// ==================== StringType Tests ====================
+
+func TestNewStringType(t *testing.T) {
+	st, err := NewStringType()
+	if err != nil {
+		t.Fatalf("NewStringType() error = %v", err)
+	}
+	if st == nil {
+		t.Fatal("NewStringType() returned nil")
+	}
+}
+
+func TestStringType_GetCanonicalName(t *testing.T) {
+	st, _ := NewStringType()
+	if got := st.GetCanonicalName(); got != "string" {
+		t.Errorf("StringType.GetCanonicalName() = %v, want string", got)
+	}
+}
+
+func TestStringType_IsDynamicType(t *testing.T) {
+	st, _ := NewStringType()
+	if !st.IsDynamicType() {
+		t.Error("StringType.IsDynamicType() = false, want true")
+	}
+}
+
+func TestStringType_GetFixedSize(t *testing.T) {
+	st, _ := NewStringType()
+	if size := st.GetFixedSize(); size != 0 {
+		t.Errorf("StringType.GetFixedSize() = %d, want 0 (dynamic type)", size)
+	}
+}
+
+func TestStringType_Encode_ASCII(t *testing.T) {
+	st, _ := NewStringType()
+
+	tests := []struct {
+		name     string
+		input    string
+		wantLen  int
+		wantData string // hex of the data portion (without length prefix)
+	}{
+		{
+			name:     "simple ASCII",
+			input:    "hello",
+			wantLen:  5,
+			wantData: "68656c6c6f" + strings.Repeat("0", 54), // "hello" + padding to 32 bytes
+		},
+		{
+			name:     "longer ASCII",
+			input:    "The quick brown fox jumps",
+			wantLen:  25,
+			wantData: "54686520717569636b2062726f776e20666f78206a756d7073" + strings.Repeat("0", 14), // 25 bytes + 7 padding
+		},
+		{
+			name:     "exactly 32 bytes",
+			input:    "12345678901234567890123456789012",
+			wantLen:  32,
+			wantData: "3132333435363738393031323334353637383930313233343536373839303132",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			encoded, err := st.Encode(tt.input)
+			if err != nil {
+				t.Errorf("StringType.Encode() error = %v", err)
+				return
+			}
+
+			// Check length prefix (first 32 bytes)
+			lengthBytes := encoded[:32]
+			expectedLength := make([]byte, 32)
+			binary.BigEndian.PutUint64(expectedLength[24:], uint64(tt.wantLen))
+
+			if !bytes.Equal(lengthBytes, expectedLength) {
+				t.Errorf("Length prefix mismatch:\ngot  %x\nwant %x", lengthBytes, expectedLength)
+			}
+
+			// Check data portion
+			dataHex := hex.EncodeToString(encoded[32:])
+			if dataHex != tt.wantData {
+				t.Errorf("Data mismatch:\ngot  %s\nwant %s", dataHex, tt.wantData)
+			}
+		})
+	}
+}
+
+func TestStringType_Encode_UTF8(t *testing.T) {
+	st, _ := NewStringType()
+
+	tests := []struct {
+		name    string
+		input   string
+		wantLen int // byte length of UTF-8 encoding
+	}{
+		{
+			name:    "Japanese characters",
+			input:   "こんにちは",
+			wantLen: 15, // 5 chars * 3 bytes each
+		},
+		{
+			name:    "emoji",
+			input:   "Hello 👋🌍",
+			wantLen: 14, // "Hello " (6) + 👋 (4) + 🌍 (4)
+		},
+		{
+			name:    "mixed ASCII and UTF-8",
+			input:   "Café",
+			wantLen: 5, // C(1) + a(1) + f(1) + é(2)
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			encoded, err := st.Encode(tt.input)
+			if err != nil {
+				t.Errorf("StringType.Encode() error = %v", err)
+				return
+			}
+
+			// Check length prefix
+			lengthBytes := encoded[:32]
+			expectedLength := make([]byte, 32)
+			binary.BigEndian.PutUint64(expectedLength[24:], uint64(tt.wantLen))
+
+			if !bytes.Equal(lengthBytes, expectedLength) {
+				t.Errorf("Length prefix = %d, want %d", binary.BigEndian.Uint64(lengthBytes[24:]), tt.wantLen)
+			}
+
+			// Verify UTF-8 bytes in data
+			expectedUTF8 := []byte(tt.input)
+			dataBytes := encoded[32 : 32+tt.wantLen]
+			if !bytes.Equal(dataBytes, expectedUTF8) {
+				t.Errorf("UTF-8 data mismatch:\ngot  %x\nwant %x", dataBytes, expectedUTF8)
+			}
+		})
+	}
+}
+
+func TestStringType_Encode_EmptyString(t *testing.T) {
+	st, _ := NewStringType()
+
+	encoded, err := st.Encode("")
+	if err != nil {
+		t.Fatalf("StringType.Encode(\"\") error = %v", err)
+	}
+
+	// Should be 32 bytes (length only, no data padding for empty)
+	if len(encoded) != 32 {
+		t.Errorf("Encoded empty string length = %d, want 32", len(encoded))
+	}
+
+	// Length should be 0
+	lengthBytes := encoded[:32]
+	expectedLength := make([]byte, 32)
+	if !bytes.Equal(lengthBytes, expectedLength) {
+		t.Errorf("Length prefix should be all zeros for empty string")
+	}
+}
+
+func TestStringType_Encode_InvalidType(t *testing.T) {
+	st, _ := NewStringType()
+
+	tests := []struct {
+		name  string
+		input interface{}
+	}{
+		{"int", 42},
+		{"[]byte", []byte{1, 2, 3}},
+		{"bool", true},
+		{"nil", nil},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := st.Encode(tt.input)
+			if err == nil {
+				t.Errorf("StringType.Encode(%T) should return error", tt.input)
+			}
+		})
+	}
+}
+
+func TestStringType_Decode(t *testing.T) {
+	st, _ := NewStringType()
+
+	tests := []struct {
+		name   string
+		str    string
+		offset int
+	}{
+		{
+			name:   "ASCII at offset 0",
+			str:    "hello world",
+			offset: 0,
+		},
+		{
+			name:   "UTF-8 at offset 0",
+			str:    "Hello 世界",
+			offset: 0,
+		},
+		{
+			name:   "ASCII at offset 64",
+			str:    "test",
+			offset: 64,
+		},
+		{
+			name:   "empty string",
+			str:    "",
+			offset: 0,
+		},
+		{
+			name:   "long string",
+			str:    "This is a longer string that will span multiple 32-byte blocks for testing purposes",
+			offset: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// First encode
+			encoded, err := st.Encode(tt.str)
+			if err != nil {
+				t.Fatalf("Setup: encode error = %v", err)
+			}
+
+			// Add offset padding if needed
+			var testData []byte
+			if tt.offset > 0 {
+				testData = make([]byte, tt.offset)
+				testData = append(testData, encoded...)
+			} else {
+				testData = encoded
+			}
+
+			// Decode
+			decoded, err := st.Decode(testData, tt.offset)
+			if err != nil {
+				t.Errorf("StringType.Decode() error = %v", err)
+				return
+			}
+
+			result, ok := decoded.(string)
+			if !ok {
+				t.Errorf("StringType.Decode() returned non-string: %T", decoded)
+				return
+			}
+
+			if result != tt.str {
+				t.Errorf("StringType.Decode() = %q, want %q", result, tt.str)
+			}
+		})
+	}
+}
+
+func TestStringType_RoundTrip(t *testing.T) {
+	st, _ := NewStringType()
+
+	tests := []struct {
+		name string
+		str  string
+	}{
+		{"simple ASCII", "hello"},
+		{"with spaces", "hello world"},
+		{"with numbers", "test123"},
+		{"with symbols", "test!@#$%"},
+		{"UTF-8 Japanese", "こんにちは世界"},
+		{"UTF-8 emoji", "🎉🎊🎈"},
+		{"mixed", "Hello 世界! 🌍"},
+		{"empty", ""},
+		{"single char", "x"},
+		{"exactly 32 bytes", "12345678901234567890123456789012"},
+		{"33 bytes", "123456789012345678901234567890123"},
+		{"long string", strings.Repeat("test", 50)},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Encode
+			encoded, err := st.Encode(tt.str)
+			if err != nil {
+				t.Errorf("StringType.Encode() error = %v", err)
+				return
+			}
+
+			// Decode
+			decoded, err := st.Decode(encoded, 0)
+			if err != nil {
+				t.Errorf("StringType.Decode() error = %v", err)
+				return
+			}
+
+			result, ok := decoded.(string)
+			if !ok {
+				t.Errorf("StringType.Decode() returned non-string: %T", decoded)
+				return
+			}
+
+			if result != tt.str {
+				t.Errorf("Round trip failed:\ngot  %q\nwant %q", result, tt.str)
 			}
 		})
 	}

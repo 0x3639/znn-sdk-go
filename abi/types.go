@@ -853,3 +853,59 @@ func (bt *BytesType) Decode(encoded []byte, offset int) (interface{}, error) {
 func (bt *BytesType) IsDynamicType() bool {
 	return true
 }
+
+// =============================================================================
+// StringType - Dynamic String Type
+// =============================================================================
+
+// StringType represents UTF-8 encoded strings (extends BytesType)
+type StringType struct {
+	BytesType
+}
+
+// NewStringType creates a new string type
+func NewStringType() (*StringType, error) {
+	return &StringType{
+		BytesType: BytesType{
+			baseType: baseType{name: "string"},
+		},
+	}, nil
+}
+
+// GetFixedSize returns 0 as string is a dynamic type
+func (st *StringType) GetFixedSize() int {
+	return 0
+}
+
+// Encode encodes a string as UTF-8 bytes using BytesType encoding
+func (st *StringType) Encode(value interface{}) ([]byte, error) {
+	var str string
+
+	switch v := value.(type) {
+	case string:
+		str = v
+	default:
+		return nil, fmt.Errorf("unsupported value type for string encoding: %T", value)
+	}
+
+	// Convert string to UTF-8 bytes and use BytesType encoding
+	utf8Bytes := []byte(str)
+	return st.BytesType.Encode(utf8Bytes)
+}
+
+// Decode decodes a string from encoded bytes at offset
+func (st *StringType) Decode(encoded []byte, offset int) (interface{}, error) {
+	// Use BytesType to decode the bytes
+	decoded, err := st.BytesType.Decode(encoded, offset)
+	if err != nil {
+		return nil, err
+	}
+
+	bytes, ok := decoded.([]byte)
+	if !ok {
+		return nil, fmt.Errorf("unexpected decode result type: %T", decoded)
+	}
+
+	// Convert bytes to UTF-8 string
+	return string(bytes), nil
+}

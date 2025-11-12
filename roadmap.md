@@ -109,15 +109,15 @@
   - [x] Unit test: Custom ZTS
 
 #### Bytes Types
-- [ ] `BytesType` (dynamic bytes)
-  - [ ] Constructor
-  - [ ] `Encode(value)` - Encode with length prefix and padding
-  - [ ] `Decode(encoded, offset)` - Decode dynamic bytes
-  - [ ] `IsDynamicType()` - Returns true
-  - [ ] Unit test: Empty bytes
-  - [ ] Unit test: Small bytes (< 32)
-  - [ ] Unit test: Large bytes (> 32)
-  - [ ] Unit test: Padding verification
+- [x] `BytesType` (dynamic bytes)
+  - [x] Constructor
+  - [x] `Encode(value)` - Encode with length prefix and padding
+  - [x] `Decode(encoded, offset)` - Decode dynamic bytes
+  - [x] `IsDynamicType()` - Returns true
+  - [x] Unit test: Empty bytes
+  - [x] Unit test: Small bytes (< 32)
+  - [x] Unit test: Large bytes (> 32)
+  - [x] Unit test: Padding verification
 
 - [ ] `StringType` (extends BytesType)
   - [ ] Constructor

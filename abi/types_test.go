@@ -2403,3 +2403,190 @@ func TestTokenStandardType_IsDynamicType(t *testing.T) {
 		t.Errorf("TokenStandardType.IsDynamicType() = %v, want false", got)
 	}
 }
+
+// =============================================================================
+// BytesType Tests
+// =============================================================================
+
+func TestNewBytesType(t *testing.T) {
+	bt, err := NewBytesType()
+	if err != nil {
+		t.Fatalf("NewBytesType() error = %v", err)
+	}
+
+	if bt.GetName() != "bytes" {
+		t.Errorf("BytesType.GetName() = %v, want 'bytes'", bt.GetName())
+	}
+}
+
+func TestBytesType_IsDynamicType(t *testing.T) {
+	bt, err := NewBytesType()
+	if err != nil {
+		t.Fatalf("NewBytesType() error = %v", err)
+	}
+
+	if got := bt.IsDynamicType(); got != true {
+		t.Errorf("BytesType.IsDynamicType() = %v, want true", got)
+	}
+}
+
+func TestBytesType_Encode_EmptyBytes(t *testing.T) {
+	bt, err := NewBytesType()
+	if err != nil {
+		t.Fatalf("NewBytesType() error = %v", err)
+	}
+
+	encoded, err := bt.Encode([]byte{})
+	if err != nil {
+		t.Errorf("BytesType.Encode() with empty bytes error = %v", err)
+		return
+	}
+
+	// Empty bytes: length=0, no data
+	if len(encoded) != 32 {
+		t.Errorf("BytesType.Encode() empty bytes length = %d, want 32", len(encoded))
+	}
+
+	// Check length is 0
+	lengthBig, _ := DecodeInt(encoded, 0)
+	if lengthBig.Int64() != 0 {
+		t.Errorf("BytesType.Encode() empty bytes length field = %d, want 0", lengthBig.Int64())
+	}
+}
+
+func TestBytesType_Encode_SmallBytes(t *testing.T) {
+	bt, err := NewBytesType()
+	if err != nil {
+		t.Fatalf("NewBytesType() error = %v", err)
+	}
+
+	data := []byte{1, 2, 3, 4, 5}
+	encoded, err := bt.Encode(data)
+	if err != nil {
+		t.Errorf("BytesType.Encode() error = %v", err)
+		return
+	}
+
+	// Length (32) + data padded to 32 = 64 bytes total
+	if len(encoded) != 64 {
+		t.Errorf("BytesType.Encode() length = %d, want 64", len(encoded))
+	}
+
+	// Check length field
+	lengthBig, _ := DecodeInt(encoded, 0)
+	if lengthBig.Int64() != 5 {
+		t.Errorf("BytesType.Encode() length field = %d, want 5", lengthBig.Int64())
+	}
+
+	// Check data
+	if !bytes.Equal(encoded[32:37], data) {
+		t.Errorf("BytesType.Encode() data mismatch")
+	}
+
+	// Check padding (bytes 37-64 should be zero)
+	for i := 37; i < 64; i++ {
+		if encoded[i] != 0 {
+			t.Errorf("BytesType.Encode() padding byte %d = %x, want 0x00", i, encoded[i])
+		}
+	}
+}
+
+func TestBytesType_Encode_ExactlyOneBlock(t *testing.T) {
+	bt, err := NewBytesType()
+	if err != nil {
+		t.Fatalf("NewBytesType() error = %v", err)
+	}
+
+	// 32 bytes exactly
+	data := make([]byte, 32)
+	for i := range data {
+		data[i] = byte(i)
+	}
+
+	encoded, err := bt.Encode(data)
+	if err != nil {
+		t.Errorf("BytesType.Encode() error = %v", err)
+		return
+	}
+
+	// Length (32) + data (32) = 64 bytes
+	if len(encoded) != 64 {
+		t.Errorf("BytesType.Encode() length = %d, want 64", len(encoded))
+	}
+}
+
+func TestBytesType_Encode_LargeBytes(t *testing.T) {
+	bt, err := NewBytesType()
+	if err != nil {
+		t.Fatalf("NewBytesType() error = %v", err)
+	}
+
+	// 50 bytes (needs 2 blocks = 64 bytes for data)
+	data := make([]byte, 50)
+	for i := range data {
+		data[i] = byte(i)
+	}
+
+	encoded, err := bt.Encode(data)
+	if err != nil {
+		t.Errorf("BytesType.Encode() error = %v", err)
+		return
+	}
+
+	// Length (32) + data padded to 64 = 96 bytes total
+	if len(encoded) != 96 {
+		t.Errorf("BytesType.Encode() length = %d, want 96", len(encoded))
+	}
+
+	// Check padding
+	for i := 32 + 50; i < 96; i++ {
+		if encoded[i] != 0 {
+			t.Errorf("BytesType.Encode() padding byte %d = %x, want 0x00", i, encoded[i])
+		}
+	}
+}
+
+func TestBytesType_Decode(t *testing.T) {
+	bt, err := NewBytesType()
+	if err != nil {
+		t.Fatalf("NewBytesType() error = %v", err)
+	}
+
+	tests := []struct {
+		name      string
+		data      []byte
+	}{
+		{"empty", []byte{}},
+		{"small", []byte{1, 2, 3, 4, 5}},
+		{"exact block", make([]byte, 32)},
+		{"large", make([]byte, 50)},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Encode
+			encoded, err := bt.Encode(tt.data)
+			if err != nil {
+				t.Errorf("BytesType.Encode() error = %v", err)
+				return
+			}
+
+			// Decode
+			decoded, err := bt.Decode(encoded, 0)
+			if err != nil {
+				t.Errorf("BytesType.Decode() error = %v", err)
+				return
+			}
+
+			result, ok := decoded.([]byte)
+			if !ok {
+				t.Errorf("BytesType.Decode() returned non-[]byte: %T", decoded)
+				return
+			}
+
+			if !bytes.Equal(result, tt.data) {
+				t.Errorf("Round trip failed: length mismatch got %d want %d", len(result), len(tt.data))
+			}
+		})
+	}
+}

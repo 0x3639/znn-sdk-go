@@ -746,3 +746,110 @@ func (tst *TokenStandardType) Decode(encoded []byte, offset int) (interface{}, e
 
 	return zts, nil
 }
+
+// =============================================================================
+// BytesType - Dynamic Bytes Type
+// =============================================================================
+
+// BytesType represents dynamic byte arrays (length-prefixed, padded to 32-byte multiples)
+type BytesType struct {
+	baseType
+}
+
+// NewBytesType creates a new bytes type
+func NewBytesType() (*BytesType, error) {
+	return &BytesType{
+		baseType: baseType{name: "bytes"},
+	}, nil
+}
+
+// Encode encodes dynamic bytes with length prefix and padding
+// Format: [32 bytes: length][data padded to 32-byte multiple]
+func (bt *BytesType) Encode(value interface{}) ([]byte, error) {
+	var data []byte
+
+	switch v := value.(type) {
+	case []byte:
+		data = v
+
+	case string:
+		// Decode hex string
+		if len(v) > 2 && v[:2] == "0x" {
+			v = v[2:] // Remove 0x prefix
+		}
+
+		// Decode hex string to bytes
+		if len(v)%2 != 0 {
+			return nil, fmt.Errorf("invalid hex string: odd length")
+		}
+
+		data = make([]byte, len(v)/2)
+		for i := 0; i < len(data); i++ {
+			_, err := fmt.Sscanf(v[i*2:i*2+2], "%x", &data[i])
+			if err != nil {
+				return nil, fmt.Errorf("invalid hex string: %w", err)
+			}
+		}
+
+	default:
+		return nil, fmt.Errorf("unsupported value type for bytes encoding: %T", value)
+	}
+
+	// Calculate padded length (round up to nearest 32-byte multiple)
+	paddedLen := 0
+	if len(data) > 0 {
+		paddedLen = ((len(data)-1)/Int32Size + 1) * Int32Size
+	}
+
+	// Create result: [length][padded data]
+	result := make([]byte, Int32Size+paddedLen)
+
+	// Encode length
+	lengthBytes := EncodeInt(len(data))
+	copy(result[0:Int32Size], lengthBytes)
+
+	// Copy data
+	copy(result[Int32Size:], data)
+
+	// Remaining bytes are already zero (padding)
+	return result, nil
+}
+
+// Decode decodes dynamic bytes from encoded data at offset
+func (bt *BytesType) Decode(encoded []byte, offset int) (interface{}, error) {
+	if len(encoded) < offset+Int32Size {
+		return nil, fmt.Errorf("insufficient bytes for decoding bytes length")
+	}
+
+	// Decode length from first 32 bytes
+	lengthBig, err := DecodeInt(encoded, offset)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode bytes length: %w", err)
+	}
+
+	length := int(lengthBig.Int64())
+	if length < 0 {
+		return nil, fmt.Errorf("invalid bytes length: %d", length)
+	}
+
+	if length == 0 {
+		return []byte{}, nil
+	}
+
+	// Check if we have enough bytes for the data
+	dataOffset := offset + Int32Size
+	if len(encoded) < dataOffset+length {
+		return nil, fmt.Errorf("insufficient bytes for decoding bytes data")
+	}
+
+	// Extract data
+	result := make([]byte, length)
+	copy(result, encoded[dataOffset:dataOffset+length])
+
+	return result, nil
+}
+
+// IsDynamicType returns true for BytesType
+func (bt *BytesType) IsDynamicType() bool {
+	return true
+}

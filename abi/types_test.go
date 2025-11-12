@@ -1437,3 +1437,324 @@ func TestAddressType_IsDynamicType(t *testing.T) {
 		t.Errorf("AddressType.IsDynamicType() = %v, want false", got)
 	}
 }
+
+// =============================================================================
+// HashType Tests
+// =============================================================================
+
+func TestNewHashType(t *testing.T) {
+	ht, err := NewHashType()
+	if err != nil {
+		t.Fatalf("NewHashType() error = %v", err)
+	}
+
+	if ht.GetName() != "hash" {
+		t.Errorf("HashType.GetName() = %v, want 'hash'", ht.GetName())
+	}
+}
+
+func TestHashType_GetCanonicalName(t *testing.T) {
+	ht, err := NewHashType()
+	if err != nil {
+		t.Fatalf("NewHashType() error = %v", err)
+	}
+
+	if ht.GetCanonicalName() != "hash" {
+		t.Errorf("HashType.GetCanonicalName() = %v, want 'hash'", ht.GetCanonicalName())
+	}
+}
+
+func TestHashType_Encode(t *testing.T) {
+	ht, err := NewHashType()
+	if err != nil {
+		t.Fatalf("NewHashType() error = %v", err)
+	}
+
+	tests := []struct {
+		name    string
+		value   interface{}
+		wantErr bool
+		wantHex string // Expected hex of encoded bytes
+	}{
+		{
+			name:    "hex string",
+			value:   "c51c6c118265d36db508a1a3d0c16b11b3a3c5d8f6f0f1c5a5f5c5f5c5f5c5f5",
+			wantErr: false,
+			wantHex: "c51c6c118265d36db508a1a3d0c16b11b3a3c5d8f6f0f1c5a5f5c5f5c5f5c5f5",
+		},
+		{
+			name:    "zero hash string",
+			value:   "0000000000000000000000000000000000000000000000000000000000000000",
+			wantErr: false,
+			wantHex: "0000000000000000000000000000000000000000000000000000000000000000",
+		},
+		{
+			name:    "invalid hex string",
+			value:   "not-a-hash",
+			wantErr: true,
+		},
+		{
+			name:    "invalid hex length",
+			value:   "c51c6c118265d36db508a1a3d0c16b11",
+			wantErr: true,
+		},
+		{
+			name:    "unsupported type",
+			value:   123,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			encoded, err := ht.Encode(tt.value)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("HashType.Encode() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if !tt.wantErr {
+				if len(encoded) != Int32Size {
+					t.Errorf("HashType.Encode() returned %d bytes, want %d", len(encoded), Int32Size)
+					return
+				}
+
+				if tt.wantHex != "" {
+					actualHex := fmt.Sprintf("%x", encoded)
+					if actualHex != tt.wantHex {
+						t.Errorf("HashType.Encode() = %s, want %s", actualHex, tt.wantHex)
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestHashType_Encode_ByteSlice(t *testing.T) {
+	ht, err := NewHashType()
+	if err != nil {
+		t.Fatalf("NewHashType() error = %v", err)
+	}
+
+	// Valid 32-byte slice
+	validBytes := make([]byte, 32)
+	for i := range validBytes {
+		validBytes[i] = byte(i)
+	}
+
+	encoded, err := ht.Encode(validBytes)
+	if err != nil {
+		t.Errorf("HashType.Encode() with valid byte slice error = %v", err)
+		return
+	}
+
+	if len(encoded) != Int32Size {
+		t.Errorf("HashType.Encode() returned %d bytes, want %d", len(encoded), Int32Size)
+	}
+
+	if !bytes.Equal(encoded, validBytes) {
+		t.Errorf("HashType.Encode() modified bytes")
+	}
+
+	// Invalid byte slice (wrong length)
+	invalidBytes := make([]byte, 20)
+	_, err = ht.Encode(invalidBytes)
+	if err == nil {
+		t.Error("HashType.Encode() with invalid byte slice should return error")
+	}
+}
+
+func TestHashType_Encode_HashValue(t *testing.T) {
+	ht, err := NewHashType()
+	if err != nil {
+		t.Fatalf("NewHashType() error = %v", err)
+	}
+
+	// Test with types.Hash value
+	hash := types.HexToHashPanic("c51c6c118265d36db508a1a3d0c16b11b3a3c5d8f6f0f1c5a5f5c5f5c5f5c5f5")
+	encoded, err := ht.Encode(hash)
+	if err != nil {
+		t.Errorf("HashType.Encode() with Hash value error = %v", err)
+		return
+	}
+
+	if len(encoded) != Int32Size {
+		t.Errorf("HashType.Encode() returned %d bytes, want %d", len(encoded), Int32Size)
+	}
+
+	expectedHex := "c51c6c118265d36db508a1a3d0c16b11b3a3c5d8f6f0f1c5a5f5c5f5c5f5c5f5"
+	actualHex := fmt.Sprintf("%x", encoded)
+	if actualHex != expectedHex {
+		t.Errorf("HashType.Encode() = %s, want %s", actualHex, expectedHex)
+	}
+}
+
+func TestHashType_Encode_HashPointer(t *testing.T) {
+	ht, err := NewHashType()
+	if err != nil {
+		t.Fatalf("NewHashType() error = %v", err)
+	}
+
+	// Test with *types.Hash value
+	hash := types.HexToHashPanic("c51c6c118265d36db508a1a3d0c16b11b3a3c5d8f6f0f1c5a5f5c5f5c5f5c5f5")
+	encoded, err := ht.Encode(&hash)
+	if err != nil {
+		t.Errorf("HashType.Encode() with *Hash value error = %v", err)
+		return
+	}
+
+	if len(encoded) != Int32Size {
+		t.Errorf("HashType.Encode() returned %d bytes, want %d", len(encoded), Int32Size)
+	}
+
+	// Test with nil pointer
+	var nilHash *types.Hash
+	_, err = ht.Encode(nilHash)
+	if err == nil {
+		t.Error("HashType.Encode() with nil pointer should return error")
+	}
+}
+
+func TestHashType_Decode(t *testing.T) {
+	ht, err := NewHashType()
+	if err != nil {
+		t.Fatalf("NewHashType() error = %v", err)
+	}
+
+	tests := []struct {
+		name       string
+		encodedHex string
+		offset     int
+		wantHash   string
+		wantErr    bool
+	}{
+		{
+			name:       "valid hash at offset 0",
+			encodedHex: "c51c6c118265d36db508a1a3d0c16b11b3a3c5d8f6f0f1c5a5f5c5f5c5f5c5f5",
+			offset:     0,
+			wantHash:   "c51c6c118265d36db508a1a3d0c16b11b3a3c5d8f6f0f1c5a5f5c5f5c5f5c5f5",
+			wantErr:    false,
+		},
+		{
+			name:       "zero hash",
+			encodedHex: "0000000000000000000000000000000000000000000000000000000000000000",
+			offset:     0,
+			wantHash:   "0000000000000000000000000000000000000000000000000000000000000000",
+			wantErr:    false,
+		},
+		{
+			name:       "valid hash at offset 32",
+			encodedHex: "0000000000000000000000000000000000000000000000000000000000000000c51c6c118265d36db508a1a3d0c16b11b3a3c5d8f6f0f1c5a5f5c5f5c5f5c5f5",
+			offset:     32,
+			wantHash:   "c51c6c118265d36db508a1a3d0c16b11b3a3c5d8f6f0f1c5a5f5c5f5c5f5c5f5",
+			wantErr:    false,
+		},
+		{
+			name:       "insufficient bytes",
+			encodedHex: "c51c6c118265d36db508a1a3d0c16b11",
+			offset:     0,
+			wantErr:    true,
+		},
+		{
+			name:       "offset too large",
+			encodedHex: "c51c6c118265d36db508a1a3d0c16b11b3a3c5d8f6f0f1c5a5f5c5f5c5f5c5f5",
+			offset:     100,
+			wantErr:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Convert hex string to bytes
+			encoded := make([]byte, len(tt.encodedHex)/2)
+			for i := 0; i < len(encoded); i++ {
+				fmt.Sscanf(tt.encodedHex[i*2:i*2+2], "%x", &encoded[i])
+			}
+
+			decoded, err := ht.Decode(encoded, tt.offset)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("HashType.Decode() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if !tt.wantErr {
+				hash, ok := decoded.(types.Hash)
+				if !ok {
+					t.Errorf("HashType.Decode() returned non-Hash type: %T", decoded)
+					return
+				}
+
+				if hash.String() != tt.wantHash {
+					t.Errorf("HashType.Decode() = %v, want %v", hash.String(), tt.wantHash)
+				}
+			}
+		})
+	}
+}
+
+func TestHashType_RoundTrip(t *testing.T) {
+	ht, err := NewHashType()
+	if err != nil {
+		t.Fatalf("NewHashType() error = %v", err)
+	}
+
+	tests := []struct {
+		name string
+		hash string
+	}{
+		{"normal hash", "c51c6c118265d36db508a1a3d0c16b11b3a3c5d8f6f0f1c5a5f5c5f5c5f5c5f5"},
+		{"zero hash", "0000000000000000000000000000000000000000000000000000000000000000"},
+		{"all ones", "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Encode
+			encoded, err := ht.Encode(tt.hash)
+			if err != nil {
+				t.Errorf("HashType.Encode() error = %v", err)
+				return
+			}
+
+			// Decode
+			decoded, err := ht.Decode(encoded, 0)
+			if err != nil {
+				t.Errorf("HashType.Decode() error = %v", err)
+				return
+			}
+
+			hash, ok := decoded.(types.Hash)
+			if !ok {
+				t.Errorf("HashType.Decode() returned non-Hash: %T", decoded)
+				return
+			}
+
+			// Compare
+			if hash.String() != tt.hash {
+				t.Errorf("Round trip failed: original = %v, decoded = %v", tt.hash, hash.String())
+			}
+		})
+	}
+}
+
+func TestHashType_GetFixedSize(t *testing.T) {
+	ht, err := NewHashType()
+	if err != nil {
+		t.Fatalf("NewHashType() error = %v", err)
+	}
+
+	if got := ht.GetFixedSize(); got != Int32Size {
+		t.Errorf("HashType.GetFixedSize() = %v, want %v", got, Int32Size)
+	}
+}
+
+func TestHashType_IsDynamicType(t *testing.T) {
+	ht, err := NewHashType()
+	if err != nil {
+		t.Fatalf("NewHashType() error = %v", err)
+	}
+
+	if got := ht.IsDynamicType(); got != false {
+		t.Errorf("HashType.IsDynamicType() = %v, want false", got)
+	}
+}

@@ -87,11 +87,11 @@
   - [x] Unit test: Invalid address handling
 
 #### Hash Types
-- [ ] `HashType`
-  - [ ] Constructor
-  - [ ] `Encode(value)` - Encode Hash
-  - [ ] `Decode(encoded, offset)` - Decode to types.Hash
-  - [ ] Unit test: Hash encoding/decoding
+- [x] `HashType`
+  - [x] Constructor
+  - [x] `Encode(value)` - Encode Hash
+  - [x] `Decode(encoded, offset)` - Decode to types.Hash
+  - [x] Unit test: Hash encoding/decoding
 
 - [ ] `Bytes32Type`
   - [ ] Constructor with size parameter

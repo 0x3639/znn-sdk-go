@@ -521,3 +521,73 @@ func (at *AddressType) Decode(encoded []byte, offset int) (interface{}, error) {
 
 	return addr, nil
 }
+
+// =============================================================================
+// HashType - Hash Type
+// =============================================================================
+
+// HashType represents hash values (32 bytes, no padding needed)
+type HashType struct {
+	baseType
+}
+
+// NewHashType creates a new hash type
+func NewHashType() (*HashType, error) {
+	return &HashType{
+		baseType: baseType{name: "hash"},
+	}, nil
+}
+
+// Encode encodes a hash value to 32 bytes
+func (ht *HashType) Encode(value interface{}) ([]byte, error) {
+	var hash types.Hash
+	var err error
+
+	switch v := value.(type) {
+	case string:
+		// Try parsing as hex string
+		hash, err = types.HexToHash(v)
+		if err != nil {
+			return nil, fmt.Errorf("invalid hash string: %s, error: %w", v, err)
+		}
+
+	case []byte:
+		// Convert byte slice to hash
+		hash, err = types.BytesToHash(v)
+		if err != nil {
+			return nil, fmt.Errorf("invalid hash bytes (expected 32 bytes): %w", err)
+		}
+
+	case types.Hash:
+		hash = v
+
+	case *types.Hash:
+		if v == nil {
+			return nil, fmt.Errorf("nil hash pointer")
+		}
+		hash = *v
+
+	default:
+		return nil, fmt.Errorf("unsupported value type for hash encoding: %T", value)
+	}
+
+	// Hash is already 32 bytes, no padding needed
+	return hash.Bytes(), nil
+}
+
+// Decode decodes a hash value from encoded bytes at offset
+func (ht *HashType) Decode(encoded []byte, offset int) (interface{}, error) {
+	if len(encoded) < offset+Int32Size {
+		return nil, fmt.Errorf("insufficient bytes for decoding hash")
+	}
+
+	// Extract 32 bytes for the hash
+	hashBytes := encoded[offset : offset+Int32Size]
+
+	hash, err := types.BytesToHash(hashBytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode hash: %w", err)
+	}
+
+	return hash, nil
+}

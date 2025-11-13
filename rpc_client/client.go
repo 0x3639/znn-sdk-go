@@ -21,6 +21,7 @@ type RpcClient struct {
 	TokenApi       *embedded.TokenApi
 	BridgeApi      *embedded.BridgeApi
 	LiquidityApi   *embedded.LiquidityApi
+	HtlcApi        *embedded.HtlcApi
 
 	LedgerApi     *api.LedgerApi
 	StatsApi      *api.StatsApi
@@ -44,6 +45,7 @@ func NewRpcClient(url string) (*RpcClient, error) {
 		SwapApi:        embedded.NewSwapApi(newClient),
 		TokenApi:       embedded.NewTokenApi(newClient),
 		LiquidityApi:   embedded.NewLiquidityApi(newClient),
+		HtlcApi:        embedded.NewHtlcApi(newClient),
 		LedgerApi:      api.NewLedgerApi(newClient),
 		StatsApi:       api.NewStatsApi(newClient),
 		SubscriberApi:  api.NewSubscriberApi(newClient),

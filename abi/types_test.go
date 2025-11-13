@@ -3310,3 +3310,122 @@ func TestGetType_Arrays(t *testing.T) {
 		})
 	}
 }
+
+// ==================== FunctionType Tests ====================
+
+func TestNewFunctionType(t *testing.T) {
+	ft, err := NewFunctionType()
+	if err != nil {
+		t.Fatalf("NewFunctionType() error = %v", err)
+	}
+	if ft == nil {
+		t.Fatal("NewFunctionType() returned nil")
+	}
+}
+
+func TestFunctionType_GetCanonicalName(t *testing.T) {
+	ft, _ := NewFunctionType()
+	if got := ft.GetCanonicalName(); got != "function" {
+		t.Errorf("FunctionType.GetCanonicalName() = %v, want function", got)
+	}
+}
+
+func TestFunctionType_GetFixedSize(t *testing.T) {
+	ft, _ := NewFunctionType()
+	if got := ft.GetFixedSize(); got != 32 {
+		t.Errorf("FunctionType.GetFixedSize() = %d, want 32", got)
+	}
+}
+
+func TestFunctionType_IsDynamicType(t *testing.T) {
+	ft, _ := NewFunctionType()
+	if ft.IsDynamicType() {
+		t.Error("FunctionType.IsDynamicType() = true, want false")
+	}
+}
+
+func TestFunctionType_Encode(t *testing.T) {
+	ft, _ := NewFunctionType()
+
+	tests := []struct {
+		name     string
+		value    interface{}
+		wantHex  string
+		wantErr  bool
+	}{
+		{
+			name:    "24-byte selector from bytes",
+			value:   []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24},
+			wantHex: "0102030405060708090a0b0c0d0e0f1011121314151617180000000000000000",
+			wantErr: false,
+		},
+		{
+			name:    "24-byte selector from hex string",
+			value:   "0x0102030405060708090a0b0c0d0e0f101112131415161718",
+			wantHex: "0102030405060708090a0b0c0d0e0f1011121314151617180000000000000000",
+			wantErr: false,
+		},
+		{
+			name:    "24-byte selector from hex string without 0x",
+			value:   "0102030405060708090a0b0c0d0e0f101112131415161718",
+			wantHex: "0102030405060708090a0b0c0d0e0f1011121314151617180000000000000000",
+			wantErr: false,
+		},
+		{
+			name:    "invalid - too short",
+			value:   []byte{1, 2, 3},
+			wantErr: true,
+		},
+		{
+			name:    "invalid - too long",
+			value:   make([]byte, 32),
+			wantErr: true,
+		},
+		{
+			name:    "invalid - wrong type",
+			value:   12345,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			encoded, err := ft.Encode(tt.value)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("FunctionType.Encode() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if tt.wantErr {
+				return
+			}
+
+			gotHex := hex.EncodeToString(encoded)
+			if gotHex != tt.wantHex {
+				t.Errorf("FunctionType.Encode() = %s, want %s", gotHex, tt.wantHex)
+			}
+		})
+	}
+}
+
+func TestFunctionType_Decode(t *testing.T) {
+	ft, _ := NewFunctionType()
+
+	// Decode should always return an error (unimplemented)
+	encoded := make([]byte, 32)
+	_, err := ft.Decode(encoded, 0)
+	if err == nil {
+		t.Error("FunctionType.Decode() should return error (unimplemented)")
+	}
+}
+
+func TestGetType_Function(t *testing.T) {
+	abiType, err := GetType("function")
+	if err != nil {
+		t.Fatalf("GetType(\"function\") error = %v", err)
+	}
+
+	gotType := fmt.Sprintf("%T", abiType)
+	if gotType != "*abi.FunctionType" {
+		t.Errorf("GetType(\"function\") type = %s, want *abi.FunctionType", gotType)
+	}
+}

@@ -155,28 +155,28 @@
   - [x] Unit test: Nested arrays
 
 #### Function Type
-- [ ] `FunctionType`
-  - [ ] Constructor
-  - [ ] `Encode(value)` - Encode 24-byte function selector
-  - [ ] `Decode(encoded, offset)` - Decode (or unimplemented)
-  - [ ] Unit test: Function selector encoding
+- [x] `FunctionType`
+  - [x] Constructor
+  - [x] `Encode(value)` - Encode 24-byte function selector
+  - [x] `Decode(encoded, offset)` - Decode (unimplemented)
+  - [x] Unit test: Function selector encoding
 
 #### Type Factory
-- [ ] `GetType(typeName string)` - Factory method
-  - [ ] Parse "int" types (int8-int256)
-  - [ ] Parse "uint" types (uint8-uint256)
-  - [ ] Parse "bool" type
-  - [ ] Parse "address" type
-  - [ ] Parse "string" type
-  - [ ] Parse "bytes" type
-  - [ ] Parse "bytesN" types (bytes1-bytes32)
-  - [ ] Parse "hash" type
-  - [ ] Parse "tokenStandard" type
-  - [ ] Parse static arrays "type[N]"
-  - [ ] Parse dynamic arrays "type[]"
-  - [ ] Parse "function" type
-  - [ ] Unit test: All type parsing
-  - [ ] Unit test: Invalid type names
+- [x] `GetType(typeName string)` - Factory method
+  - [x] Parse "int" types (int8-int256)
+  - [x] Parse "uint" types (uint8-uint256)
+  - [x] Parse "bool" type
+  - [x] Parse "address" type
+  - [x] Parse "string" type
+  - [x] Parse "bytes" type
+  - [x] Parse "bytesN" types (bytes1-bytes32)
+  - [x] Parse "hash" type
+  - [x] Parse "tokenStandard" type
+  - [x] Parse static arrays "type[N]"
+  - [x] Parse dynamic arrays "type[]"
+  - [x] Parse "function" type
+  - [x] Unit test: All type parsing
+  - [x] Unit test: Invalid type names
 
 ### 1.2 ABI Encoding/Decoding (`abi/abi.go`)
 

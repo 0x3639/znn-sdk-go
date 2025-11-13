@@ -954,6 +954,8 @@ func GetType(typeName string) (AbiType, error) {
 		return NewBytesType()
 	case typeName == "string":
 		return NewStringType()
+	case typeName == "function":
+		return NewFunctionType()
 	default:
 		return nil, fmt.Errorf("unknown type: %s", typeName)
 	}
@@ -1385,4 +1387,71 @@ func (dat *DynamicArrayType) DecodeTuple(encoded []byte, origOffset int, length 
 	}
 
 	return result, nil
+}
+
+// =============================================================================
+// FunctionType - Function Selector Type
+// =============================================================================
+
+// FunctionType represents a 24-byte function selector (extends Bytes32Type)
+type FunctionType struct {
+	Bytes32Type
+}
+
+// NewFunctionType creates a new function type
+func NewFunctionType() (*FunctionType, error) {
+	bytes32Type, err := NewBytes32Type("function")
+	if err != nil {
+		return nil, err
+	}
+
+	return &FunctionType{
+		Bytes32Type: *bytes32Type,
+	}, nil
+}
+
+// Encode encodes a 24-byte function selector
+// The input must be exactly 24 bytes, which will be padded to 32 bytes
+func (ft *FunctionType) Encode(value interface{}) ([]byte, error) {
+	var selector []byte
+
+	switch v := value.(type) {
+	case []byte:
+		selector = v
+	case string:
+		// Decode hex string
+		if len(v) > 2 && v[:2] == "0x" {
+			v = v[2:]
+		}
+		if len(v)%2 != 0 {
+			return nil, fmt.Errorf("invalid hex string: odd length")
+		}
+		selector = make([]byte, len(v)/2)
+		for i := 0; i < len(selector); i++ {
+			_, err := fmt.Sscanf(v[i*2:i*2+2], "%x", &selector[i])
+			if err != nil {
+				return nil, fmt.Errorf("invalid hex string: %w", err)
+			}
+		}
+	default:
+		return nil, fmt.Errorf("unsupported value type for function encoding: %T", value)
+	}
+
+	// Function selector must be exactly 24 bytes
+	if len(selector) != 24 {
+		return nil, fmt.Errorf("function selector must be 24 bytes, got %d", len(selector))
+	}
+
+	// Pad with 8 zero bytes to make 32 bytes total
+	padded := make([]byte, 32)
+	copy(padded[0:24], selector)
+	// bytes 24-31 remain zero
+
+	// Use Bytes32Type to encode the padded value
+	return ft.Bytes32Type.Encode(padded)
+}
+
+// Decode is unimplemented for FunctionType
+func (ft *FunctionType) Decode(encoded []byte, offset int) (interface{}, error) {
+	return nil, fmt.Errorf("FunctionType.Decode is not implemented")
 }

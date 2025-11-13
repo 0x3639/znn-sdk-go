@@ -9,7 +9,7 @@
 - [x] Phase 1: Foundation (ABI + Embedded Definitions)
 - [x] Phase 2: Utils Enhancement
 - [x] Phase 3: Crypto & Argon2
-- [ ] Phase 4: Wallet System
+- [x] Phase 4: Wallet System
 - [ ] Phase 5: PoW Module
 - [ ] Phase 6: WebSocket Client Enhancement
 - [ ] Phase 7: HTLC API
@@ -771,7 +771,7 @@
 ## Phase 4: Wallet System
 
 **Priority**: HIGH
-**Status**: Not Started
+**Status**: ✅ Complete
 **Estimated**: 5-7 days
 
 ### 4.1 Wallet Interfaces (`wallet/interfaces.go`)
@@ -810,262 +810,250 @@
 
 ### 4.3 Wallet Constants (`wallet/constants.go`)
 
-- [ ] `BaseAddressKey` constant = "baseAddress"
-- [ ] `WalletTypeKey` constant = "walletType"
-- [ ] `KeyStoreWalletType` constant = "keystore"
+- [x] `BaseAddressKey` constant = "baseAddress"
+- [x] `WalletTypeKey` constant = "walletType"
+- [x] `KeyStoreWalletType` constant = "keystore"
+- [x] `DefaultMaxIndex` constant = 10000
 
 ### 4.4 Derivation (`wallet/derivation.go`)
 
-- [ ] `CoinType` constant = "73404"
-- [ ] `DerivationPath` constant = "m/44'/73404'"
+- [x] `CoinType` constant = "73404"
+- [x] `DerivationPath` constant = "m/44'/73404'"
+- [x] `GetDerivationAccount(account int)` function
+  - [x] Return BIP44 path for account
+  - [x] Unit test: Account 0 path
+  - [x] Unit test: Account 5 path
 
-- [ ] `GetDerivationAccount(account int)` function
-  - [ ] Return BIP44 path for account
-  - [ ] Unit test: Account 0 path
-  - [ ] Unit test: Account 5 path
+### 4.5 BIP32 Derivation (`wallet/bip32.go`)
 
-### 4.5 Mnemonic (`wallet/mnemonic.go`)
+- [x] SLIP-0010 Ed25519 implementation
+- [x] `GetMasterKeyFromSeed(seed []byte)` function
+  - [x] HMAC-SHA512 with "ed25519 seed"
+  - [x] 30 unit tests with known vectors
+- [x] `DerivePath(path string, seed []byte)` function
+  - [x] BIP44 path parsing
+  - [x] Hardened derivation only
+- [x] `getCKDPriv(parent *KeyData, index uint32)` function
+  - [x] Child key derivation
 
-- [ ] `GenerateMnemonic(strength int)` function
-  - [ ] Use go-bip39 library
-  - [ ] Generate random mnemonic
-  - [ ] Unit test: 128-bit (12 words)
-  - [ ] Unit test: 256-bit (24 words)
+### 4.6 Mnemonic (`wallet/mnemonic.go`)
 
-- [ ] `ValidateMnemonic(words []string)` function
-  - [ ] Check word count
-  - [ ] Verify checksum
-  - [ ] Unit test: Valid mnemonic
-  - [ ] Unit test: Invalid checksum
+- [x] `GenerateMnemonic(strength int)` function
+  - [x] Use go-bip39 library
+  - [x] Generate random mnemonic
+  - [x] Unit test: 128-bit (12 words)
+  - [x] Unit test: 256-bit (24 words)
 
-- [ ] `IsValidWord(word string)` function
-  - [ ] Check if word in BIP39 wordlist
-  - [ ] Unit test: Valid word
-  - [ ] Unit test: Invalid word
+- [x] `ValidateMnemonic(words []string)` function
+  - [x] Check word count
+  - [x] Verify checksum
+  - [x] Unit test: Valid mnemonic
+  - [x] Unit test: Invalid checksum
 
-### 4.6 KeyPair (`wallet/keypair.go`)
+- [x] `IsValidWord(word string)` function
+  - [x] Check if word in BIP39 wordlist
+  - [x] Unit test: Valid word
+  - [x] Unit test: Invalid word
 
-- [ ] `KeyPair` struct
-  - [ ] `PrivateKey` field
-  - [ ] `PublicKey` field
-  - [ ] `address` field (cached)
+- [x] `MnemonicToSeed(mnemonic, passphrase string)` function
+- [x] `MnemonicToEntropy(mnemonic string)` function
+- [x] `EntropyToMnemonic(entropy []byte)` function
+- [x] 24 comprehensive unit tests
 
-- [ ] `NewKeyPair(privateKey, publicKey []byte, address *types.Address)` constructor
-  - [ ] Initialize keypair
-  - [ ] Unit test: Constructor
+### 4.7 KeyPair (`wallet/keypair.go`)
 
-- [ ] `GetPrivateKey()` method
-  - [ ] Return private key bytes
-  - [ ] Unit test: Key retrieval
+- [x] `KeyPair` struct
+  - [x] `privateKey` field ([]byte)
+  - [x] `publicKey` field ([]byte, cached)
+  - [x] `address` field (*types.Address, cached)
 
-- [ ] `GetPublicKey()` method
-  - [ ] Derive if not set
-  - [ ] Return public key
-  - [ ] Unit test: Public key derivation
+- [x] `NewKeyPair(privateKey []byte)` constructor
+  - [x] Initialize keypair
+  - [x] Unit test: Constructor
 
-- [ ] `GetAddress()` method
-  - [ ] Derive if not cached
-  - [ ] Return address
-  - [ ] Unit test: Address derivation
+- [x] `NewKeyPairFromSeed(seed []byte)` constructor
+  - [x] Create from 32-byte seed
+  - [x] Unit test: Seed initialization
 
-- [ ] `Sign(message []byte)` method
-  - [ ] Ed25519 signature
-  - [ ] Unit test: Signature generation
+- [x] `GetPrivateKey()` method
+  - [x] Return private key bytes
+  - [x] Unit test: Key retrieval
 
-- [ ] `SignTx(tx *nom.AccountBlock)` method
-  - [ ] Sign transaction hash
-  - [ ] Unit test: Transaction signing
+- [x] `GetPublicKey()` method
+  - [x] Lazy derivation with caching
+  - [x] Return public key
+  - [x] Unit test: Public key derivation
 
-- [ ] `Verify(signature, message []byte)` method
-  - [ ] Verify Ed25519 signature
-  - [ ] Unit test: Valid signature
-  - [ ] Unit test: Invalid signature
+- [x] `GetAddress()` method
+  - [x] Lazy derivation with caching
+  - [x] Return Zenon address
+  - [x] Unit test: Address derivation
 
-- [ ] `GeneratePublicKey(privateKey []byte)` static method
-  - [ ] Derive public key
-  - [ ] Unit test: Public key generation
+- [x] `Sign(message []byte)` method
+  - [x] Ed25519 signature
+  - [x] Unit test: Signature generation
 
-### 4.7 Encrypted File (`wallet/encryptedfile.go`)
+- [x] `Verify(signature, message []byte)` method
+  - [x] Verify Ed25519 signature
+  - [x] Unit test: Valid signature
+  - [x] Unit test: Invalid signature
 
-- [ ] `EncryptedFile` struct
-  - [ ] `Metadata` field (map[string]interface{})
-  - [ ] `Crypto` field (*cryptoParams)
-  - [ ] `Timestamp` field (int64)
-  - [ ] `Version` field (int)
+- [x] `GeneratePublicKey(privateKey []byte)` static method
+  - [x] Derive public key
+  - [x] Unit test: Public key generation
 
-- [ ] `cryptoParams` struct (private)
-  - [ ] `Argon2Params` field (*argon2Params)
-  - [ ] `CipherData` field ([]byte)
-  - [ ] `CipherName` field (string)
-  - [ ] `Kdf` field (string)
-  - [ ] `Nonce` field ([]byte)
+- [x] 23 comprehensive unit tests
 
-- [ ] `argon2Params` struct (private)
-  - [ ] `Salt` field ([]byte)
+### 4.8 Encrypted File (`wallet/encryptedfile.go`)
 
-- [ ] `Encrypt(data []byte, password string, metadata map[string]interface{})` static method
-  - [ ] Generate salt
-  - [ ] Derive key with Argon2
-  - [ ] Encrypt with AES-256-GCM
-  - [ ] Return EncryptedFile
-  - [ ] Unit test: Encrypt/decrypt round-trip
+- [x] `EncryptedFile` struct
+  - [x] `Metadata` field (map[string]interface{})
+  - [x] `Crypto` field (*CryptoParams)
+  - [x] `Timestamp` field (int64)
+  - [x] `Version` field (int)
 
-- [ ] `FromJson(jsonData []byte)` constructor
-  - [ ] Parse JSON
-  - [ ] Unit test: Valid JSON
-  - [ ] Unit test: Invalid JSON
+- [x] `CryptoParams` struct
+  - [x] `Argon2Params` field (*Argon2Params)
+  - [x] `CipherData` field (hex string)
+  - [x] `CipherName` field ("aes-256-gcm")
+  - [x] `Kdf` field ("argon2.IDKey")
+  - [x] `Nonce` field (hex string)
 
-- [ ] `Decrypt(password string)` method
-  - [ ] Derive key with Argon2
-  - [ ] Decrypt with AES-256-GCM
-  - [ ] Verify authentication tag
-  - [ ] Unit test: Correct password
-  - [ ] Unit test: Incorrect password
+- [x] `Argon2Params` struct
+  - [x] `Salt` field (hex string)
 
-- [ ] `ToJson()` method
-  - [ ] Serialize to JSON
-  - [ ] Unit test: JSON output
+- [x] `Encrypt(data []byte, password string, metadata map[string]interface{})` function
+  - [x] Generate 16-byte salt, 12-byte nonce
+  - [x] Derive key with Argon2 (64MB, 1 iter, 4 threads)
+  - [x] Encrypt with AES-256-GCM, AAD="zenon"
+  - [x] Return EncryptedFile
+  - [x] Unit test: Encrypt/decrypt round-trip
 
-- [ ] `ToString()` method
-  - [ ] Return JSON string
-  - [ ] Unit test: String representation
+- [x] `FromJSON(jsonData []byte)` constructor
+  - [x] Parse JSON
+  - [x] Unit test: Valid JSON
+  - [x] Unit test: Invalid JSON
 
-### 4.8 KeyStore (`wallet/keystore.go`)
+- [x] `Decrypt(password string)` method
+  - [x] Derive key with Argon2
+  - [x] Decrypt with AES-256-GCM
+  - [x] Verify authentication tag
+  - [x] Return ErrIncorrectPassword on failure
+  - [x] Unit test: Correct password
+  - [x] Unit test: Incorrect password
 
-- [ ] `KeyStoreDefinition` struct
-  - [ ] `File` field (file path)
-  - [ ] Implements WalletDefinition
+- [x] `ToJSON()` method
+  - [x] Serialize to JSON
+  - [x] Unit test: JSON output
 
-- [ ] `GetWalletId()` method
-  - [ ] Return file path
-  - [ ] Unit test: Wallet ID
+- [x] 22 comprehensive unit tests
 
-- [ ] `GetWalletName()` method
-  - [ ] Return file basename
-  - [ ] Unit test: Wallet name
+### 4.9 KeyStore (`wallet/keystore.go`)
 
-- [ ] `KeyStore` struct
-  - [ ] `Mnemonic` field (string)
-  - [ ] `Entropy` field (string)
-  - [ ] `Seed` field (string)
-  - [ ] Implements Wallet
+- [x] `KeyStore` struct
+  - [x] `Mnemonic` field (string)
+  - [x] `Entropy` field ([]byte)
+  - [x] `Seed` field ([]byte)
 
-- [ ] `FromMnemonic(mnemonic string)` constructor
-  - [ ] Validate mnemonic
-  - [ ] Derive seed
-  - [ ] Unit test: Valid mnemonic
-  - [ ] Unit test: Invalid mnemonic
+- [x] `NewKeyStoreFromMnemonic(mnemonic string)` constructor
+  - [x] Validate mnemonic
+  - [x] Derive entropy and seed
+  - [x] Unit test: Valid mnemonic
+  - [x] Unit test: Invalid mnemonic
 
-- [ ] `FromSeed(seed string)` constructor
-  - [ ] Set seed directly
-  - [ ] Unit test: Seed initialization
+- [x] `NewKeyStoreFromSeed(seedHex string)` constructor
+  - [x] Set seed directly
+  - [x] Unit test: Seed initialization
 
-- [ ] `FromEntropy(entropy string)` constructor
-  - [ ] Convert to mnemonic
-  - [ ] Unit test: Entropy conversion
+- [x] `NewKeyStoreFromEntropy(entropy []byte)` constructor
+  - [x] Convert to mnemonic
+  - [x] Unit test: Entropy conversion
 
-- [ ] `NewRandom()` static method
-  - [ ] Generate random mnemonic
-  - [ ] Create keystore
-  - [ ] Unit test: Random generation
+- [x] `NewKeyStoreRandom()` function
+  - [x] Generate random 256-bit mnemonic
+  - [x] Create keystore
+  - [x] Unit test: Random generation
 
-- [ ] `SetMnemonic(mnemonic string)` method
-  - [ ] Validate and set mnemonic
-  - [ ] Derive seed
-  - [ ] Unit test: Set valid mnemonic
+- [x] `GetKeyPair(account int)` method
+  - [x] Derive BIP44 keypair (m/44'/73404'/account')
+  - [x] Unit test: Keypair derivation
 
-- [ ] `SetSeed(seed string)` method
-  - [ ] Set seed directly
-  - [ ] Unit test: Set seed
+- [x] `DeriveAddressesByRange(left, right int)` method
+  - [x] Derive address range
+  - [x] Unit test: Range 0-10
 
-- [ ] `SetEntropy(entropy string)` method
-  - [ ] Convert to mnemonic
-  - [ ] Unit test: Set entropy
+- [x] `FindAddress(address types.Address, maxAccounts int)` method
+  - [x] Search for address in keystore
+  - [x] Return FindResponse with index and keypair
+  - [x] Unit test: Address found
+  - [x] Unit test: Address not found
 
-- [ ] `GetAccount(index int)` method
-  - [ ] Derive keypair at index
-  - [ ] Unit test: Account 0
-  - [ ] Unit test: Account 5
+- [x] `FindResponse` struct
+  - [x] `Index` field (int)
+  - [x] `KeyPair` field (*KeyPair)
 
-- [ ] `GetKeyPair(index int)` method
-  - [ ] Derive BIP44 keypair
-  - [ ] Unit test: Keypair derivation
+- [x] `GetBaseAddress()` method
+  - [x] Return address at account 0
 
-- [ ] `DeriveAddressesByRange(left, right int)` method
-  - [ ] Derive address range
-  - [ ] Unit test: Range 0-10
+- [x] `ToEncryptedFile(password string, metadata map[string]interface{})` method
+  - [x] Encrypt keystore to EncryptedFile
 
-- [ ] `FindAddress(address types.Address, numOfAddresses int)` method
-  - [ ] Search for address in keystore
-  - [ ] Return index and keypair
-  - [ ] Unit test: Address found
-  - [ ] Unit test: Address not found
+- [x] `FromEncryptedFile(ef *EncryptedFile, password string)` function
+  - [x] Decrypt EncryptedFile to KeyStore
 
-- [ ] `FindResponse` struct
-  - [ ] `Path` field (string)
-  - [ ] `Index` field (int)
-  - [ ] `KeyPair` field (*KeyPair)
+- [x] Custom JSON serialization helpers
+- [x] 27 comprehensive unit tests
 
-### 4.9 KeyStore Manager (`wallet/manager.go`)
+### 4.10 KeyStore Manager (`wallet/manager.go`)
 
-- [ ] `KeyStoreOptions` struct
-  - [ ] `DecryptionPassword` field (string)
-  - [ ] Implements WalletOptions
+- [x] `KeyStoreManager` struct
+  - [x] `WalletPath` field (directory path)
 
-- [ ] `KeyStoreManager` struct
-  - [ ] `WalletPath` field (directory path)
-  - [ ] Implements WalletManager
+- [x] `NewKeyStoreManager(walletPath string)` constructor
+  - [x] Initialize manager
+  - [x] Create directory if needed
+  - [x] Unit test: Manager creation
 
-- [ ] `NewKeyStoreManager(walletPath string)` constructor
-  - [ ] Initialize manager
-  - [ ] Create directory if needed
-  - [ ] Unit test: Manager creation
+- [x] `SaveKeyStore(store *KeyStore, password, name string)` method
+  - [x] Serialize keystore to JSON
+  - [x] Encrypt with password
+  - [x] Write to file with 0600 permissions
+  - [x] Unit test: Save and load
 
-- [ ] `SaveKeyStore(store *KeyStore, password, name string)` method
-  - [ ] Serialize keystore to JSON
-  - [ ] Encrypt with password
-  - [ ] Write to file
-  - [ ] Unit test: Save and load
+- [x] `ReadKeyStore(password string, keyStoreFile string)` method
+  - [x] Read encrypted file
+  - [x] Decrypt with password
+  - [x] Deserialize keystore
+  - [x] Unit test: Read keystore
+  - [x] Unit test: Wrong password
 
-- [ ] `ReadKeyStore(password string, keyStoreFile string)` method
-  - [ ] Read encrypted file
-  - [ ] Decrypt with password
-  - [ ] Deserialize keystore
-  - [ ] Unit test: Read keystore
-  - [ ] Unit test: Wrong password
+- [x] `FindKeyStore(name string)` method
+  - [x] Search for keystore by name
+  - [x] Case-insensitive fallback
+  - [x] Unit test: Find existing
+  - [x] Unit test: Not found
 
-- [ ] `FindKeyStore(name string)` method
-  - [ ] Search for keystore by name
-  - [ ] Unit test: Find existing
-  - [ ] Unit test: Not found
+- [x] `ListAllKeyStores()` method
+  - [x] List all keystores in directory
+  - [x] Filter hidden files
+  - [x] Unit test: Empty directory
+  - [x] Unit test: Multiple keystores
 
-- [ ] `ListAllKeyStores()` method
-  - [ ] List all keystores in directory
-  - [ ] Unit test: Empty directory
-  - [ ] Unit test: Multiple keystores
+- [x] `CreateNew(passphrase, name string)` method
+  - [x] Generate random keystore
+  - [x] Save to file
+  - [x] Unit test: Create new wallet
 
-- [ ] `CreateNew(passphrase, name string)` method
-  - [ ] Generate random keystore
-  - [ ] Save to file
-  - [ ] Unit test: Create new wallet
+- [x] `CreateFromMnemonic(mnemonic, passphrase, name string)` method
+  - [x] Create from existing mnemonic
+  - [x] Save to file
+  - [x] Unit test: Import mnemonic
 
-- [ ] `CreateFromMnemonic(mnemonic, passphrase, name string)` method
-  - [ ] Create from existing mnemonic
-  - [ ] Save to file
-  - [ ] Unit test: Import mnemonic
+- [x] `GetKeystoreInfo(keyStoreFile string)` method
+  - [x] Read metadata without decryption
+  - [x] Unit test: Get info
 
-- [ ] `GetWalletDefinitions()` method
-  - [ ] Return all wallet definitions
-  - [ ] Unit test: List definitions
-
-- [ ] `GetWallet(definition WalletDefinition, options WalletOptions)` method
-  - [ ] Load wallet from definition
-  - [ ] Decrypt with options
-  - [ ] Unit test: Get wallet
-
-- [ ] `SupportsWallet(definition WalletDefinition)` method
-  - [ ] Check if keystore file
-  - [ ] Unit test: Support check
+- [x] 26 comprehensive unit tests
 
 ---
 

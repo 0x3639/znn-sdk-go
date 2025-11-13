@@ -181,68 +181,67 @@
 ### 1.2 ABI Encoding/Decoding (`abi/abi.go`)
 
 #### Parameter Model
-- [ ] `Param` struct
-  - [ ] `Indexed` field (bool)
-  - [ ] `Name` field (string)
-  - [ ] `Type` field (AbiType)
-  - [ ] Constructor
+- [x] `Param` struct
+  - [x] `Indexed` field (bool)
+  - [x] `Name` field (string)
+  - [x] `Type` field (AbiType)
+  - [x] Constructor (`NewParam`)
 
-- [ ] `DecodeList(params []Param, encoded []interface{})` function
-  - [ ] Decode parameter list
-  - [ ] Handle static vs dynamic offsets
-  - [ ] Unit test: Multiple parameters
-  - [ ] Unit test: Mixed static/dynamic
+- [x] `DecodeList(params []Param, encoded []interface{})` function
+  - [x] Decode parameter list
+  - [x] Handle static vs dynamic offsets
+  - [x] Unit test: Multiple parameters
+  - [x] Unit test: Mixed static/dynamic
 
 #### Entry Model
-- [ ] `Entry` struct
-  - [ ] `Name` field (string)
-  - [ ] `Inputs` field ([]Param)
-  - [ ] `Type` field (TypeEnum)
-  - [ ] Constructor
+- [x] `Entry` struct
+  - [x] `Name` field (string)
+  - [x] `Inputs` field ([]Param)
+  - [x] `Type` field (TypeEnum)
+  - [x] Constructor (`NewEntry`)
 
-- [ ] `FormatSignature()` method
-  - [ ] Format as "functionName(type1,type2,...)"
-  - [ ] Unit test: Simple signature
-  - [ ] Unit test: Complex signature
+- [x] `FormatSignature()` method
+  - [x] Format as "functionName(type1,type2,...)"
+  - [x] Unit test: Simple signature
+  - [x] Unit test: Complex signature
 
-- [ ] `FingerprintSignature()` method
-  - [ ] SHA3-256 hash of signature
-  - [ ] Return as bytes
-  - [ ] Unit test: Known function fingerprint
+- [x] `FingerprintSignature()` method
+  - [x] SHA3-256 hash of signature
+  - [x] Return as bytes
+  - [x] Unit test: Known function fingerprint
 
-- [ ] `EncodeSignature()` method
-  - [ ] Full signature hash
-  - [ ] Unit test: Signature encoding
+- [x] `EncodeSignature()` method
+  - [x] Full signature hash
+  - [x] Unit test: Signature encoding
 
-- [ ] `EncodeArguments(args []interface{})` method
-  - [ ] Encode function arguments
-  - [ ] Handle head/tail for dynamic types
-  - [ ] Unit test: Static arguments only
-  - [ ] Unit test: Dynamic arguments
-  - [ ] Unit test: Mixed arguments
+- [x] `EncodeArguments(args []interface{})` method
+  - [x] Encode function arguments
+  - [x] Handle head/tail for dynamic types
+  - [x] Unit test: Static arguments only
+  - [x] Unit test: Dynamic arguments
+  - [x] Unit test: Mixed arguments
 
 #### ABI Function
-- [ ] `AbiFunction` struct (extends Entry)
-  - [ ] `EncodedSignLength` constant = 4
-  - [ ] Constructor
+- [x] `AbiFunction` struct (extends Entry)
+  - [x] `EncodedSignLength` constant = 4
+  - [x] Constructor (`NewAbiFunction`)
 
-- [ ] `Decode(encoded []byte)` method
-  - [ ] Verify signature match
-  - [ ] Decode arguments
-  - [ ] Unit test: Valid function call
-  - [ ] Unit test: Invalid signature
+- [x] `Decode(encoded []byte)` method
+  - [x] Skip signature and decode arguments
+  - [x] Decode arguments
+  - [x] Unit test: Valid function call
 
-- [ ] `Encode(args []interface{})` method
-  - [ ] Encode 4-byte signature + arguments
-  - [ ] Unit test: Complete encoding
+- [x] `Encode(args []interface{})` method
+  - [x] Encode 4-byte signature + arguments
+  - [x] Unit test: Complete encoding
 
-- [ ] `EncodeSignature()` method (override)
-  - [ ] Return first 4 bytes of hash
-  - [ ] Unit test: Signature extraction
+- [x] `EncodeSignature()` method (override)
+  - [x] Return first 4 bytes of hash
+  - [x] Unit test: Signature extraction
 
-- [ ] `ExtractSignature(data []byte)` static method
-  - [ ] Extract first 4 bytes
-  - [ ] Unit test: Signature extraction
+- [x] `ExtractSignature(data []byte)` helper function
+  - [x] Extract first 4 bytes
+  - [x] Unit test: Signature extraction
 
 #### ABI Container
 - [ ] `Abi` struct

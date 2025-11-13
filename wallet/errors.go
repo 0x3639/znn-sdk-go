@@ -27,4 +27,5 @@ var (
 	ErrInvalidKeyStore       = errors.New("invalid keystore")
 	ErrInvalidPrivateKey     = errors.New("invalid private key")
 	ErrAddressNotFound       = errors.New("address not found in wallet")
+	ErrKeystoreNotFound      = errors.New("keystore not found")
 )

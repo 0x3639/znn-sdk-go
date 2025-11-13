@@ -467,47 +467,47 @@
 
 ### 1.5 Embedded Validations (`embedded/validations.go`)
 
-- [ ] `ValidateTokenName(value string)` function
-  - [ ] Check length
-  - [ ] Check regex pattern
-  - [ ] Return error or nil
-  - [ ] Unit test: Valid names
-  - [ ] Unit test: Invalid names
+- [x] `ValidateTokenName(value string)` function
+  - [x] Check length (max 40 characters)
+  - [x] Check regex pattern (alphanumeric with separators)
+  - [x] Return error or nil
+  - [x] Unit test: Valid names
+  - [x] Unit test: Invalid names (empty, too long, invalid pattern)
 
-- [ ] `ValidateTokenSymbol(value string)` function
-  - [ ] Check length
-  - [ ] Check regex pattern
-  - [ ] Check exceptions list
-  - [ ] Return error or nil
-  - [ ] Unit test: Valid symbols
-  - [ ] Unit test: Reserved symbols
-  - [ ] Unit test: Invalid patterns
+- [x] `ValidateTokenSymbol(value string)` function
+  - [x] Check length (max 10 characters)
+  - [x] Check regex pattern (uppercase alphanumeric)
+  - [x] Check exceptions list (ZNN, QSR reserved)
+  - [x] Return error or nil
+  - [x] Unit test: Valid symbols
+  - [x] Unit test: Reserved symbols
+  - [x] Unit test: Invalid patterns
 
-- [ ] `ValidateTokenDomain(value string)` function
-  - [ ] Check length
-  - [ ] Check regex pattern
-  - [ ] Return error or nil
-  - [ ] Unit test: Valid domains
-  - [ ] Unit test: Invalid domains
+- [x] `ValidateTokenDomain(value string)` function
+  - [x] Check empty
+  - [x] Check regex pattern (valid domain format)
+  - [x] Return error or nil
+  - [x] Unit test: Valid domains
+  - [x] Unit test: Invalid domains
 
-- [ ] `ValidatePillarName(value string)` function
-  - [ ] Check length
-  - [ ] Check regex pattern
-  - [ ] Return error or nil
-  - [ ] Unit test: Valid pillar names
-  - [ ] Unit test: Invalid pillar names
+- [x] `ValidatePillarName(value string)` function
+  - [x] Check length (max 40 characters)
+  - [x] Check regex pattern (alphanumeric with separators)
+  - [x] Return error or nil
+  - [x] Unit test: Valid pillar names
+  - [x] Unit test: Invalid pillar names
 
-- [ ] `ValidateProjectName(value string)` function
-  - [ ] Check length
-  - [ ] Return error or nil
-  - [ ] Unit test: Valid names
-  - [ ] Unit test: Too long
+- [x] `ValidateProjectName(value string)` function
+  - [x] Check length (max 30 characters)
+  - [x] Return error or nil
+  - [x] Unit test: Valid names
+  - [x] Unit test: Too long
 
-- [ ] `ValidateProjectDescription(value string)` function
-  - [ ] Check length
-  - [ ] Return error or nil
-  - [ ] Unit test: Valid descriptions
-  - [ ] Unit test: Too long
+- [x] `ValidateProjectDescription(value string)` function
+  - [x] Check length (max 240 characters)
+  - [x] Return error or nil
+  - [x] Unit test: Valid descriptions
+  - [x] Unit test: Too long
 
 ---
 

@@ -2899,3 +2899,414 @@ func TestStringType_RoundTrip(t *testing.T) {
 		})
 	}
 }
+
+// ==================== StaticArrayType Tests ====================
+
+func TestNewStaticArrayType(t *testing.T) {
+	tests := []struct {
+		name        string
+		typeName    string
+		wantSize    int
+		wantElemTyp string
+		wantErr     bool
+	}{
+		{
+			name:        "uint256[3]",
+			typeName:    "uint256[3]",
+			wantSize:    3,
+			wantElemTyp: "uint256",
+			wantErr:     false,
+		},
+		{
+			name:        "address[5]",
+			typeName:    "address[5]",
+			wantSize:    5,
+			wantElemTyp: "address",
+			wantErr:     false,
+		},
+		{
+			name:     "invalid - no brackets",
+			typeName: "uint256",
+			wantErr:  true,
+		},
+		{
+			name:     "invalid - zero size",
+			typeName: "uint256[0]",
+			wantErr:  true,
+		},
+		{
+			name:     "invalid - negative size",
+			typeName: "uint256[-1]",
+			wantErr:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			sat, err := NewStaticArrayType(tt.typeName)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("NewStaticArrayType() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if tt.wantErr {
+				return
+			}
+
+			if sat.size != tt.wantSize {
+				t.Errorf("size = %d, want %d", sat.size, tt.wantSize)
+			}
+			if sat.elementType.GetCanonicalName() != tt.wantElemTyp {
+				t.Errorf("element type = %s, want %s", sat.elementType.GetCanonicalName(), tt.wantElemTyp)
+			}
+		})
+	}
+}
+
+func TestStaticArrayType_GetCanonicalName(t *testing.T) {
+	sat, _ := NewStaticArrayType("uint256[3]")
+	if got := sat.GetCanonicalName(); got != "uint256[3]" {
+		t.Errorf("GetCanonicalName() = %s, want uint256[3]", got)
+	}
+}
+
+func TestStaticArrayType_GetFixedSize(t *testing.T) {
+	sat, _ := NewStaticArrayType("uint256[3]")
+	// uint256 is 32 bytes, so 3 elements = 96 bytes
+	if got := sat.GetFixedSize(); got != 96 {
+		t.Errorf("GetFixedSize() = %d, want 96", got)
+	}
+}
+
+func TestStaticArrayType_IsDynamicType(t *testing.T) {
+	sat, _ := NewStaticArrayType("uint256[3]")
+	if sat.IsDynamicType() {
+		t.Error("StaticArrayType.IsDynamicType() = true, want false")
+	}
+}
+
+func TestStaticArrayType_Encode(t *testing.T) {
+	sat, _ := NewStaticArrayType("uint256[3]")
+
+	tests := []struct {
+		name    string
+		values  []interface{}
+		wantErr bool
+	}{
+		{
+			name:    "valid array",
+			values:  []interface{}{1, 2, 3},
+			wantErr: false,
+		},
+		{
+			name:    "size mismatch - too few",
+			values:  []interface{}{1, 2},
+			wantErr: true,
+		},
+		{
+			name:    "size mismatch - too many",
+			values:  []interface{}{1, 2, 3, 4},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := sat.Encode(tt.values)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Encode() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestStaticArrayType_RoundTrip(t *testing.T) {
+	tests := []struct {
+		name     string
+		typeName string
+		values   []interface{}
+	}{
+		{
+			name:     "uint256[3]",
+			typeName: "uint256[3]",
+			values:   []interface{}{1, 2, 3},
+		},
+		{
+			name:     "uint8[5]",
+			typeName: "uint8[5]",
+			values:   []interface{}{10, 20, 30, 40, 50},
+		},
+		{
+			name:     "bool[2]",
+			typeName: "bool[2]",
+			values:   []interface{}{true, false},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			sat, err := NewStaticArrayType(tt.typeName)
+			if err != nil {
+				t.Fatalf("NewStaticArrayType() error = %v", err)
+			}
+
+			// Encode
+			encoded, err := sat.Encode(tt.values)
+			if err != nil {
+				t.Fatalf("Encode() error = %v", err)
+			}
+
+			// Decode
+			decoded, err := sat.Decode(encoded, 0)
+			if err != nil {
+				t.Fatalf("Decode() error = %v", err)
+			}
+
+			result, ok := decoded.([]interface{})
+			if !ok {
+				t.Fatalf("Decode() returned non-array: %T", decoded)
+			}
+
+			if len(result) != len(tt.values) {
+				t.Fatalf("length mismatch: got %d, want %d", len(result), len(tt.values))
+			}
+
+			// Compare values
+			for i := range tt.values {
+				switch expectedVal := tt.values[i].(type) {
+				case int:
+					expected := big.NewInt(int64(expectedVal))
+					actual, ok := result[i].(*big.Int)
+					if !ok {
+						t.Errorf("element %d: got type %T, want *big.Int", i, result[i])
+						continue
+					}
+					if expected.Cmp(actual) != 0 {
+						t.Errorf("element %d: got %s, want %s", i, actual, expected)
+					}
+				case bool:
+					actual, ok := result[i].(bool)
+					if !ok {
+						t.Errorf("element %d: got type %T, want bool", i, result[i])
+						continue
+					}
+					if expectedVal != actual {
+						t.Errorf("element %d: got %v, want %v", i, actual, expectedVal)
+					}
+				default:
+					t.Errorf("element %d: unsupported test type %T", i, expectedVal)
+				}
+			}
+		})
+	}
+}
+
+// ==================== DynamicArrayType Tests ====================
+
+func TestNewDynamicArrayType(t *testing.T) {
+	tests := []struct {
+		name        string
+		typeName    string
+		wantElemTyp string
+		wantErr     bool
+	}{
+		{
+			name:        "uint256[]",
+			typeName:    "uint256[]",
+			wantElemTyp: "uint256",
+			wantErr:     false,
+		},
+		{
+			name:        "address[]",
+			typeName:    "address[]",
+			wantElemTyp: "address",
+			wantErr:     false,
+		},
+		{
+			name:     "invalid - no brackets",
+			typeName: "uint256",
+			wantErr:  true,
+		},
+		{
+			name:     "invalid - static array",
+			typeName: "uint256[5]",
+			wantErr:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dat, err := NewDynamicArrayType(tt.typeName)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("NewDynamicArrayType() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if tt.wantErr {
+				return
+			}
+
+			if dat.elementType.GetCanonicalName() != tt.wantElemTyp {
+				t.Errorf("element type = %s, want %s", dat.elementType.GetCanonicalName(), tt.wantElemTyp)
+			}
+		})
+	}
+}
+
+func TestDynamicArrayType_GetCanonicalName(t *testing.T) {
+	dat, _ := NewDynamicArrayType("uint256[]")
+	if got := dat.GetCanonicalName(); got != "uint256[]" {
+		t.Errorf("GetCanonicalName() = %s, want uint256[]", got)
+	}
+}
+
+func TestDynamicArrayType_IsDynamicType(t *testing.T) {
+	dat, _ := NewDynamicArrayType("uint256[]")
+	if !dat.IsDynamicType() {
+		t.Error("DynamicArrayType.IsDynamicType() = false, want true")
+	}
+}
+
+func TestDynamicArrayType_GetFixedSize(t *testing.T) {
+	dat, _ := NewDynamicArrayType("uint256[]")
+	if got := dat.GetFixedSize(); got != 0 {
+		t.Errorf("GetFixedSize() = %d, want 0 (dynamic type)", got)
+	}
+}
+
+func TestDynamicArrayType_Encode_EmptyArray(t *testing.T) {
+	dat, _ := NewDynamicArrayType("uint256[]")
+
+	encoded, err := dat.Encode([]interface{}{})
+	if err != nil {
+		t.Fatalf("Encode([]) error = %v", err)
+	}
+
+	// Should be 32 bytes for length = 0
+	if len(encoded) != 32 {
+		t.Errorf("Encoded empty array length = %d, want 32", len(encoded))
+	}
+
+	// Verify length is 0
+	lengthBig, _ := DecodeInt(encoded, 0)
+	if lengthBig.Int64() != 0 {
+		t.Errorf("Length = %d, want 0", lengthBig.Int64())
+	}
+}
+
+func TestDynamicArrayType_RoundTrip(t *testing.T) {
+	tests := []struct {
+		name     string
+		typeName string
+		values   []interface{}
+	}{
+		{
+			name:     "empty array",
+			typeName: "uint256[]",
+			values:   []interface{}{},
+		},
+		{
+			name:     "single element",
+			typeName: "uint256[]",
+			values:   []interface{}{42},
+		},
+		{
+			name:     "multiple elements",
+			typeName: "uint256[]",
+			values:   []interface{}{1, 2, 3, 4, 5},
+		},
+		{
+			name:     "bool array",
+			typeName: "bool[]",
+			values:   []interface{}{true, false, true},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dat, err := NewDynamicArrayType(tt.typeName)
+			if err != nil {
+				t.Fatalf("NewDynamicArrayType() error = %v", err)
+			}
+
+			// Encode
+			encoded, err := dat.Encode(tt.values)
+			if err != nil {
+				t.Fatalf("Encode() error = %v", err)
+			}
+
+			// Decode
+			decoded, err := dat.Decode(encoded, 0)
+			if err != nil {
+				t.Fatalf("Decode() error = %v", err)
+			}
+
+			result, ok := decoded.([]interface{})
+			if !ok {
+				t.Fatalf("Decode() returned non-array: %T", decoded)
+			}
+
+			if len(result) != len(tt.values) {
+				t.Fatalf("length mismatch: got %d, want %d", len(result), len(tt.values))
+			}
+
+			// Compare values
+			for i := range tt.values {
+				switch expectedVal := tt.values[i].(type) {
+				case int:
+					expected := big.NewInt(int64(expectedVal))
+					actual, ok := result[i].(*big.Int)
+					if !ok {
+						t.Errorf("element %d: got type %T, want *big.Int", i, result[i])
+						continue
+					}
+					if expected.Cmp(actual) != 0 {
+						t.Errorf("element %d: got %s, want %s", i, actual, expected)
+					}
+				case bool:
+					actual, ok := result[i].(bool)
+					if !ok {
+						t.Errorf("element %d: got type %T, want bool", i, result[i])
+						continue
+					}
+					if expectedVal != actual {
+						t.Errorf("element %d: got %v, want %v", i, actual, expectedVal)
+					}
+				default:
+					t.Errorf("element %d: unsupported test type %T", i, expectedVal)
+				}
+			}
+		})
+	}
+}
+
+func TestGetType_Arrays(t *testing.T) {
+	tests := []struct {
+		name     string
+		typeName string
+		wantType string
+	}{
+		{
+			name:     "static array",
+			typeName: "uint256[3]",
+			wantType: "*abi.StaticArrayType",
+		},
+		{
+			name:     "dynamic array",
+			typeName: "uint256[]",
+			wantType: "*abi.DynamicArrayType",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			abiType, err := GetType(tt.typeName)
+			if err != nil {
+				t.Fatalf("GetType() error = %v", err)
+			}
+
+			gotType := fmt.Sprintf("%T", abiType)
+			if gotType != tt.wantType {
+				t.Errorf("GetType() type = %s, want %s", gotType, tt.wantType)
+			}
+		})
+	}
+}

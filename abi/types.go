@@ -1,8 +1,10 @@
 package abi
 
 import (
+	"bytes"
 	"fmt"
 	"math/big"
+	"reflect"
 	"strconv"
 	"strings"
 
@@ -908,4 +910,479 @@ func (st *StringType) Decode(encoded []byte, offset int) (interface{}, error) {
 
 	// Convert bytes to UTF-8 string
 	return string(bytes), nil
+}
+
+// =============================================================================
+// GetType - Type Factory Function
+// =============================================================================
+
+// GetType creates an ABI type from a type name string
+func GetType(typeName string) (AbiType, error) {
+	// Check for array types
+	if strings.Contains(typeName, "[") {
+		idx1 := strings.Index(typeName, "[")
+		idx2 := strings.Index(typeName[idx1:], "]")
+		if idx1 == -1 || idx2 == -1 {
+			return nil, fmt.Errorf("invalid array type: %s", typeName)
+		}
+		idx2 += idx1
+
+		// Check if it's a dynamic array (empty brackets)
+		if idx1+1 == idx2 {
+			return NewDynamicArrayType(typeName)
+		}
+		return NewStaticArrayType(typeName)
+	}
+
+	// Handle basic types
+	switch {
+	case strings.HasPrefix(typeName, "int"):
+		return NewIntType(typeName)
+	case strings.HasPrefix(typeName, "uint"):
+		return NewUnsignedIntType(typeName)
+	case typeName == "bool":
+		return NewBoolType()
+	case typeName == "address":
+		return NewAddressType()
+	case typeName == "hash":
+		return NewHashType()
+	case typeName == "bytes32":
+		return NewBytes32Type(typeName)
+	case typeName == "tokenStandard":
+		return NewTokenStandardType()
+	case typeName == "bytes":
+		return NewBytesType()
+	case typeName == "string":
+		return NewStringType()
+	default:
+		return nil, fmt.Errorf("unknown type: %s", typeName)
+	}
+}
+
+// =============================================================================
+// ArrayType - Array Types Interface
+// =============================================================================
+
+// ArrayType is an interface for array types (static and dynamic)
+type ArrayType interface {
+	AbiType
+	GetElementType() AbiType
+	EncodeTuple(values []interface{}) ([]byte, error)
+	DecodeTuple(encoded []byte, origOffset int, length int) ([]interface{}, error)
+	EncodeList(values []interface{}) ([]byte, error)
+}
+
+// =============================================================================
+// StaticArrayType - Fixed-Size Array Type
+// =============================================================================
+
+// StaticArrayType represents fixed-size arrays like uint256[3]
+type StaticArrayType struct {
+	baseType
+	elementType AbiType
+	size        int
+}
+
+// NewStaticArrayType creates a new static array type
+// typeName should be in format "elementType[size]" e.g. "uint256[3]"
+func NewStaticArrayType(typeName string) (*StaticArrayType, error) {
+	// Parse type name to extract element type and size
+	idx1 := strings.Index(typeName, "[")
+	if idx1 == -1 {
+		return nil, fmt.Errorf("invalid static array type name: %s", typeName)
+	}
+
+	idx2 := strings.Index(typeName[idx1:], "]")
+	if idx2 == -1 {
+		return nil, fmt.Errorf("invalid static array type name: %s", typeName)
+	}
+	idx2 += idx1
+
+	// Extract size
+	sizeStr := typeName[idx1+1 : idx2]
+	size, err := strconv.Atoi(sizeStr)
+	if err != nil || size <= 0 {
+		return nil, fmt.Errorf("invalid array size: %s", sizeStr)
+	}
+
+	// Extract element type name
+	elementTypeName := typeName[0:idx1]
+
+	// Handle sub-dimensions (e.g., "uint256[3][2]")
+	subDim := ""
+	if idx2+1 < len(typeName) {
+		subDim = typeName[idx2+1:]
+	}
+	fullElementTypeName := elementTypeName + subDim
+
+	// Get element type
+	elementType, err := GetType(fullElementTypeName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse element type: %w", err)
+	}
+
+	return &StaticArrayType{
+		baseType:    baseType{name: typeName},
+		elementType: elementType,
+		size:        size,
+	}, nil
+}
+
+// GetElementType returns the element type
+func (sat *StaticArrayType) GetElementType() AbiType {
+	return sat.elementType
+}
+
+// GetCanonicalName returns the canonical type name
+func (sat *StaticArrayType) GetCanonicalName() string {
+	return fmt.Sprintf("%s[%d]", sat.elementType.GetCanonicalName(), sat.size)
+}
+
+// GetFixedSize returns the total size (element size * count)
+func (sat *StaticArrayType) GetFixedSize() int {
+	return sat.elementType.GetFixedSize() * sat.size
+}
+
+// Encode encodes a static array
+func (sat *StaticArrayType) Encode(value interface{}) ([]byte, error) {
+	// Convert value to slice
+	var values []interface{}
+	switch v := value.(type) {
+	case []interface{}:
+		values = v
+	case []string, []int, []int64, []uint64, []bool:
+		// Use reflection to convert typed slices
+		rv := reflect.ValueOf(v)
+		values = make([]interface{}, rv.Len())
+		for i := 0; i < rv.Len(); i++ {
+			values[i] = rv.Index(i).Interface()
+		}
+	default:
+		return nil, fmt.Errorf("unsupported value type for array encoding: %T", value)
+	}
+
+	return sat.EncodeList(values)
+}
+
+// EncodeList encodes a list of values as a static array
+func (sat *StaticArrayType) EncodeList(values []interface{}) ([]byte, error) {
+	if len(values) != sat.size {
+		return nil, fmt.Errorf("array size mismatch: got %d elements, expected %d", len(values), sat.size)
+	}
+	return sat.EncodeTuple(values)
+}
+
+// EncodeTuple encodes array elements as a tuple
+func (sat *StaticArrayType) EncodeTuple(values []interface{}) ([]byte, error) {
+	var elems [][]byte
+
+	// If element type is dynamic, use offset encoding
+	if sat.elementType.IsDynamicType() {
+		elems = make([][]byte, len(values)*2)
+		offset := len(values) * Int32Size
+
+		for i := 0; i < len(values); i++ {
+			// Encode offset
+			elems[i] = EncodeInt(offset)
+
+			// Encode element
+			encoded, err := sat.elementType.Encode(values[i])
+			if err != nil {
+				return nil, fmt.Errorf("failed to encode element %d: %w", i, err)
+			}
+			elems[len(values)+i] = encoded
+
+			// Update offset (round up to 32-byte multiple)
+			offset += (len(encoded)/Int32Size)*Int32Size
+			if len(encoded)%Int32Size != 0 {
+				offset += Int32Size
+			}
+		}
+	} else {
+		// For fixed-size elements, encode directly
+		elems = make([][]byte, len(values))
+		for i := 0; i < len(values); i++ {
+			encoded, err := sat.elementType.Encode(values[i])
+			if err != nil {
+				return nil, fmt.Errorf("failed to encode element %d: %w", i, err)
+			}
+			elems[i] = encoded
+		}
+	}
+
+	// Merge all encoded elements
+	return bytes.Join(elems, nil), nil
+}
+
+// Decode decodes a static array from encoded data
+func (sat *StaticArrayType) Decode(encoded []byte, offset int) (interface{}, error) {
+	result := make([]interface{}, sat.size)
+
+	for i := 0; i < sat.size; i++ {
+		decoded, err := sat.elementType.Decode(encoded, offset+i*sat.elementType.GetFixedSize())
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode element %d: %w", i, err)
+		}
+		result[i] = decoded
+	}
+
+	return result, nil
+}
+
+// DecodeTuple decodes array elements from a tuple encoding
+func (sat *StaticArrayType) DecodeTuple(encoded []byte, origOffset int, length int) ([]interface{}, error) {
+	offset := origOffset
+	result := make([]interface{}, length)
+
+	for i := 0; i < length; i++ {
+		if sat.elementType.IsDynamicType() {
+			// For dynamic types, read offset and decode from there
+			offsetBig, err := DecodeInt(encoded, offset)
+			if err != nil {
+				return nil, fmt.Errorf("failed to decode offset for element %d: %w", i, err)
+			}
+			elemOffset := origOffset + int(offsetBig.Int64())
+
+			decoded, err := sat.elementType.Decode(encoded, elemOffset)
+			if err != nil {
+				return nil, fmt.Errorf("failed to decode element %d: %w", i, err)
+			}
+			result[i] = decoded
+		} else {
+			// For fixed types, decode directly
+			decoded, err := sat.elementType.Decode(encoded, offset)
+			if err != nil {
+				return nil, fmt.Errorf("failed to decode element %d: %w", i, err)
+			}
+			result[i] = decoded
+		}
+		offset += sat.elementType.GetFixedSize()
+	}
+
+	return result, nil
+}
+
+// =============================================================================
+// DynamicArrayType - Variable-Size Array Type
+// =============================================================================
+
+// DynamicArrayType represents dynamic arrays like uint256[]
+type DynamicArrayType struct {
+	baseType
+	elementType AbiType
+}
+
+// NewDynamicArrayType creates a new dynamic array type
+// typeName should be in format "elementType[]" e.g. "uint256[]"
+func NewDynamicArrayType(typeName string) (*DynamicArrayType, error) {
+	// Parse type name to extract element type
+	idx1 := strings.Index(typeName, "[")
+	if idx1 == -1 {
+		return nil, fmt.Errorf("invalid dynamic array type name: %s", typeName)
+	}
+
+	idx2 := strings.Index(typeName[idx1:], "]")
+	if idx2 == -1 {
+		return nil, fmt.Errorf("invalid dynamic array type name: %s", typeName)
+	}
+	idx2 += idx1
+
+	// Ensure it's actually a dynamic array (nothing between [])
+	if idx1+1 != idx2 {
+		return nil, fmt.Errorf("not a dynamic array type: %s", typeName)
+	}
+
+	// Extract element type name
+	elementTypeName := typeName[0:idx1]
+
+	// Handle sub-dimensions (e.g., "uint256[][2]")
+	subDim := ""
+	if idx2+1 < len(typeName) {
+		subDim = typeName[idx2+1:]
+	}
+	fullElementTypeName := elementTypeName + subDim
+
+	// Get element type
+	elementType, err := GetType(fullElementTypeName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse element type: %w", err)
+	}
+
+	return &DynamicArrayType{
+		baseType:    baseType{name: typeName},
+		elementType: elementType,
+	}, nil
+}
+
+// GetElementType returns the element type
+func (dat *DynamicArrayType) GetElementType() AbiType {
+	return dat.elementType
+}
+
+// GetCanonicalName returns the canonical type name
+func (dat *DynamicArrayType) GetCanonicalName() string {
+	return dat.elementType.GetCanonicalName() + "[]"
+}
+
+// IsDynamicType returns true as dynamic arrays are dynamic types
+func (dat *DynamicArrayType) IsDynamicType() bool {
+	return true
+}
+
+// GetFixedSize returns 0 as dynamic arrays don't have a fixed size
+func (dat *DynamicArrayType) GetFixedSize() int {
+	return 0
+}
+
+// Encode encodes a dynamic array
+func (dat *DynamicArrayType) Encode(value interface{}) ([]byte, error) {
+	// Convert value to slice
+	var values []interface{}
+	switch v := value.(type) {
+	case []interface{}:
+		values = v
+	case []string, []int, []int64, []uint64, []bool:
+		// Use reflection to convert typed slices
+		rv := reflect.ValueOf(v)
+		values = make([]interface{}, rv.Len())
+		for i := 0; i < rv.Len(); i++ {
+			values[i] = rv.Index(i).Interface()
+		}
+	default:
+		return nil, fmt.Errorf("unsupported value type for array encoding: %T", value)
+	}
+
+	return dat.EncodeList(values)
+}
+
+// EncodeList encodes a list of values as a dynamic array with length prefix
+func (dat *DynamicArrayType) EncodeList(values []interface{}) ([]byte, error) {
+	// Encode length
+	lengthBytes := EncodeInt(len(values))
+
+	// Encode tuple
+	tupleBytes, err := dat.EncodeTuple(values)
+	if err != nil {
+		return nil, err
+	}
+
+	// Merge length and tuple
+	return append(lengthBytes, tupleBytes...), nil
+}
+
+// EncodeTuple encodes array elements as a tuple
+func (dat *DynamicArrayType) EncodeTuple(values []interface{}) ([]byte, error) {
+	var elems [][]byte
+
+	// If element type is dynamic, use offset encoding
+	if dat.elementType.IsDynamicType() {
+		elems = make([][]byte, len(values)*2)
+		offset := len(values) * Int32Size
+
+		for i := 0; i < len(values); i++ {
+			// Encode offset
+			elems[i] = EncodeInt(offset)
+
+			// Encode element
+			encoded, err := dat.elementType.Encode(values[i])
+			if err != nil {
+				return nil, fmt.Errorf("failed to encode element %d: %w", i, err)
+			}
+			elems[len(values)+i] = encoded
+
+			// Update offset (round up to 32-byte multiple)
+			offset += (len(encoded)/Int32Size)*Int32Size
+			if len(encoded)%Int32Size != 0 {
+				offset += Int32Size
+			}
+		}
+	} else {
+		// For fixed-size elements, encode directly
+		elems = make([][]byte, len(values))
+		for i := 0; i < len(values); i++ {
+			encoded, err := dat.elementType.Encode(values[i])
+			if err != nil {
+				return nil, fmt.Errorf("failed to encode element %d: %w", i, err)
+			}
+			elems[i] = encoded
+		}
+	}
+
+	// Merge all encoded elements
+	return bytes.Join(elems, nil), nil
+}
+
+// Decode decodes a dynamic array from encoded data
+func (dat *DynamicArrayType) Decode(encoded []byte, origOffset int) (interface{}, error) {
+	// Decode length
+	lengthBig, err := DecodeInt(encoded, origOffset)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode array length: %w", err)
+	}
+	length := int(lengthBig.Int64())
+
+	// Move past length
+	origOffset += 32
+	offset := origOffset
+	result := make([]interface{}, length)
+
+	for i := 0; i < length; i++ {
+		if dat.elementType.IsDynamicType() {
+			// For dynamic types, read offset and decode from there
+			offsetBig, err := DecodeInt(encoded, offset)
+			if err != nil {
+				return nil, fmt.Errorf("failed to decode offset for element %d: %w", i, err)
+			}
+			elemOffset := origOffset + int(offsetBig.Int64())
+
+			decoded, err := dat.elementType.Decode(encoded, elemOffset)
+			if err != nil {
+				return nil, fmt.Errorf("failed to decode element %d: %w", i, err)
+			}
+			result[i] = decoded
+		} else {
+			// For fixed types, decode directly
+			decoded, err := dat.elementType.Decode(encoded, offset)
+			if err != nil {
+				return nil, fmt.Errorf("failed to decode element %d: %w", i, err)
+			}
+			result[i] = decoded
+		}
+		offset += dat.elementType.GetFixedSize()
+	}
+
+	return result, nil
+}
+
+// DecodeTuple decodes array elements from a tuple encoding
+func (dat *DynamicArrayType) DecodeTuple(encoded []byte, origOffset int, length int) ([]interface{}, error) {
+	offset := origOffset
+	result := make([]interface{}, length)
+
+	for i := 0; i < length; i++ {
+		if dat.elementType.IsDynamicType() {
+			// For dynamic types, read offset and decode from there
+			offsetBig, err := DecodeInt(encoded, offset)
+			if err != nil {
+				return nil, fmt.Errorf("failed to decode offset for element %d: %w", i, err)
+			}
+			elemOffset := origOffset + int(offsetBig.Int64())
+
+			decoded, err := dat.elementType.Decode(encoded, elemOffset)
+			if err != nil {
+				return nil, fmt.Errorf("failed to decode element %d: %w", i, err)
+			}
+			result[i] = decoded
+		} else {
+			// For fixed types, decode directly
+			decoded, err := dat.elementType.Decode(encoded, offset)
+			if err != nil {
+				return nil, fmt.Errorf("failed to decode element %d: %w", i, err)
+			}
+			result[i] = decoded
+		}
+		offset += dat.elementType.GetFixedSize()
+	}
+
+	return result, nil
 }

@@ -128,31 +128,31 @@
   - [x] Unit test: Empty string
 
 #### Array Types
-- [ ] `ArrayType` interface
-  - [ ] `GetElementType()` method
-  - [ ] `EncodeTuple(l []interface{})` method
-  - [ ] `DecodeTuple(encoded, offset, len)` method
-  - [ ] `EncodeList(l []interface{})` abstract method
+- [x] `ArrayType` interface
+  - [x] `GetElementType()` method
+  - [x] `EncodeTuple(l []interface{})` method
+  - [x] `DecodeTuple(encoded, offset, len)` method
+  - [x] `EncodeList(l []interface{})` abstract method
 
-- [ ] `StaticArrayType`
-  - [ ] Constructor with size parameter
-  - [ ] `GetCanonicalName()` - Returns "typeN"
-  - [ ] `EncodeList(l)` - Encode fixed-size array
-  - [ ] `Decode(encoded, offset)` - Decode fixed array
-  - [ ] `GetFixedSize()` - Returns element_size * count
-  - [ ] Unit test: uint256[3] encoding/decoding
-  - [ ] Unit test: address[5] encoding/decoding
-  - [ ] Unit test: Size mismatch error
+- [x] `StaticArrayType`
+  - [x] Constructor with size parameter
+  - [x] `GetCanonicalName()` - Returns "typeN"
+  - [x] `EncodeList(l)` - Encode fixed-size array
+  - [x] `Decode(encoded, offset)` - Decode fixed array
+  - [x] `GetFixedSize()` - Returns element_size * count
+  - [x] Unit test: uint256[3] encoding/decoding
+  - [x] Unit test: address[5] encoding/decoding
+  - [x] Unit test: Size mismatch error
 
-- [ ] `DynamicArrayType`
-  - [ ] Constructor
-  - [ ] `GetCanonicalName()` - Returns "type[]"
-  - [ ] `EncodeList(l)` - Encode with length prefix
-  - [ ] `Decode(encoded, offset)` - Decode dynamic array
-  - [ ] `IsDynamicType()` - Returns true
-  - [ ] Unit test: Empty array
-  - [ ] Unit test: uint256[] encoding/decoding
-  - [ ] Unit test: Nested arrays
+- [x] `DynamicArrayType`
+  - [x] Constructor
+  - [x] `GetCanonicalName()` - Returns "type[]"
+  - [x] `EncodeList(l)` - Encode with length prefix
+  - [x] `Decode(encoded, offset)` - Decode dynamic array
+  - [x] `IsDynamicType()` - Returns true
+  - [x] Unit test: Empty array
+  - [x] Unit test: uint256[] encoding/decoding
+  - [x] Unit test: Nested arrays
 
 #### Function Type
 - [ ] `FunctionType`

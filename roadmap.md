@@ -277,103 +277,107 @@
 ### 1.3 Embedded Contract Definitions (`embedded/definitions.go`)
 
 #### Contract ABI Definitions (JSON strings)
-- [ ] `PlasmaDefinition` constant
-  - [ ] JSON ABI for Plasma contract
-  - [ ] Methods: Fuse, Cancel
+- [x] `PlasmaDefinition` constant
+  - [x] JSON ABI for Plasma contract
+  - [x] Methods: Fuse, CancelFuse
 
-- [ ] `PillarDefinition` constant
-  - [ ] JSON ABI for Pillar contract
-  - [ ] Methods: Register, UpdatePillar, Revoke, Delegate, Undelegate
+- [x] `PillarDefinition` constant
+  - [x] JSON ABI for Pillar contract
+  - [x] Methods: Register, RegisterLegacy, UpdatePillar, Revoke, Delegate, Undelegate
 
-- [ ] `TokenDefinition` constant
-  - [ ] JSON ABI for Token contract
-  - [ ] Methods: IssueToken, Mint, Burn, UpdateToken, TransferOwnership, DisableMint
+- [x] `TokenDefinition` constant
+  - [x] JSON ABI for Token contract
+  - [x] Methods: IssueToken, Mint, Burn, UpdateToken
 
-- [ ] `SentinelDefinition` constant
-  - [ ] JSON ABI for Sentinel contract
-  - [ ] Methods: Register, Revoke, CollectReward
+- [x] `SentinelDefinition` constant
+  - [x] JSON ABI for Sentinel contract
+  - [x] Methods: Register, Revoke
 
-- [ ] `SwapDefinition` constant
-  - [ ] JSON ABI for Swap contract
-  - [ ] Methods: RetrieveAssets
+- [x] `SwapDefinition` constant
+  - [x] JSON ABI for Swap contract
+  - [x] Methods: RetrieveAssets
 
-- [ ] `StakeDefinition` constant
-  - [ ] JSON ABI for Stake contract
-  - [ ] Methods: Stake, Cancel, CollectReward
+- [x] `StakeDefinition` constant
+  - [x] JSON ABI for Stake contract
+  - [x] Methods: Stake, Cancel
 
-- [ ] `AcceleratorDefinition` constant
-  - [ ] JSON ABI for Accelerator contract
-  - [ ] Methods: CreateProject, AddPhase, UpdatePhase, Donate, VoteByName, VoteByProdAddress
+- [x] `AcceleratorDefinition` constant
+  - [x] JSON ABI for Accelerator contract
+  - [x] Methods: CreateProject, AddPhase, UpdatePhase, Donate, VoteByName, VoteByProdAddress
 
-- [ ] `SporkDefinition` constant
-  - [ ] JSON ABI for Spork contract
-  - [ ] Methods: CreateSpork, ActivateSpork
+- [x] `SporkDefinition` constant
+  - [x] JSON ABI for Spork contract
+  - [x] Methods: CreateSpork, ActivateSpork
 
-- [ ] `HtlcDefinition` constant
-  - [ ] JSON ABI for HTLC contract
-  - [ ] Methods: Create, Reclaim, Unlock, DenyProxyUnlock, AllowProxyUnlock
+- [x] `HtlcDefinition` constant
+  - [x] JSON ABI for HTLC contract
+  - [x] Methods: Create, Reclaim, Unlock, DenyProxyUnlock, AllowProxyUnlock
 
-- [ ] `BridgeDefinition` constant
-  - [ ] JSON ABI for Bridge contract
-  - [ ] Methods: WrapToken, UnwrapToken, SetNetwork, RemoveNetwork, SetTokenPair, RemoveTokenPair, Halt, Unhalt, SetAllowKeyGen, SetBridgeMetadata, RevokeUnwrapRequest, Emergency, ChangeTssECDSAPubKey, ChangeAdministrator, ProposeAdministrator, SetOrchestrator, SetRedeemDelay, NominateGuardians, SetAllowedToRedeem, SetRedeemed
+- [x] `BridgeDefinition` constant
+  - [x] JSON ABI for Bridge contract
+  - [x] Methods: 21 functions including WrapToken, UnwrapToken, SetNetwork, SetTokenPair, etc.
 
-- [ ] `LiquidityDefinition` constant
-  - [ ] JSON ABI for Liquidity contract
-  - [ ] Methods: Fund, BurnZnn, Update, SetIsHalted, SetTokenTuple, NominateGuardians, ProposeAdministrator, Emergency, UnlockLiquidityEntries, SetAdditionalReward
+- [x] `LiquidityDefinition` constant
+  - [x] JSON ABI for Liquidity contract
+  - [x] Methods: 15 functions including Fund, BurnZnn, Update, SetIsHalted, etc.
 
-- [ ] `CommonDefinition` constant
-  - [ ] JSON ABI for Common contract methods
-  - [ ] Methods: DepositQsr, WithdrawQsr, CollectReward
+- [x] `CommonDefinition` constant
+  - [x] JSON ABI for Common contract methods
+  - [x] Methods: DepositQsr, WithdrawQsr, CollectReward, Update, Donate, VoteByName, VoteByProdAddress
 
 #### Parsed ABI Objects
-- [ ] `Plasma` variable - Parsed Abi
-  - [ ] Initialize from PlasmaDefinition
-  - [ ] Unit test: Parse success
+- [x] `Plasma` variable - Parsed Abi
+  - [x] Initialize from PlasmaDefinition (init function)
+  - [x] Unit test: Parse success
+  - [x] Unit test: Fuse encoding
 
-- [ ] `Pillar` variable - Parsed Abi
-  - [ ] Initialize from PillarDefinition
-  - [ ] Unit test: Parse success
+- [x] `Pillar` variable - Parsed Abi
+  - [x] Initialize from PillarDefinition (init function)
+  - [x] Unit test: Parse success
+  - [x] Unit test: Delegate encoding
 
-- [ ] `Token` variable - Parsed Abi
-  - [ ] Initialize from TokenDefinition
-  - [ ] Unit test: Parse success
-  - [ ] Unit test: IssueToken encoding
+- [x] `Token` variable - Parsed Abi
+  - [x] Initialize from TokenDefinition (init function)
+  - [x] Unit test: Parse success
+  - [x] Unit test: IssueToken encoding
 
-- [ ] `Sentinel` variable - Parsed Abi
-  - [ ] Initialize from SentinelDefinition
-  - [ ] Unit test: Parse success
+- [x] `Sentinel` variable - Parsed Abi
+  - [x] Initialize from SentinelDefinition (init function)
+  - [x] Unit test: Parse success
+  - [x] Unit test: Register encoding
 
-- [ ] `Swap` variable - Parsed Abi
-  - [ ] Initialize from SwapDefinition
-  - [ ] Unit test: Parse success
+- [x] `Swap` variable - Parsed Abi
+  - [x] Initialize from SwapDefinition (init function)
+  - [x] Unit test: Parse success
 
-- [ ] `Stake` variable - Parsed Abi
-  - [ ] Initialize from StakeDefinition
-  - [ ] Unit test: Parse success
+- [x] `Stake` variable - Parsed Abi
+  - [x] Initialize from StakeDefinition (init function)
+  - [x] Unit test: Parse success
+  - [x] Unit test: Stake encoding
 
-- [ ] `Accelerator` variable - Parsed Abi
-  - [ ] Initialize from AcceleratorDefinition
-  - [ ] Unit test: Parse success
+- [x] `Accelerator` variable - Parsed Abi
+  - [x] Initialize from AcceleratorDefinition (init function)
+  - [x] Unit test: Parse success
 
-- [ ] `Spork` variable - Parsed Abi
-  - [ ] Initialize from SporkDefinition
-  - [ ] Unit test: Parse success
+- [x] `Spork` variable - Parsed Abi
+  - [x] Initialize from SporkDefinition (init function)
+  - [x] Unit test: Parse success
 
-- [ ] `Htlc` variable - Parsed Abi
-  - [ ] Initialize from HtlcDefinition
-  - [ ] Unit test: Parse success
+- [x] `Htlc` variable - Parsed Abi
+  - [x] Initialize from HtlcDefinition (init function)
+  - [x] Unit test: Parse success
 
-- [ ] `Bridge` variable - Parsed Abi
-  - [ ] Initialize from BridgeDefinition
-  - [ ] Unit test: Parse success
+- [x] `Bridge` variable - Parsed Abi
+  - [x] Initialize from BridgeDefinition (init function)
+  - [x] Unit test: Parse success
 
-- [ ] `Liquidity` variable - Parsed Abi
-  - [ ] Initialize from LiquidityDefinition
-  - [ ] Unit test: Parse success
+- [x] `Liquidity` variable - Parsed Abi
+  - [x] Initialize from LiquidityDefinition (init function)
+  - [x] Unit test: Parse success
 
-- [ ] `Common` variable - Parsed Abi
-  - [ ] Initialize from CommonDefinition
-  - [ ] Unit test: Parse success
+- [x] `Common` variable - Parsed Abi
+  - [x] Initialize from CommonDefinition (init function)
+  - [x] Unit test: Parse success
 
 ### 1.4 Embedded Constants (`embedded/constants.go`)
 

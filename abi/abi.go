@@ -3,6 +3,7 @@ package abi
 import (
 	"bytes"
 	"crypto/sha3"
+	"encoding/json"
 	"fmt"
 	"strings"
 )
@@ -250,4 +251,146 @@ func extractSignature(data []byte) []byte {
 		return data
 	}
 	return data[:EncodedSignLength]
+}
+
+// =============================================================================
+// Abi - ABI Container
+// =============================================================================
+
+// Abi represents a collection of ABI entries (functions, events)
+type Abi struct {
+	Entries []Entry
+}
+
+// NewAbi creates a new ABI container from a list of entries
+func NewAbi(entries []Entry) *Abi {
+	return &Abi{
+		Entries: entries,
+	}
+}
+
+// parseEntries parses JSON ABI into entries
+func parseEntries(jsonStr string) ([]Entry, error) {
+	var rawEntries []map[string]interface{}
+	if err := json.Unmarshal([]byte(jsonStr), &rawEntries); err != nil {
+		return nil, fmt.Errorf("failed to parse JSON: %w", err)
+	}
+
+	entries := make([]Entry, 0, len(rawEntries))
+	for _, raw := range rawEntries {
+		// Get entry name
+		name, ok := raw["name"].(string)
+		if !ok {
+			return nil, fmt.Errorf("entry missing 'name' field")
+		}
+
+		// Check entry type (only functions supported for now)
+		entryType, ok := raw["type"].(string)
+		if !ok {
+			return nil, fmt.Errorf("entry missing 'type' field")
+		}
+		if entryType != "function" {
+			return nil, fmt.Errorf("only ABI functions supported, got: %s", entryType)
+		}
+
+		// Parse inputs
+		inputs := []Param{}
+		if rawInputs, ok := raw["inputs"].([]interface{}); ok {
+			for _, rawInput := range rawInputs {
+				inputMap, ok := rawInput.(map[string]interface{})
+				if !ok {
+					return nil, fmt.Errorf("invalid input format")
+				}
+
+				paramName, _ := inputMap["name"].(string)
+				paramType, ok := inputMap["type"].(string)
+				if !ok {
+					return nil, fmt.Errorf("input missing 'type' field")
+				}
+
+				param, err := NewParam(paramName, paramType)
+				if err != nil {
+					return nil, fmt.Errorf("failed to create param '%s': %w", paramName, err)
+				}
+
+				inputs = append(inputs, *param)
+			}
+		}
+
+		// Create ABI function entry
+		entry := Entry{
+			Name:   name,
+			Inputs: inputs,
+			Type:   Function,
+		}
+		entries = append(entries, entry)
+	}
+
+	return entries, nil
+}
+
+// FromJson creates a new ABI container from JSON string
+func FromJson(jsonStr string) (*Abi, error) {
+	entries, err := parseEntries(jsonStr)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Abi{
+		Entries: entries,
+	}, nil
+}
+
+// EncodeFunction encodes a function call by name
+func (a *Abi) EncodeFunction(name string, args []interface{}) ([]byte, error) {
+	// Find function by name
+	var foundEntry *Entry
+	for i := range a.Entries {
+		if a.Entries[i].Name == name {
+			foundEntry = &a.Entries[i]
+			break
+		}
+	}
+
+	if foundEntry == nil {
+		return nil, fmt.Errorf("function '%s' not found in ABI", name)
+	}
+
+	// Create AbiFunction and encode
+	fn := &AbiFunction{
+		Entry: *foundEntry,
+	}
+
+	return fn.Encode(args)
+}
+
+// DecodeFunction decodes a function call by matching signature
+func (a *Abi) DecodeFunction(encoded []byte) ([]interface{}, error) {
+	if len(encoded) < EncodedSignLength {
+		return nil, fmt.Errorf("encoded data too short: %d bytes", len(encoded))
+	}
+
+	// Extract signature from encoded data
+	signature := extractSignature(encoded)
+
+	// Find matching function by signature
+	var foundEntry *Entry
+	for i := range a.Entries {
+		entrySignature := extractSignature(a.Entries[i].EncodeSignature())
+		if bytes.Equal(signature, entrySignature) {
+			foundEntry = &a.Entries[i]
+			break
+		}
+	}
+
+	if foundEntry == nil {
+		return nil, fmt.Errorf("no matching function found for signature: %x", signature)
+	}
+
+	// Create AbiFunction and decode
+	fn := &AbiFunction{
+		Entry: *foundEntry,
+	}
+
+	return fn.Decode(encoded)
 }

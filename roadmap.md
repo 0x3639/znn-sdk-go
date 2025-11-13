@@ -244,32 +244,35 @@
   - [x] Unit test: Signature extraction
 
 #### ABI Container
-- [ ] `Abi` struct
-  - [ ] `Entries` field ([]Entry)
-  - [ ] Constructor
+- [x] `Abi` struct
+  - [x] `Entries` field ([]Entry)
+  - [x] Constructor (`NewAbi`)
 
-- [ ] `NewAbi(entries []Entry)` constructor
-  - [ ] Initialize from entry list
-  - [ ] Unit test: Construction
+- [x] `NewAbi(entries []Entry)` constructor
+  - [x] Initialize from entry list
+  - [x] Unit test: Construction
 
-- [ ] `FromJson(jsonStr string)` constructor
-  - [ ] Parse ABI from JSON
-  - [ ] Parse function entries
-  - [ ] Parse event entries
-  - [ ] Unit test: Valid JSON
-  - [ ] Unit test: Invalid JSON
+- [x] `FromJson(jsonStr string)` constructor
+  - [x] Parse ABI from JSON
+  - [x] Parse function entries (only functions supported)
+  - [x] Unit test: Valid JSON
+  - [x] Unit test: Invalid JSON
+  - [x] Unit test: Missing name/type fields
+  - [x] Unit test: Invalid param types
 
-- [ ] `EncodeFunction(name string, args []interface{})` method
-  - [ ] Find function by name
-  - [ ] Encode call
-  - [ ] Unit test: Known function
-  - [ ] Unit test: Unknown function
+- [x] `EncodeFunction(name string, args []interface{})` method
+  - [x] Find function by name
+  - [x] Encode call
+  - [x] Unit test: Known function
+  - [x] Unit test: Unknown function
 
-- [ ] `DecodeFunction(encoded []byte)` method
-  - [ ] Extract signature
-  - [ ] Find matching function
-  - [ ] Decode arguments
-  - [ ] Unit test: Complete decoding
+- [x] `DecodeFunction(encoded []byte)` method
+  - [x] Extract signature
+  - [x] Find matching function
+  - [x] Decode arguments
+  - [x] Unit test: Complete decoding
+  - [x] Unit test: Unknown signature
+  - [x] Unit test: Round-trip encoding/decoding
 
 ### 1.3 Embedded Contract Definitions (`embedded/definitions.go`)
 

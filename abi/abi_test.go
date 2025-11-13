@@ -4,6 +4,8 @@ import (
 	"encoding/hex"
 	"math/big"
 	"testing"
+
+	"github.com/zenon-network/go-zenon/common/types"
 )
 
 // ==================== Param Tests ====================
@@ -384,6 +386,374 @@ func TestAbiFunction_RoundTrip(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// ==================== Abi Tests ====================
+
+func TestNewAbi(t *testing.T) {
+	entries := []Entry{
+		{
+			Name:   "test",
+			Inputs: []Param{{Name: "x", Type: mustGetType("uint256")}},
+			Type:   Function,
+		},
+	}
+
+	abi := NewAbi(entries)
+
+	if len(abi.Entries) != 1 {
+		t.Errorf("len(abi.Entries) = %d, want 1", len(abi.Entries))
+	}
+	if abi.Entries[0].Name != "test" {
+		t.Errorf("abi.Entries[0].Name = %s, want test", abi.Entries[0].Name)
+	}
+}
+
+func TestFromJson_Valid(t *testing.T) {
+	jsonStr := `[
+		{
+			"name": "transfer",
+			"type": "function",
+			"inputs": [
+				{"name": "to", "type": "address"},
+				{"name": "amount", "type": "uint256"}
+			]
+		},
+		{
+			"name": "approve",
+			"type": "function",
+			"inputs": [
+				{"name": "spender", "type": "address"},
+				{"name": "amount", "type": "uint256"}
+			]
+		}
+	]`
+
+	abi, err := FromJson(jsonStr)
+	if err != nil {
+		t.Fatalf("FromJson() error = %v", err)
+	}
+
+	if len(abi.Entries) != 2 {
+		t.Fatalf("len(abi.Entries) = %d, want 2", len(abi.Entries))
+	}
+
+	// Check first entry
+	if abi.Entries[0].Name != "transfer" {
+		t.Errorf("abi.Entries[0].Name = %s, want transfer", abi.Entries[0].Name)
+	}
+	if len(abi.Entries[0].Inputs) != 2 {
+		t.Errorf("len(abi.Entries[0].Inputs) = %d, want 2", len(abi.Entries[0].Inputs))
+	}
+
+	// Check second entry
+	if abi.Entries[1].Name != "approve" {
+		t.Errorf("abi.Entries[1].Name = %s, want approve", abi.Entries[1].Name)
+	}
+}
+
+func TestFromJson_NoInputs(t *testing.T) {
+	jsonStr := `[
+		{
+			"name": "claim",
+			"type": "function"
+		}
+	]`
+
+	abi, err := FromJson(jsonStr)
+	if err != nil {
+		t.Fatalf("FromJson() error = %v", err)
+	}
+
+	if len(abi.Entries) != 1 {
+		t.Fatalf("len(abi.Entries) = %d, want 1", len(abi.Entries))
+	}
+
+	if abi.Entries[0].Name != "claim" {
+		t.Errorf("abi.Entries[0].Name = %s, want claim", abi.Entries[0].Name)
+	}
+
+	if len(abi.Entries[0].Inputs) != 0 {
+		t.Errorf("len(abi.Entries[0].Inputs) = %d, want 0", len(abi.Entries[0].Inputs))
+	}
+}
+
+func TestFromJson_InvalidJSON(t *testing.T) {
+	jsonStr := `not valid json`
+
+	_, err := FromJson(jsonStr)
+	if err == nil {
+		t.Error("FromJson() expected error for invalid JSON, got nil")
+	}
+}
+
+func TestFromJson_MissingName(t *testing.T) {
+	jsonStr := `[
+		{
+			"type": "function",
+			"inputs": []
+		}
+	]`
+
+	_, err := FromJson(jsonStr)
+	if err == nil {
+		t.Error("FromJson() expected error for missing name, got nil")
+	}
+}
+
+func TestFromJson_MissingType(t *testing.T) {
+	jsonStr := `[
+		{
+			"name": "test",
+			"inputs": []
+		}
+	]`
+
+	_, err := FromJson(jsonStr)
+	if err == nil {
+		t.Error("FromJson() expected error for missing type, got nil")
+	}
+}
+
+func TestFromJson_InvalidType(t *testing.T) {
+	jsonStr := `[
+		{
+			"name": "test",
+			"type": "event",
+			"inputs": []
+		}
+	]`
+
+	_, err := FromJson(jsonStr)
+	if err == nil {
+		t.Error("FromJson() expected error for non-function type, got nil")
+	}
+}
+
+func TestFromJson_InvalidParamType(t *testing.T) {
+	jsonStr := `[
+		{
+			"name": "test",
+			"type": "function",
+			"inputs": [
+				{"name": "x", "type": "invalid_type"}
+			]
+		}
+	]`
+
+	_, err := FromJson(jsonStr)
+	if err == nil {
+		t.Error("FromJson() expected error for invalid param type, got nil")
+	}
+}
+
+func TestAbi_EncodeFunction(t *testing.T) {
+	jsonStr := `[
+		{
+			"name": "setValue",
+			"type": "function",
+			"inputs": [
+				{"name": "value", "type": "uint256"}
+			]
+		}
+	]`
+
+	abi, err := FromJson(jsonStr)
+	if err != nil {
+		t.Fatalf("FromJson() error = %v", err)
+	}
+
+	args := []interface{}{42}
+	encoded, err := abi.EncodeFunction("setValue", args)
+	if err != nil {
+		t.Fatalf("EncodeFunction() error = %v", err)
+	}
+
+	// Should be 4 bytes (signature) + 32 bytes (uint256) = 36 bytes
+	expectedLen := 36
+	if len(encoded) != expectedLen {
+		t.Errorf("len(encoded) = %d, want %d", len(encoded), expectedLen)
+	}
+
+	// Verify the value
+	val, _ := DecodeInt(encoded, 4)
+	if val.Int64() != 42 {
+		t.Errorf("encoded value = %d, want 42", val.Int64())
+	}
+}
+
+func TestAbi_EncodeFunction_UnknownFunction(t *testing.T) {
+	jsonStr := `[
+		{
+			"name": "setValue",
+			"type": "function",
+			"inputs": []
+		}
+	]`
+
+	abi, err := FromJson(jsonStr)
+	if err != nil {
+		t.Fatalf("FromJson() error = %v", err)
+	}
+
+	_, err = abi.EncodeFunction("unknownFunction", []interface{}{})
+	if err == nil {
+		t.Error("EncodeFunction() expected error for unknown function, got nil")
+	}
+}
+
+func TestAbi_DecodeFunction(t *testing.T) {
+	jsonStr := `[
+		{
+			"name": "setValue",
+			"type": "function",
+			"inputs": [
+				{"name": "value", "type": "uint256"}
+			]
+		}
+	]`
+
+	abi, err := FromJson(jsonStr)
+	if err != nil {
+		t.Fatalf("FromJson() error = %v", err)
+	}
+
+	// Encode first
+	args := []interface{}{100}
+	encoded, err := abi.EncodeFunction("setValue", args)
+	if err != nil {
+		t.Fatalf("EncodeFunction() error = %v", err)
+	}
+
+	// Decode
+	decoded, err := abi.DecodeFunction(encoded)
+	if err != nil {
+		t.Fatalf("DecodeFunction() error = %v", err)
+	}
+
+	if len(decoded) != 1 {
+		t.Fatalf("len(decoded) = %d, want 1", len(decoded))
+	}
+
+	val, ok := decoded[0].(*big.Int)
+	if !ok {
+		t.Fatalf("decoded[0] type = %T, want *big.Int", decoded[0])
+	}
+
+	if val.Int64() != 100 {
+		t.Errorf("decoded[0] = %d, want 100", val.Int64())
+	}
+}
+
+func TestAbi_DecodeFunction_UnknownSignature(t *testing.T) {
+	jsonStr := `[
+		{
+			"name": "setValue",
+			"type": "function",
+			"inputs": [
+				{"name": "value", "type": "uint256"}
+			]
+		}
+	]`
+
+	abi, err := FromJson(jsonStr)
+	if err != nil {
+		t.Fatalf("FromJson() error = %v", err)
+	}
+
+	// Create encoded data with unknown signature
+	fakeEncoded := make([]byte, 36)
+	fakeEncoded[0] = 0xFF
+	fakeEncoded[1] = 0xFF
+	fakeEncoded[2] = 0xFF
+	fakeEncoded[3] = 0xFF
+
+	_, err = abi.DecodeFunction(fakeEncoded)
+	if err == nil {
+		t.Error("DecodeFunction() expected error for unknown signature, got nil")
+	}
+}
+
+func TestAbi_DecodeFunction_TooShort(t *testing.T) {
+	jsonStr := `[
+		{
+			"name": "test",
+			"type": "function",
+			"inputs": []
+		}
+	]`
+
+	abi, err := FromJson(jsonStr)
+	if err != nil {
+		t.Fatalf("FromJson() error = %v", err)
+	}
+
+	// Too short data (less than 4 bytes)
+	shortData := []byte{0x01, 0x02}
+
+	_, err = abi.DecodeFunction(shortData)
+	if err == nil {
+		t.Error("DecodeFunction() expected error for short data, got nil")
+	}
+}
+
+func TestAbi_RoundTrip(t *testing.T) {
+	jsonStr := `[
+		{
+			"name": "setValues",
+			"type": "function",
+			"inputs": [
+				{"name": "a", "type": "uint256"},
+				{"name": "b", "type": "bool"},
+				{"name": "c", "type": "address"}
+			]
+		}
+	]`
+
+	abi, err := FromJson(jsonStr)
+	if err != nil {
+		t.Fatalf("FromJson() error = %v", err)
+	}
+
+	// Encode
+	args := []interface{}{
+		42,
+		true,
+		"z1qqjnwjjpnue8xmmpanz6csze6tcmtzzdtfsww7",
+	}
+	encoded, err := abi.EncodeFunction("setValues", args)
+	if err != nil {
+		t.Fatalf("EncodeFunction() error = %v", err)
+	}
+
+	// Decode
+	decoded, err := abi.DecodeFunction(encoded)
+	if err != nil {
+		t.Fatalf("DecodeFunction() error = %v", err)
+	}
+
+	if len(decoded) != 3 {
+		t.Fatalf("len(decoded) = %d, want 3", len(decoded))
+	}
+
+	// Check values
+	val1, ok := decoded[0].(*big.Int)
+	if !ok || val1.Int64() != 42 {
+		t.Errorf("decoded[0] = %v, want 42", decoded[0])
+	}
+
+	val2, ok := decoded[1].(bool)
+	if !ok || val2 != true {
+		t.Errorf("decoded[1] = %v, want true", decoded[1])
+	}
+
+	val3, ok := decoded[2].(types.Address)
+	if !ok {
+		t.Errorf("decoded[2] type = %T, want types.Address", decoded[2])
+	}
+	if val3.String() != "z1qqjnwjjpnue8xmmpanz6csze6tcmtzzdtfsww7" {
+		t.Errorf("decoded[2] = %s, want z1qqjnwjjpnue8xmmpanz6csze6tcmtzzdtfsww7", val3.String())
 	}
 }
 

@@ -519,97 +519,111 @@
 
 ### 2.1 NOM Constants (`utils/constants.go`)
 
-- [ ] `CoinDecimals` constant = 8
-- [ ] `OneZnn` constant = 100000000
-- [ ] `OneQsr` constant = 100000000
-- [ ] `IntervalBetweenMomentums` constant = 10 seconds
-- [ ] Unit test: Constant values
+- [x] `CoinDecimals` constant = 8 (imported from embedded)
+- [x] `OneZnn` constant = 100000000 (imported from embedded)
+- [x] `OneQsr` constant = 100000000 (imported from embedded)
+- [x] `IntervalBetweenMomentums` constant = 10 seconds
+- [x] Unit test: Constant values
 
 ### 2.2 Bytes Utilities (`utils/bytes.go`)
 
-- [ ] `Arraycopy(src, startPos, dest, destPos, len)` function
-  - [ ] Copy array slice
-  - [ ] Unit test: Normal copy
-  - [ ] Unit test: Boundary conditions
+- [x] `Arraycopy(src, startPos, dest, destPos, len)` function
+  - [x] Copy array slice
+  - [x] Unit test: Normal copy
+  - [x] Unit test: Boundary conditions (with offsets)
 
-- [ ] `DecodeBigInt(bytes []byte)` function
-  - [ ] Convert bytes to big.Int
-  - [ ] Unit test: Positive numbers
-  - [ ] Unit test: Large numbers
+- [x] `DecodeBigInt(bytes []byte)` function
+  - [x] Convert bytes to big.Int (big-endian)
+  - [x] Unit test: Positive numbers
+  - [x] Unit test: Large numbers
 
-- [ ] `EncodeBigInt(number *big.Int)` function
-  - [ ] Convert big.Int to bytes
-  - [ ] Unit test: Encode/decode round-trip
+- [x] `EncodeBigInt(number *big.Int)` function
+  - [x] Convert big.Int to bytes (big-endian)
+  - [x] Unit test: Encode/decode round-trip (including 2^128)
 
-- [ ] `BigIntToBytes(b *big.Int, numBytes int)` function
-  - [ ] Convert to fixed-size byte array
-  - [ ] Unit test: Various sizes
+- [x] `BigIntToBytes(b *big.Int, numBytes int)` function
+  - [x] Convert to fixed-size byte array (32 bytes tested)
+  - [x] Unit test: Various sizes
 
-- [ ] `BigIntToBytesSigned(b *big.Int, numBytes int)` function
-  - [ ] Convert signed big.Int
-  - [ ] Unit test: Negative numbers
+- [x] `BigIntToBytesSigned(b *big.Int, numBytes int)` function
+  - [x] Convert signed big.Int
+  - [x] Unit test: Negative numbers (0xFF padding)
+  - [x] Unit test: Positive numbers (0x00 padding)
 
-- [ ] `BytesToBigInt(bb []byte)` function
-  - [ ] Convert bytes to big.Int
-  - [ ] Unit test: Round-trip
+- [x] `BytesToBigInt(bb []byte)` function
+  - [x] Convert bytes to big.Int
+  - [x] Unit test: Round-trip
+  - [x] Unit test: Empty bytes
 
-- [ ] `Merge(arrays [][]byte)` function
-  - [ ] Concatenate byte arrays
-  - [ ] Unit test: Multiple arrays
-  - [ ] Unit test: Empty arrays
+- [x] `Merge(arrays [][]byte)` function
+  - [x] Concatenate byte arrays
+  - [x] Unit test: Multiple arrays
+  - [x] Unit test: Empty arrays
+  - [x] Unit test: With nil arrays
 
-- [ ] `IntToBytes(integer int)` function
-  - [ ] Convert int32 to 4 bytes
-  - [ ] Unit test: Various integers
+- [x] `IntToBytes(integer int32)` function
+  - [x] Convert int32 to 4 bytes (big-endian)
+  - [x] Unit test: Various integers
 
-- [ ] `LongToBytes(longValue int64)` function
-  - [ ] Convert int64 to 8 bytes
-  - [ ] Unit test: Various longs
+- [x] `LongToBytes(longValue int64)` function
+  - [x] Convert int64 to 8 bytes (big-endian)
+  - [x] Unit test: Various longs
 
-- [ ] `Base64ToBytes(base64Str string)` function
-  - [ ] Decode base64
-  - [ ] Unit test: Valid base64
-  - [ ] Unit test: Invalid base64
+- [x] `Base64ToBytes(base64Str string)` function
+  - [x] Decode base64
+  - [x] Unit test: Valid base64
+  - [x] Unit test: Empty string
 
-- [ ] `BytesToBase64(bytes []byte)` function
-  - [ ] Encode to base64
-  - [ ] Unit test: Round-trip
+- [x] `BytesToBase64(bytes []byte)` function
+  - [x] Encode to base64
+  - [x] Unit test: Round-trip
 
-- [ ] `BytesToHex(bytes []byte)` function
-  - [ ] Convert to hex string
-  - [ ] Unit test: Various inputs
+- [x] `BytesToHex(bytes []byte)` function
+  - [x] Convert to hex string
+  - [x] Unit test: Various inputs (empty, single byte, multiple bytes)
 
-- [ ] `LeftPadBytes(bytes []byte, size int)` function
-  - [ ] Pad bytes on left with zeros
-  - [ ] Unit test: Padding to 32 bytes
-  - [ ] Unit test: Already correct size
+- [x] `LeftPadBytes(bytes []byte, size int)` function
+  - [x] Pad bytes on left with zeros
+  - [x] Unit test: Padding to 6 bytes
+  - [x] Unit test: Already correct size
+  - [x] Unit test: Larger than target
 
 ### 2.3 Amount Utilities (`utils/amount.go`)
 
-- [ ] `ExtractDecimals(amount string, decimals int)` function
-  - [ ] Parse decimal string to big.Int
-  - [ ] Remove decimal point
-  - [ ] Unit test: "1.5" with 8 decimals
-  - [ ] Unit test: "100" with 8 decimals
-  - [ ] Unit test: "0.00000001" with 8 decimals
+- [x] `ExtractDecimals(amount string, decimals int)` function
+  - [x] Parse decimal string to big.Int
+  - [x] Remove decimal point and pad/truncate
+  - [x] Unit test: "1.5" with 8 decimals → 150000000
+  - [x] Unit test: "100" with 8 decimals → 10000000000
+  - [x] Unit test: "0.00000001" with 8 decimals → 1
+  - [x] Unit test: Truncation of extra decimals
+  - [x] Unit test: Padding of short decimals
+  - [x] Unit test: Invalid formats
 
-- [ ] `AddDecimals(number *big.Int, decimals int)` function
-  - [ ] Convert big.Int to decimal string
-  - [ ] Insert decimal point
-  - [ ] Unit test: 100000000 with 8 decimals → "1.0"
-  - [ ] Unit test: 1 with 8 decimals → "0.00000001"
+- [x] `AddDecimals(number *big.Int, decimals int)` function
+  - [x] Convert big.Int to decimal string
+  - [x] Insert decimal point
+  - [x] Strip trailing zeros
+  - [x] Unit test: 100000000 with 8 decimals → "1"
+  - [x] Unit test: 1 with 8 decimals → "0.00000001"
+  - [x] Unit test: Zero handling
+  - [x] Unit test: No decimals (decimals=0)
+  - [x] Unit test: Round-trip with ExtractDecimals
 
 ### 2.4 Block Utilities (`utils/block.go`)
 
-- [ ] `IsSendBlock(blockType int)` function
-  - [ ] Check if block type is send
-  - [ ] Unit test: Send block type
-  - [ ] Unit test: Receive block type
+- [x] Block type constants (Unknown, GenesisReceive, UserSend, UserReceive, ContractSend, ContractReceive)
+- [x] `IsSendBlock(blockType int)` function
+  - [x] Check if block type is send (UserSend or ContractSend)
+  - [x] Unit test: Send block types
+  - [x] Unit test: Receive block types
+  - [x] Unit test: Unknown type
 
-- [ ] `IsReceiveBlock(blockType int)` function
-  - [ ] Check if block type is receive
-  - [ ] Unit test: Receive block type
-  - [ ] Unit test: Send block type
+- [x] `IsReceiveBlock(blockType int)` function
+  - [x] Check if block type is receive (UserReceive, GenesisReceive, or ContractReceive)
+  - [x] Unit test: Receive block types
+  - [x] Unit test: Send block types
+  - [x] Unit test: Unknown type
 
 - [ ] `GetTransactionHash(transaction *nom.AccountBlock)` function
   - [ ] Calculate SHA3 hash of transaction

@@ -312,16 +312,91 @@ functionName, args, err := embedded.Token.DecodeFunction(data)
 
 Generate proof-of-work for transactions:
 
+### Synchronous PoW
+
 ```go
 import "github.com/0x3639/znn-sdk-go/pow"
 
-// Generate PoW
+// Generate PoW (blocking)
 hash := types.HexToHashPanic("...")
 difficulty := uint64(80000)
 nonce := pow.GeneratePoW(hash, difficulty)
 
 // Verify PoW
 valid := pow.CheckPoW(hash, nonce, difficulty)
+```
+
+### Asynchronous PoW with Context (Recommended)
+
+```go
+import (
+    "context"
+    "time"
+    "github.com/0x3639/znn-sdk-go/pow"
+)
+
+// Generate PoW asynchronously with timeout
+ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+defer cancel()
+
+resultChan := pow.GeneratePowAsync(ctx, hash, difficulty)
+result := <-resultChan
+
+if result.Error != nil {
+    if result.Error == pow.ErrCancelled {
+        fmt.Println("PoW was cancelled or timed out")
+    } else {
+        fmt.Printf("PoW generation failed: %v\n", result.Error)
+    }
+    return
+}
+
+fmt.Println("PoW nonce:", result.Nonce)
+```
+
+### Multiple Concurrent PoW Operations
+
+```go
+// Generate PoW for multiple transactions concurrently
+ctx := context.Background()
+hashes := []types.Hash{hash1, hash2, hash3, hash4, hash5}
+results := make([]<-chan pow.PowResult, len(hashes))
+
+// Start all PoW operations
+for i, h := range hashes {
+    results[i] = pow.GeneratePowAsync(ctx, h, difficulty)
+}
+
+// Collect results
+for i, resultChan := range results {
+    result := <-resultChan
+    if result.Error != nil {
+        fmt.Printf("Transaction %d failed: %v\n", i, result.Error)
+        continue
+    }
+    fmt.Printf("Transaction %d nonce: %s\n", i, result.Nonce)
+}
+```
+
+### Context-Based Cancellation
+
+```go
+// User-cancellable PoW generation
+ctx, cancel := context.WithCancel(context.Background())
+
+// Start PoW in background
+resultChan := pow.GeneratePowAsync(ctx, hash, difficulty)
+
+// Simulate user clicking "Cancel" button
+go func() {
+    time.Sleep(5 * time.Second)
+    cancel() // This stops the PoW generation
+}()
+
+result := <-resultChan
+if result.Error == pow.ErrCancelled {
+    fmt.Println("User cancelled PoW generation")
+}
 ```
 
 ## Connection Management

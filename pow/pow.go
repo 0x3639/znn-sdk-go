@@ -15,6 +15,14 @@ var (
 	ErrCancelled = errors.New("pow generation cancelled")
 )
 
+// PowResult contains the result of an asynchronous PoW generation
+type PowResult struct {
+	// Nonce is the generated nonce as a hex string (without 0x prefix)
+	Nonce string
+	// Error is set if PoW generation failed or was cancelled
+	Error error
+}
+
 // PowStatus represents the status of PoW generation
 type PowStatus int
 
@@ -157,6 +165,81 @@ func GeneratePowBigIntWithContext(ctx context.Context, dataHash types.Hash, diff
 
 		nonce++
 	}
+}
+
+// GeneratePowAsync generates PoW asynchronously and returns a channel.
+// This provides a Dart-like async pattern while maintaining Go's context cancellation.
+// The returned channel will receive exactly one result and then be closed.
+//
+// This function immediately returns a read-only channel and spawns a goroutine
+// to generate the PoW. The caller can wait for the result by reading from the channel.
+//
+// Usage:
+//
+//	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+//	defer cancel()
+//
+//	resultChan := pow.GeneratePowAsync(ctx, hash, difficulty)
+//	result := <-resultChan
+//	if result.Error != nil {
+//	    // Handle error (timeout, cancellation, etc.)
+//	    return
+//	}
+//	// Use result.Nonce
+//
+// For concurrent operations:
+//
+//	results := make([]<-chan PowResult, 5)
+//	for i := 0; i < 5; i++ {
+//	    results[i] = pow.GeneratePowAsync(ctx, hashes[i], difficulty)
+//	}
+//	for i := 0; i < 5; i++ {
+//	    result := <-results[i]
+//	    // Process result
+//	}
+func GeneratePowAsync(ctx context.Context, dataHash types.Hash, difficulty uint64) <-chan PowResult {
+	resultChan := make(chan PowResult, 1)
+
+	go func() {
+		defer close(resultChan)
+
+		nonce, err := GeneratePowWithContext(ctx, dataHash, difficulty)
+		resultChan <- PowResult{
+			Nonce: nonce,
+			Error: err,
+		}
+	}()
+
+	return resultChan
+}
+
+// GeneratePowBigIntAsync is like GeneratePowAsync but accepts *big.Int difficulty.
+// This is useful when difficulty exceeds uint64 range or comes from contract data.
+//
+// Usage:
+//
+//	difficulty := big.NewInt(100000)
+//	resultChan := pow.GeneratePowBigIntAsync(ctx, hash, difficulty)
+//	result := <-resultChan
+//	if result.Error != nil {
+//	    // Handle error
+//	    return
+//	}
+//	// Use result.Nonce
+func GeneratePowBigIntAsync(ctx context.Context, dataHash types.Hash, difficulty *big.Int) <-chan PowResult {
+	resultChan := make(chan PowResult, 1)
+
+	go func() {
+		defer close(resultChan)
+
+		nonce, err := GeneratePowBigIntWithContext(ctx, dataHash, difficulty)
+		resultChan <- PowResult{
+			Nonce: nonce,
+			Error: err,
+		}
+	}()
+
+	return resultChan
 }
 
 // GetThresholdByDifficulty calculates the threshold value for a given difficulty

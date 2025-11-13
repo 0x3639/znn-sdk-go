@@ -1,8 +1,11 @@
 package pow
 
 import (
+	"context"
+	"fmt"
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/zenon-network/go-zenon/common/types"
 )
@@ -509,5 +512,209 @@ func BenchmarkComputeHash(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		computeHash(testHash, uint64(i))
+	}
+}
+
+// =============================================================================
+// Async PoW Tests
+// =============================================================================
+
+func TestGeneratePowAsync_Success(t *testing.T) {
+	testHash := types.Hash{}
+	copy(testHash[:], []byte("test_async_pow"))
+	difficulty := uint64(1000) // Low difficulty for fast test
+
+	ctx := context.Background()
+	resultChan := GeneratePowAsync(ctx, testHash, difficulty)
+
+	// Wait for result
+	result := <-resultChan
+
+	if result.Error != nil {
+		t.Fatalf("GeneratePowAsync() error = %v, want nil", result.Error)
+	}
+
+	if result.Nonce == "" {
+		t.Error("GeneratePowAsync() returned empty nonce")
+	}
+
+	// Verify the nonce is valid
+	if len(result.Nonce) != 16 {
+		t.Errorf("GeneratePowAsync() nonce length = %d, want 16", len(result.Nonce))
+	}
+}
+
+func TestGeneratePowAsync_ZeroDifficulty(t *testing.T) {
+	testHash := types.Hash{}
+	copy(testHash[:], []byte("zero_difficulty"))
+
+	ctx := context.Background()
+	resultChan := GeneratePowAsync(ctx, testHash, 0)
+
+	result := <-resultChan
+
+	if result.Error != nil {
+		t.Fatalf("GeneratePowAsync() with zero difficulty error = %v, want nil", result.Error)
+	}
+
+	if result.Nonce != "0000000000000000" {
+		t.Errorf("GeneratePowAsync() with zero difficulty = %s, want 0000000000000000", result.Nonce)
+	}
+}
+
+func TestGeneratePowAsync_Cancellation(t *testing.T) {
+	testHash := types.Hash{}
+	copy(testHash[:], []byte("cancel_test"))
+	difficulty := uint64(999999999) // Very high difficulty - will take long
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	resultChan := GeneratePowAsync(ctx, testHash, difficulty)
+
+	// Cancel immediately
+	cancel()
+
+	// Wait for result
+	result := <-resultChan
+
+	if result.Error != ErrCancelled {
+		t.Errorf("GeneratePowAsync() after cancel error = %v, want %v", result.Error, ErrCancelled)
+	}
+
+	if result.Nonce != "" {
+		t.Errorf("GeneratePowAsync() after cancel returned nonce = %s, want empty", result.Nonce)
+	}
+}
+
+func TestGeneratePowAsync_Timeout(t *testing.T) {
+	testHash := types.Hash{}
+	copy(testHash[:], []byte("timeout_test"))
+	difficulty := uint64(999999999) // Very high difficulty
+
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+
+	resultChan := GeneratePowAsync(ctx, testHash, difficulty)
+
+	result := <-resultChan
+
+	// Should timeout
+	if result.Error == nil {
+		t.Error("GeneratePowAsync() with timeout should return error")
+	}
+
+	if result.Error != ErrCancelled {
+		t.Errorf("GeneratePowAsync() timeout error = %v, want %v", result.Error, ErrCancelled)
+	}
+}
+
+func TestGeneratePowAsync_MultipleConcurrent(t *testing.T) {
+	ctx := context.Background()
+	numOps := 5
+	difficulty := uint64(1000) // Low difficulty
+
+	// Start multiple concurrent PoW operations
+	results := make([]<-chan PowResult, numOps)
+	for i := 0; i < numOps; i++ {
+		testHash := types.Hash{}
+		copy(testHash[:], []byte(fmt.Sprintf("concurrent_test_%d", i)))
+		results[i] = GeneratePowAsync(ctx, testHash, difficulty)
+	}
+
+	// Collect all results
+	for i := 0; i < numOps; i++ {
+		result := <-results[i]
+		if result.Error != nil {
+			t.Errorf("Operation %d failed: %v", i, result.Error)
+		}
+		if result.Nonce == "" {
+			t.Errorf("Operation %d returned empty nonce", i)
+		}
+	}
+}
+
+func TestGeneratePowAsync_ChannelClosed(t *testing.T) {
+	testHash := types.Hash{}
+	copy(testHash[:], []byte("channel_close_test"))
+	difficulty := uint64(1000)
+
+	ctx := context.Background()
+	resultChan := GeneratePowAsync(ctx, testHash, difficulty)
+
+	// Read result
+	result := <-resultChan
+
+	if result.Error != nil {
+		t.Fatalf("First read error = %v", result.Error)
+	}
+
+	// Try to read again - should get zero value because channel is closed
+	result2, ok := <-resultChan
+	if ok {
+		t.Error("Channel should be closed after first result")
+	}
+	if result2.Nonce != "" || result2.Error != nil {
+		t.Error("Second read should return zero value")
+	}
+}
+
+func TestGeneratePowBigIntAsync_Success(t *testing.T) {
+	testHash := types.Hash{}
+	copy(testHash[:], []byte("bigint_async_test"))
+	difficulty := big.NewInt(1000)
+
+	ctx := context.Background()
+	resultChan := GeneratePowBigIntAsync(ctx, testHash, difficulty)
+
+	result := <-resultChan
+
+	if result.Error != nil {
+		t.Fatalf("GeneratePowBigIntAsync() error = %v, want nil", result.Error)
+	}
+
+	if result.Nonce == "" {
+		t.Error("GeneratePowBigIntAsync() returned empty nonce")
+	}
+
+	if len(result.Nonce) != 16 {
+		t.Errorf("GeneratePowBigIntAsync() nonce length = %d, want 16", len(result.Nonce))
+	}
+}
+
+func TestGeneratePowBigIntAsync_ZeroDifficulty(t *testing.T) {
+	testHash := types.Hash{}
+	copy(testHash[:], []byte("bigint_zero"))
+	difficulty := big.NewInt(0)
+
+	ctx := context.Background()
+	resultChan := GeneratePowBigIntAsync(ctx, testHash, difficulty)
+
+	result := <-resultChan
+
+	if result.Error != nil {
+		t.Fatalf("GeneratePowBigIntAsync() with zero error = %v", result.Error)
+	}
+
+	if result.Nonce != "0000000000000000" {
+		t.Errorf("GeneratePowBigIntAsync() zero difficulty = %s, want 0000000000000000", result.Nonce)
+	}
+}
+
+func TestGeneratePowBigIntAsync_Cancellation(t *testing.T) {
+	testHash := types.Hash{}
+	copy(testHash[:], []byte("bigint_cancel"))
+	difficulty := big.NewInt(999999999)
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	resultChan := GeneratePowBigIntAsync(ctx, testHash, difficulty)
+
+	// Cancel immediately
+	cancel()
+
+	result := <-resultChan
+
+	if result.Error != ErrCancelled {
+		t.Errorf("GeneratePowBigIntAsync() cancel error = %v, want %v", result.Error, ErrCancelled)
 	}
 }

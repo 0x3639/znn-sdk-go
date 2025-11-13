@@ -1,11 +1,13 @@
 module github.com/0x3639/znn-sdk-go
 
-go 1.20
+go 1.24.0
+
+toolchain go1.24.4
 
 require (
 	github.com/tyler-smith/go-bip39 v1.1.0
 	github.com/zenon-network/go-zenon v0.0.7-alphanet.0.20240326090609-429e853ba038
-	golang.org/x/crypto v0.1.0
+	golang.org/x/crypto v0.44.0
 )
 
 require (
@@ -32,7 +34,7 @@ require (
 	github.com/tklauser/numcpus v0.5.0 // indirect
 	github.com/yusufpapurcu/wmi v1.2.2 // indirect
 	golang.org/x/sync v0.0.0-20220513210516-0976fa681c29 // indirect
-	golang.org/x/sys v0.1.0 // indirect
+	golang.org/x/sys v0.38.0 // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
 	gopkg.in/karalabe/cookiejar.v2 v2.0.0-20150724131613-8dcd6a7f4951 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect

@@ -20,12 +20,11 @@ func NewLedgerApi(client *server.Client) *LedgerApi {
 }
 
 func (la *LedgerApi) PublishRawTransaction(transaction *nom.AccountBlock) error {
-	var ans error
-	// check that proto works
-	if err := la.client.Call(ans, "ledger.publishRawTransaction", transaction); err != nil {
+	var ans interface{}
+	if err := la.client.Call(&ans, "ledger.publishRawTransaction", transaction); err != nil {
 		return err
 	}
-	return ans
+	return nil
 }
 
 // Unconfirmed AccountBlocks
@@ -72,7 +71,7 @@ func (la *LedgerApi) GetAccountBlocksByPage(address types.Address, pageIndex, pa
 
 func (la *LedgerApi) GetAccountInfoByAddress(address types.Address) (*api.AccountInfo, error) {
 	ans := new(api.AccountInfo)
-	if err := la.client.Call(ans, "ledger.getAccountBlocksByPage", address.String()); err != nil {
+	if err := la.client.Call(ans, "ledger.getAccountInfoByAddress", address.String()); err != nil {
 		return nil, err
 	}
 	return ans, nil

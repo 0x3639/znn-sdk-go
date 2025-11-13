@@ -2,6 +2,7 @@ package wallet
 
 import (
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 
 	"github.com/zenon-network/go-zenon/common/types"
@@ -242,111 +243,15 @@ func FromEncryptedFile(ef *EncryptedFile, password string) (*KeyStore, error) {
 	return nil, fmt.Errorf("encrypted file does not contain valid keystore data")
 }
 
-// Helper functions for JSON serialization
+// Helper functions for JSON serialization using standard encoding/json
 func serializeKeyStoreData(data map[string]interface{}) ([]byte, error) {
-	// Simple JSON marshaling
-	result := "{"
-	first := true
-	for k, v := range data {
-		if !first {
-			result += ","
-		}
-		first = false
-		result += fmt.Sprintf(`"%s":"%v"`, k, v)
-	}
-	result += "}"
-	return []byte(result), nil
+	return json.Marshal(data)
 }
 
 func deserializeKeyStoreData(data []byte) (map[string]interface{}, error) {
-	// Simple JSON parsing (for our simple key-value structure)
 	result := make(map[string]interface{})
-
-	// Parse manually (simplified for our use case)
-	str := string(data)
-	if len(str) < 2 || str[0] != '{' || str[len(str)-1] != '}' {
-		return nil, fmt.Errorf("invalid JSON format")
+	if err := json.Unmarshal(data, &result); err != nil {
+		return nil, fmt.Errorf("failed to parse keystore data: %w", err)
 	}
-
-	// Remove braces
-	str = str[1 : len(str)-1]
-
-	// Parse key-value pairs
-	// This is a simplified parser - in production, use encoding/json
-	// For now, assume simple "key":"value" format
-
-	// Split by comma (simplified - doesn't handle nested objects)
-	parts := splitByComma(str)
-	for _, part := range parts {
-		// Split by colon
-		colonIdx := -1
-		inQuote := false
-		for i, c := range part {
-			if c == '"' {
-				inQuote = !inQuote
-			} else if c == ':' && !inQuote {
-				colonIdx = i
-				break
-			}
-		}
-
-		if colonIdx == -1 {
-			continue
-		}
-
-		key := trimQuotes(part[:colonIdx])
-		value := trimQuotes(part[colonIdx+1:])
-		result[key] = value
-	}
-
 	return result, nil
-}
-
-func splitByComma(s string) []string {
-	var result []string
-	var current string
-	inQuote := false
-
-	for _, c := range s {
-		if c == '"' {
-			inQuote = !inQuote
-			current += string(c)
-		} else if c == ',' && !inQuote {
-			if len(current) > 0 {
-				result = append(result, current)
-				current = ""
-			}
-		} else {
-			current += string(c)
-		}
-	}
-
-	if len(current) > 0 {
-		result = append(result, current)
-	}
-
-	return result
-}
-
-func trimQuotes(s string) string {
-	s = trimSpace(s)
-	if len(s) >= 2 && s[0] == '"' && s[len(s)-1] == '"' {
-		return s[1 : len(s)-1]
-	}
-	return s
-}
-
-func trimSpace(s string) string {
-	start := 0
-	end := len(s)
-
-	for start < end && (s[start] == ' ' || s[start] == '\t' || s[start] == '\n' || s[start] == '\r') {
-		start++
-	}
-
-	for end > start && (s[end-1] == ' ' || s[end-1] == '\t' || s[end-1] == '\n' || s[end-1] == '\r') {
-		end--
-	}
-
-	return s[start:end]
 }

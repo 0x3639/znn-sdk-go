@@ -579,25 +579,6 @@ func TestDeserializeKeyStoreData(t *testing.T) {
 	}
 }
 
-func TestTrimQuotes(t *testing.T) {
-	testCases := []struct {
-		input    string
-		expected string
-	}{
-		{`"hello"`, "hello"},
-		{`  "hello"  `, "hello"},
-		{`hello`, "hello"},
-		{`""`, ""},
-	}
-
-	for _, tc := range testCases {
-		result := trimQuotes(tc.input)
-		if result != tc.expected {
-			t.Errorf("trimQuotes(%q) = %q, want %q", tc.input, result, tc.expected)
-		}
-	}
-}
-
 // =============================================================================
 // Performance Benchmarks
 // =============================================================================

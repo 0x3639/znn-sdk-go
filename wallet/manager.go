@@ -2,7 +2,6 @@ package wallet
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -68,7 +67,7 @@ func (m *KeyStoreManager) SaveKeyStore(store *KeyStore, password, name string) e
 	filePath := filepath.Join(m.WalletPath, name)
 
 	// Write to file
-	if err := ioutil.WriteFile(filePath, jsonData, 0600); err != nil {
+	if err := os.WriteFile(filePath, jsonData, 0600); err != nil {
 		return fmt.Errorf("failed to write keystore file: %w", err)
 	}
 
@@ -89,7 +88,7 @@ func (m *KeyStoreManager) ReadKeyStore(password string, keyStoreFile string) (*K
 	filePath := filepath.Join(m.WalletPath, keyStoreFile)
 
 	// Read file
-	jsonData, err := ioutil.ReadFile(filePath)
+	jsonData, err := os.ReadFile(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read keystore file: %w", err)
 	}
@@ -141,16 +140,16 @@ func (m *KeyStoreManager) FindKeyStore(name string) (string, error) {
 // ListAllKeyStores returns all keystore files in the directory
 func (m *KeyStoreManager) ListAllKeyStores() ([]string, error) {
 	// Read directory
-	files, err := ioutil.ReadDir(m.WalletPath)
+	entries, err := os.ReadDir(m.WalletPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read wallet directory: %w", err)
 	}
 
 	// Filter for regular files (no directories)
 	var keystores []string
-	for _, file := range files {
-		if file.Mode().IsRegular() && !strings.HasPrefix(file.Name(), ".") {
-			keystores = append(keystores, file.Name())
+	for _, entry := range entries {
+		if !entry.IsDir() && !strings.HasPrefix(entry.Name(), ".") {
+			keystores = append(keystores, entry.Name())
 		}
 	}
 
@@ -207,7 +206,7 @@ func (m *KeyStoreManager) GetKeystoreInfo(keyStoreFile string) (map[string]inter
 	filePath := filepath.Join(m.WalletPath, keyStoreFile)
 
 	// Read file
-	jsonData, err := ioutil.ReadFile(filePath)
+	jsonData, err := os.ReadFile(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read keystore file: %w", err)
 	}

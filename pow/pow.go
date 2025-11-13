@@ -1,11 +1,18 @@
 package pow
 
 import (
+	"context"
 	"encoding/binary"
+	"errors"
 	"math/big"
 
 	"github.com/zenon-network/go-zenon/common/types"
 	"golang.org/x/crypto/sha3"
+)
+
+var (
+	// ErrCancelled is returned when PoW generation is cancelled via context
+	ErrCancelled = errors.New("pow generation cancelled")
 )
 
 // PowStatus represents the status of PoW generation
@@ -85,6 +92,71 @@ func GeneratePowBigInt(dataHash types.Hash, difficulty *big.Int) string {
 func GeneratePowBytes(dataHash types.Hash, difficulty uint64) []byte {
 	hexStr := GeneratePoW(dataHash, difficulty)
 	return hexToBytes(hexStr)
+}
+
+// GeneratePowWithContext generates PoW with context support for cancellation
+// Returns the nonce as a hex string or ErrCancelled if context is cancelled
+// Checks context cancellation every 10000 iterations for efficiency
+func GeneratePowWithContext(ctx context.Context, dataHash types.Hash, difficulty uint64) (string, error) {
+	if difficulty == 0 {
+		return "0000000000000000", nil
+	}
+
+	difficultyBig := new(big.Int).SetUint64(difficulty)
+	threshold := GetThresholdByDifficulty(difficultyBig)
+	nonce := uint64(0)
+	checkInterval := uint64(10000) // Check context every 10k iterations
+
+	for {
+		// Check context cancellation periodically
+		if nonce%checkInterval == 0 {
+			select {
+			case <-ctx.Done():
+				return "", ErrCancelled
+			default:
+			}
+		}
+
+		hash := computeHash(dataHash, nonce)
+		hashValue := hashToUint64(hash)
+
+		if hashValue <= threshold {
+			return uint64ToHex(nonce), nil
+		}
+
+		nonce++
+	}
+}
+
+// GeneratePowBigIntWithContext is like GeneratePowWithContext but accepts difficulty as *big.Int
+func GeneratePowBigIntWithContext(ctx context.Context, dataHash types.Hash, difficulty *big.Int) (string, error) {
+	if difficulty.Cmp(big.NewInt(0)) == 0 {
+		return "0000000000000000", nil
+	}
+
+	threshold := GetThresholdByDifficulty(difficulty)
+	nonce := uint64(0)
+	checkInterval := uint64(10000) // Check context every 10k iterations
+
+	for {
+		// Check context cancellation periodically
+		if nonce%checkInterval == 0 {
+			select {
+			case <-ctx.Done():
+				return "", ErrCancelled
+			default:
+			}
+		}
+
+		hash := computeHash(dataHash, nonce)
+		hashValue := hashToUint64(hash)
+
+		if hashValue <= threshold {
+			return uint64ToHex(nonce), nil
+		}
+
+		nonce++
+	}
 }
 
 // GetThresholdByDifficulty calculates the threshold value for a given difficulty

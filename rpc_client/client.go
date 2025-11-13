@@ -35,6 +35,7 @@ type RpcClient struct {
 	stopReconnectChan  chan struct{}
 	reconnectCtx       context.Context
 	reconnectCtxCancel context.CancelFunc
+	reconnectLock      sync.Mutex // Prevents concurrent reconnection attempts
 
 	// Callbacks
 	onConnectionEstablished []ConnectionEstablishedCallback
@@ -46,6 +47,9 @@ type RpcClient struct {
 	monitorCtx     context.Context
 	monitorCancel  context.CancelFunc
 	healthCheckCmd string
+
+	// API lock protects API field reassignment during reconnection
+	apiLock sync.RWMutex
 
 	// Embedded contract APIs
 	AcceleratorApi *embedded.AcceleratorApi
@@ -157,8 +161,11 @@ func (c *RpcClient) connect() error {
 	return nil
 }
 
-// initializeAPIs creates all API instances
+// initializeAPIs creates all API instances with thread-safe locking
 func (c *RpcClient) initializeAPIs() {
+	c.apiLock.Lock()
+	defer c.apiLock.Unlock()
+
 	c.AcceleratorApi = embedded.NewAcceleratorApi(c.client)
 	c.BridgeApi = embedded.NewBridgeApi(c.client)
 	c.PillarApi = embedded.NewPillarApi(c.client)
@@ -208,7 +215,7 @@ func (c *RpcClient) AddOnConnectionLostCallback(callback ConnectionLostCallback)
 	c.onConnectionLost = append(c.onConnectionLost, callback)
 }
 
-// triggerConnectionEstablished calls all connection established callbacks
+// triggerConnectionEstablished calls all connection established callbacks with panic recovery
 func (c *RpcClient) triggerConnectionEstablished() {
 	c.callbackLock.RLock()
 	callbacks := make([]ConnectionEstablishedCallback, len(c.onConnectionEstablished))
@@ -216,11 +223,19 @@ func (c *RpcClient) triggerConnectionEstablished() {
 	c.callbackLock.RUnlock()
 
 	for _, callback := range callbacks {
-		go callback()
+		go func(cb ConnectionEstablishedCallback) {
+			defer func() {
+				if r := recover(); r != nil {
+					// Log or handle panic in callback
+					fmt.Printf("Panic in connection established callback: %v\n", r)
+				}
+			}()
+			cb()
+		}(callback)
 	}
 }
 
-// triggerConnectionLost calls all connection lost callbacks
+// triggerConnectionLost calls all connection lost callbacks with panic recovery
 func (c *RpcClient) triggerConnectionLost(err error) {
 	c.callbackLock.RLock()
 	callbacks := make([]ConnectionLostCallback, len(c.onConnectionLost))
@@ -228,7 +243,15 @@ func (c *RpcClient) triggerConnectionLost(err error) {
 	c.callbackLock.RUnlock()
 
 	for _, callback := range callbacks {
-		go callback(err)
+		go func(cb ConnectionLostCallback, e error) {
+			defer func() {
+				if r := recover(); r != nil {
+					// Log or handle panic in callback
+					fmt.Printf("Panic in connection lost callback: %v\n", r)
+				}
+			}()
+			cb(e)
+		}(callback, err)
 	}
 }
 
@@ -291,7 +314,14 @@ func (c *RpcClient) handleConnectionLoss(err error) {
 }
 
 // startReconnect attempts to reconnect with exponential backoff
+// Uses reconnectLock to prevent concurrent reconnection attempts
 func (c *RpcClient) startReconnect() {
+	// Try to acquire lock; if already reconnecting, return
+	if !c.reconnectLock.TryLock() {
+		return
+	}
+	defer c.reconnectLock.Unlock()
+
 	c.reconnectCtx, c.reconnectCtxCancel = context.WithCancel(context.Background())
 	defer c.reconnectCtxCancel()
 

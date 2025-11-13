@@ -1,7 +1,6 @@
 package wallet
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,7 +12,7 @@ import (
 // =============================================================================
 
 func TestNewKeyStoreManager_CreatesDirectory(t *testing.T) {
-	tmpDir, err := ioutil.TempDir("", "keystore-test-*")
+	tmpDir, err := os.MkdirTemp("", "keystore-test-*")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
@@ -37,7 +36,7 @@ func TestNewKeyStoreManager_CreatesDirectory(t *testing.T) {
 }
 
 func TestNewKeyStoreManager_ExistingDirectory(t *testing.T) {
-	tmpDir, err := ioutil.TempDir("", "keystore-test-*")
+	tmpDir, err := os.MkdirTemp("", "keystore-test-*")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
@@ -64,7 +63,7 @@ func TestNewKeyStoreManager_ExistingDirectory(t *testing.T) {
 // =============================================================================
 
 func TestSaveKeyStore_Success(t *testing.T) {
-	tmpDir, err := ioutil.TempDir("", "keystore-test-*")
+	tmpDir, err := os.MkdirTemp("", "keystore-test-*")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
@@ -95,7 +94,7 @@ func TestSaveKeyStore_Success(t *testing.T) {
 }
 
 func TestSaveKeyStore_NilKeyStore(t *testing.T) {
-	tmpDir, err := ioutil.TempDir("", "keystore-test-*")
+	tmpDir, err := os.MkdirTemp("", "keystore-test-*")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
@@ -113,7 +112,7 @@ func TestSaveKeyStore_NilKeyStore(t *testing.T) {
 }
 
 func TestSaveKeyStore_EmptyPassword(t *testing.T) {
-	tmpDir, err := ioutil.TempDir("", "keystore-test-*")
+	tmpDir, err := os.MkdirTemp("", "keystore-test-*")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
@@ -132,7 +131,7 @@ func TestSaveKeyStore_EmptyPassword(t *testing.T) {
 }
 
 func TestSaveKeyStore_EmptyName(t *testing.T) {
-	tmpDir, err := ioutil.TempDir("", "keystore-test-*")
+	tmpDir, err := os.MkdirTemp("", "keystore-test-*")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
@@ -155,7 +154,7 @@ func TestSaveKeyStore_EmptyName(t *testing.T) {
 // =============================================================================
 
 func TestReadKeyStore_Success(t *testing.T) {
-	tmpDir, err := ioutil.TempDir("", "keystore-test-*")
+	tmpDir, err := os.MkdirTemp("", "keystore-test-*")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
@@ -190,7 +189,7 @@ func TestReadKeyStore_Success(t *testing.T) {
 }
 
 func TestReadKeyStore_WrongPassword(t *testing.T) {
-	tmpDir, err := ioutil.TempDir("", "keystore-test-*")
+	tmpDir, err := os.MkdirTemp("", "keystore-test-*")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
@@ -215,7 +214,7 @@ func TestReadKeyStore_WrongPassword(t *testing.T) {
 }
 
 func TestReadKeyStore_FileNotFound(t *testing.T) {
-	tmpDir, err := ioutil.TempDir("", "keystore-test-*")
+	tmpDir, err := os.MkdirTemp("", "keystore-test-*")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
@@ -233,7 +232,7 @@ func TestReadKeyStore_FileNotFound(t *testing.T) {
 }
 
 func TestReadKeyStore_EmptyPassword(t *testing.T) {
-	tmpDir, err := ioutil.TempDir("", "keystore-test-*")
+	tmpDir, err := os.MkdirTemp("", "keystore-test-*")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
@@ -255,7 +254,7 @@ func TestReadKeyStore_EmptyPassword(t *testing.T) {
 // =============================================================================
 
 func TestFindKeyStore_ExactMatch(t *testing.T) {
-	tmpDir, err := ioutil.TempDir("", "keystore-test-*")
+	tmpDir, err := os.MkdirTemp("", "keystore-test-*")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
@@ -284,7 +283,7 @@ func TestFindKeyStore_ExactMatch(t *testing.T) {
 }
 
 func TestFindKeyStore_CaseInsensitive(t *testing.T) {
-	tmpDir, err := ioutil.TempDir("", "keystore-test-*")
+	tmpDir, err := os.MkdirTemp("", "keystore-test-*")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
@@ -313,7 +312,7 @@ func TestFindKeyStore_CaseInsensitive(t *testing.T) {
 }
 
 func TestFindKeyStore_NotFound(t *testing.T) {
-	tmpDir, err := ioutil.TempDir("", "keystore-test-*")
+	tmpDir, err := os.MkdirTemp("", "keystore-test-*")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
@@ -331,7 +330,7 @@ func TestFindKeyStore_NotFound(t *testing.T) {
 }
 
 func TestFindKeyStore_EmptyName(t *testing.T) {
-	tmpDir, err := ioutil.TempDir("", "keystore-test-*")
+	tmpDir, err := os.MkdirTemp("", "keystore-test-*")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
@@ -353,7 +352,7 @@ func TestFindKeyStore_EmptyName(t *testing.T) {
 // =============================================================================
 
 func TestListAllKeyStores_Empty(t *testing.T) {
-	tmpDir, err := ioutil.TempDir("", "keystore-test-*")
+	tmpDir, err := os.MkdirTemp("", "keystore-test-*")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
@@ -375,7 +374,7 @@ func TestListAllKeyStores_Empty(t *testing.T) {
 }
 
 func TestListAllKeyStores_Multiple(t *testing.T) {
-	tmpDir, err := ioutil.TempDir("", "keystore-test-*")
+	tmpDir, err := os.MkdirTemp("", "keystore-test-*")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
@@ -420,7 +419,7 @@ func TestListAllKeyStores_Multiple(t *testing.T) {
 }
 
 func TestListAllKeyStores_IgnoresHiddenFiles(t *testing.T) {
-	tmpDir, err := ioutil.TempDir("", "keystore-test-*")
+	tmpDir, err := os.MkdirTemp("", "keystore-test-*")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
@@ -439,7 +438,7 @@ func TestListAllKeyStores_IgnoresHiddenFiles(t *testing.T) {
 
 	// Create hidden file
 	hiddenPath := filepath.Join(tmpDir, ".hidden")
-	if err := ioutil.WriteFile(hiddenPath, []byte("test"), 0600); err != nil {
+	if err := os.WriteFile(hiddenPath, []byte("test"), 0600); err != nil {
 		t.Fatalf("Failed to create hidden file: %v", err)
 	}
 
@@ -463,7 +462,7 @@ func TestListAllKeyStores_IgnoresHiddenFiles(t *testing.T) {
 // =============================================================================
 
 func TestCreateNew_Success(t *testing.T) {
-	tmpDir, err := ioutil.TempDir("", "keystore-test-*")
+	tmpDir, err := os.MkdirTemp("", "keystore-test-*")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
@@ -495,7 +494,7 @@ func TestCreateNew_Success(t *testing.T) {
 }
 
 func TestCreateNew_EmptyName(t *testing.T) {
-	tmpDir, err := ioutil.TempDir("", "keystore-test-*")
+	tmpDir, err := os.MkdirTemp("", "keystore-test-*")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
@@ -517,7 +516,7 @@ func TestCreateNew_EmptyName(t *testing.T) {
 // =============================================================================
 
 func TestCreateFromMnemonic_Success(t *testing.T) {
-	tmpDir, err := ioutil.TempDir("", "keystore-test-*")
+	tmpDir, err := os.MkdirTemp("", "keystore-test-*")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
@@ -546,7 +545,7 @@ func TestCreateFromMnemonic_Success(t *testing.T) {
 }
 
 func TestCreateFromMnemonic_InvalidMnemonic(t *testing.T) {
-	tmpDir, err := ioutil.TempDir("", "keystore-test-*")
+	tmpDir, err := os.MkdirTemp("", "keystore-test-*")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
@@ -564,7 +563,7 @@ func TestCreateFromMnemonic_InvalidMnemonic(t *testing.T) {
 }
 
 func TestCreateFromMnemonic_EmptyName(t *testing.T) {
-	tmpDir, err := ioutil.TempDir("", "keystore-test-*")
+	tmpDir, err := os.MkdirTemp("", "keystore-test-*")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
@@ -587,7 +586,7 @@ func TestCreateFromMnemonic_EmptyName(t *testing.T) {
 // =============================================================================
 
 func TestGetKeystoreInfo_Success(t *testing.T) {
-	tmpDir, err := ioutil.TempDir("", "keystore-test-*")
+	tmpDir, err := os.MkdirTemp("", "keystore-test-*")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
@@ -621,7 +620,7 @@ func TestGetKeystoreInfo_Success(t *testing.T) {
 }
 
 func TestGetKeystoreInfo_FileNotFound(t *testing.T) {
-	tmpDir, err := ioutil.TempDir("", "keystore-test-*")
+	tmpDir, err := os.MkdirTemp("", "keystore-test-*")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
@@ -639,7 +638,7 @@ func TestGetKeystoreInfo_FileNotFound(t *testing.T) {
 }
 
 func TestGetKeystoreInfo_EmptyName(t *testing.T) {
-	tmpDir, err := ioutil.TempDir("", "keystore-test-*")
+	tmpDir, err := os.MkdirTemp("", "keystore-test-*")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
@@ -661,7 +660,7 @@ func TestGetKeystoreInfo_EmptyName(t *testing.T) {
 // =============================================================================
 
 func TestKeyStoreManager_FullWorkflow(t *testing.T) {
-	tmpDir, err := ioutil.TempDir("", "keystore-test-*")
+	tmpDir, err := os.MkdirTemp("", "keystore-test-*")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}

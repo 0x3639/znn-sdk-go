@@ -381,77 +381,89 @@
 
 ### 1.4 Embedded Constants (`embedded/constants.go`)
 
-- [ ] `GenesisTimestamp` constant = 1637755200
+- [x] Base constants (CoinDecimals, OneZnn, OneQsr)
+- [x] `GenesisTimestamp` constant = 1637755200
+- [x] Unit tests for all constants
 
 #### Plasma Constants
-- [ ] `FuseMinQsrAmount` constant
-- [ ] `MinPlasmaAmount` constant
+- [x] `FuseMinQsrAmount` constant (10 QSR)
+- [x] `MinPlasmaAmount` constant (21000)
+- [x] Unit tests
 
 #### Pillar Constants
-- [ ] `MinDelegationAmount` constant
-- [ ] `PillarRegisterZnnAmount` constant
-- [ ] `PillarRegisterQsrAmount` constant
-- [ ] `PillarNameMaxLength` constant
-- [ ] `PillarNameRegExp` constant
+- [x] `MinDelegationAmount` constant (1 ZNN)
+- [x] `PillarRegisterZnnAmount` constant (15000 ZNN)
+- [x] `PillarRegisterQsrAmount` constant (150000 QSR)
+- [x] `PillarNameMaxLength` constant (40)
+- [x] `PillarNameRegExp` constant
+- [x] Unit tests with valid/invalid name patterns
 
 #### Sentinel Constants
-- [ ] `SentinelRegisterZnnAmount` constant
-- [ ] `SentinelRegisterQsrAmount` constant
+- [x] `SentinelRegisterZnnAmount` constant (5000 ZNN)
+- [x] `SentinelRegisterQsrAmount` constant (50000 QSR)
+- [x] Unit tests
 
 #### Staking Constants
-- [ ] `StakeMinZnnAmount` constant
-- [ ] `StakeTimeUnitSec` constant
-- [ ] `StakeTimeMinSec` constant
-- [ ] `StakeTimeMaxSec` constant
-- [ ] `StakeUnitDurationName` constant = "month"
+- [x] `StakeMinZnnAmount` constant (1 ZNN)
+- [x] `StakeTimeUnitSec` constant (30 days)
+- [x] `StakeTimeMinSec` constant (1 month)
+- [x] `StakeTimeMaxSec` constant (12 months)
+- [x] `StakeUnitDurationName` constant = "month"
+- [x] Unit tests
 
 #### Token Constants
-- [ ] `TokenZtsIssueFeeInZnn` constant
-- [ ] `MinTokenTotalMaxSupply` constant
-- [ ] `BigP255` constant
-- [ ] `BigP255m1` constant
-- [ ] `TokenNameMaxLength` constant
-- [ ] `TokenSymbolMaxLength` constant
-- [ ] `TokenSymbolExceptions` slice
-- [ ] `TokenNameRegExp` constant
-- [ ] `TokenSymbolRegExp` constant
-- [ ] `TokenDomainRegExp` constant
+- [x] `TokenZtsIssueFeeInZnn` constant (1 ZNN)
+- [x] `MinTokenTotalMaxSupply` constant (1)
+- [x] `BigP255` constant (2^255)
+- [x] `BigP255m1` constant (2^255 - 1)
+- [x] `TokenNameMaxLength` constant (40)
+- [x] `TokenSymbolMaxLength` constant (10)
+- [x] `TokenSymbolExceptions` slice (ZNN, QSR)
+- [x] `TokenNameRegExp` constant
+- [x] `TokenSymbolRegExp` constant
+- [x] `TokenDomainRegExp` constant
+- [x] Unit tests with valid/invalid patterns
 
 #### Accelerator Constants
-- [ ] `ProjectCreationFeeInZnn` constant
-- [ ] `ZnnProjectMaximumFunds` constant
-- [ ] `QsrProjectMaximumFunds` constant
-- [ ] `ZnnProjectMinimumFunds` constant
-- [ ] `QsrProjectMinimumFunds` constant
-- [ ] `ProjectDescriptionMaxLength` constant
-- [ ] `ProjectNameMaxLength` constant
-- [ ] `ProjectVotingStatus` constant
-- [ ] `ProjectActiveStatus` constant
-- [ ] `ProjectPaidStatus` constant
-- [ ] `ProjectClosedStatus` constant
-- [ ] `ProjectUrlRegExp` constant
+- [x] `ProjectCreationFeeInZnn` constant (1 ZNN)
+- [x] `ZnnProjectMaximumFunds` constant (5000 ZNN)
+- [x] `QsrProjectMaximumFunds` constant (50000 QSR)
+- [x] `ZnnProjectMinimumFunds` constant (10 ZNN)
+- [x] `QsrProjectMinimumFunds` constant (100 QSR)
+- [x] `ProjectDescriptionMaxLength` constant (240)
+- [x] `ProjectNameMaxLength` constant (30)
+- [x] `ProjectVotingStatus` constant (0)
+- [x] `ProjectActiveStatus` constant (1)
+- [x] `ProjectPaidStatus` constant (2)
+- [x] `ProjectClosedStatus` constant (3)
+- [x] `ProjectUrlRegExp` constant
+- [x] Unit tests
 
 #### Swap Constants
-- [ ] `SwapAssetDecayTimestampStart` constant
-- [ ] `SwapAssetDecayEpochsOffset` constant
-- [ ] `SwapAssetDecayTickEpochs` constant
-- [ ] `SwapAssetDecayTickValuePercentage` constant
+- [x] `SwapAssetDecayTimestampStart` constant (1645531200)
+- [x] `SwapAssetDecayEpochsOffset` constant (90)
+- [x] `SwapAssetDecayTickEpochs` constant (30)
+- [x] `SwapAssetDecayTickValuePercentage` constant (10)
+- [x] Unit tests
 
 #### Spork Constants
-- [ ] `SporkNameMinLength` constant
-- [ ] `SporkNameMaxLength` constant
-- [ ] `SporkDescriptionMaxLength` constant
+- [x] `SporkNameMinLength` constant (5)
+- [x] `SporkNameMaxLength` constant (40)
+- [x] `SporkDescriptionMaxLength` constant (400)
+- [x] Unit tests
 
 #### HTLC Constants
-- [ ] `HtlcPreimageMinLength` constant
-- [ ] `HtlcPreimageMaxLength` constant
-- [ ] `HtlcPreimageDefaultLength` constant
-- [ ] `HtlcHashTypeSha3` constant = 0
-- [ ] `HtlcHashTypeSha256` constant = 1
+- [x] `HtlcPreimageMinLength` constant (1)
+- [x] `HtlcPreimageMaxLength` constant (255)
+- [x] `HtlcPreimageDefaultLength` constant (32)
+- [x] `HtlcHashTypeSha3` constant = 0
+- [x] `HtlcHashTypeSha256` constant = 1
+- [x] Unit tests
 
 #### Bridge Constants
-- [ ] `BridgeMinGuardians` constant = 5
-- [ ] `BridgeMaximumFee` constant = 10000
+- [x] `BridgeMinGuardians` constant = 5
+- [x] `BridgeMaximumFee` constant = 10000
+- [x] Unit tests
 
 ### 1.5 Embedded Validations (`embedded/validations.go`)
 

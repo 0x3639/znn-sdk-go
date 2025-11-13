@@ -3,7 +3,7 @@ package wallet
 import (
 	"crypto/ed25519"
 
-	"github.com/MoonBaZZe/znn-sdk-go/crypto"
+	"github.com/0x3639/znn-sdk-go/crypto"
 	"github.com/zenon-network/go-zenon/common/types"
 )
 

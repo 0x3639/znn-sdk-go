@@ -8,7 +8,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/MoonBaZZe/znn-sdk-go/crypto"
+	"github.com/0x3639/znn-sdk-go/crypto"
 )
 
 // EncryptedFile represents an encrypted wallet file

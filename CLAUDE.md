@@ -105,7 +105,7 @@ go run examples/scripts/generate_genesis.go
 
 **Connect to node (read-only):**
 ```go
-import "github.com/MoonBaZZe/znn-sdk-go/rpc_client"
+import "github.com/0x3639/znn-sdk-go/rpc_client"
 
 client, err := rpc_client.NewRpcClient("ws://127.0.0.1:35998")
 if err != nil {
@@ -120,8 +120,8 @@ momentum, err := client.LedgerApi.GetFrontierMomentum()
 **With wallet (for transactions):**
 ```go
 import (
-    "github.com/MoonBaZZe/znn-sdk-go/rpc_client"
-    "github.com/MoonBaZZe/znn-sdk-go/wallet"
+    "github.com/0x3639/znn-sdk-go/rpc_client"
+    "github.com/0x3639/znn-sdk-go/wallet"
 )
 
 // Initialize client
@@ -202,7 +202,7 @@ blocks, err := client.LedgerApi.GetUnreceivedBlocksByAddress(address, 0, 25)
 ### Wallet Management
 
 ```go
-import "github.com/MoonBaZZe/znn-sdk-go/wallet"
+import "github.com/0x3639/znn-sdk-go/wallet"
 
 // Create wallet manager
 manager, err := wallet.NewKeyStoreManager("./wallets")

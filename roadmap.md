@@ -1346,7 +1346,7 @@ All 8 phases have been successfully implemented and tested. The Zenon Go SDK now
 
 **Implementation Notes**:
 - All 11 unit tests pass
-- Uses SDK's embedded ABI definitions (github.com/MoonBaZZe/znn-sdk-go/embedded)
+- Uses SDK's embedded ABI definitions (github.com/0x3639/znn-sdk-go/embedded)
 - Returns proper AccountBlock templates for all contract methods
 - Compatible with go-zenon types
 

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/MoonBaZZe/znn-sdk-go/rpc_client"
+	"github.com/0x3639/znn-sdk-go/rpc_client"
 )
 
 func main() {
@@ -40,7 +40,7 @@ func main() {
 
 	fmt.Printf("Current height: %d\n", momentum.Height)
 	fmt.Printf("Momentum hash: %s\n", momentum.Hash.String())
-	fmt.Printf("Timestamp: %d\n\n", momentum.Timestamp)
+	fmt.Printf("Timestamp: %v\n\n", momentum.Timestamp)
 
 	// Query network info
 	fmt.Println("Querying network info...")

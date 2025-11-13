@@ -1,9 +1,9 @@
 # Zenon Go SDK
 
-[![Go Report Card](https://goreportcard.com/badge/github.com/MoonBaZZe/znn-sdk-go)](https://goreportcard.com/report/github.com/MoonBaZZe/znn-sdk-go)
-[![GoDoc](https://godoc.org/github.com/MoonBaZZe/znn-sdk-go?status.svg)](https://godoc.org/github.com/MoonBaZZe/znn-sdk-go)
+[![Go Report Card](https://goreportcard.com/badge/github.com/0x3639/znn-sdk-go)](https://goreportcard.com/report/github.com/0x3639/znn-sdk-go)
+[![GoDoc](https://godoc.org/github.com/0x3639/znn-sdk-go?status.svg)](https://godoc.org/github.com/0x3639/znn-sdk-go)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](#contributing)
-[![GitHub license](https://img.shields.io/github/license/MoonBaZZe/znn-sdk-go)](LICENSE)
+[![GitHub license](https://img.shields.io/github/license/0x3639/znn-sdk-go)](LICENSE)
 
 A comprehensive Go SDK for interacting with the Zenon Network. Features a complete implementation of ABI encoding/decoding, embedded contract APIs, wallet management, PoW generation, and an enhanced WebSocket client with auto-reconnect.
 
@@ -22,7 +22,7 @@ Follows the [official Dart SDK](https://github.com/zenon-network/znn_sdk_dart) s
 ## Installation
 
 ```bash
-go get github.com/MoonBaZZe/znn-sdk-go
+go get github.com/0x3639/znn-sdk-go
 ```
 
 **Requirements:**
@@ -38,7 +38,7 @@ package main
 
 import (
     "fmt"
-    "github.com/MoonBaZZe/znn-sdk-go/rpc_client"
+    "github.com/0x3639/znn-sdk-go/rpc_client"
 )
 
 func main() {
@@ -89,7 +89,7 @@ client.AddOnConnectionLostCallback(func(err error) {
 ### Create New Wallet
 
 ```go
-import "github.com/MoonBaZZe/znn-sdk-go/wallet"
+import "github.com/0x3639/znn-sdk-go/wallet"
 
 // Create new keystore with random mnemonic
 manager, err := wallet.NewKeyStoreManager("./wallets")
@@ -288,8 +288,8 @@ template := client.TokenApi.IssueToken(...)
 The SDK includes a complete ABI implementation:
 
 ```go
-import "github.com/MoonBaZZe/znn-sdk-go/abi"
-import "github.com/MoonBaZZe/znn-sdk-go/embedded"
+import "github.com/0x3639/znn-sdk-go/abi"
+import "github.com/0x3639/znn-sdk-go/embedded"
 
 // Encode function call
 data, err := embedded.Token.EncodeFunction("IssueToken", []interface{}{
@@ -313,7 +313,7 @@ functionName, args, err := embedded.Token.DecodeFunction(data)
 Generate proof-of-work for transactions:
 
 ```go
-import "github.com/MoonBaZZe/znn-sdk-go/pow"
+import "github.com/0x3639/znn-sdk-go/pow"
 
 // Generate PoW
 hash := types.HexToHashPanic("...")
@@ -459,7 +459,7 @@ go vet ./...
 
 - **[CLAUDE.md](CLAUDE.md)** - Detailed SDK architecture and development guide
 - **[roadmap.md](roadmap.md)** - Implementation roadmap and progress
-- **[GoDoc](https://godoc.org/github.com/MoonBaZZe/znn-sdk-go)** - API reference
+- **[GoDoc](https://godoc.org/github.com/0x3639/znn-sdk-go)** - API reference
 
 ## Contributing
 
@@ -483,5 +483,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Support
 
-- **Issues**: [GitHub Issues](https://github.com/MoonBaZZe/znn-sdk-go/issues)
+- **Issues**: [GitHub Issues](https://github.com/0x3639/znn-sdk-go/issues)
 - **Community**: [Zenon Network](https://zenon.network)

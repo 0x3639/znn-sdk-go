@@ -3,7 +3,7 @@ package embedded
 import (
 	"math/big"
 
-	sdkembedded "github.com/MoonBaZZe/znn-sdk-go/embedded"
+	sdkembedded "github.com/0x3639/znn-sdk-go/embedded"
 	"github.com/zenon-network/go-zenon/chain/nom"
 	"github.com/zenon-network/go-zenon/common"
 	"github.com/zenon-network/go-zenon/common/types"

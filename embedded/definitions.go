@@ -1,6 +1,6 @@
 package embedded
 
-import "github.com/MoonBaZZe/znn-sdk-go/abi"
+import "github.com/0x3639/znn-sdk-go/abi"
 
 // =============================================================================
 // Contract ABI Definitions (JSON strings)

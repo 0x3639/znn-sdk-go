@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/MoonBaZZe/znn-sdk-go/api"
-	"github.com/MoonBaZZe/znn-sdk-go/api/embedded"
+	"github.com/0x3639/znn-sdk-go/api"
+	"github.com/0x3639/znn-sdk-go/api/embedded"
 
 	"github.com/zenon-network/go-zenon/rpc/server"
 )

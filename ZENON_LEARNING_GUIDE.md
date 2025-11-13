@@ -194,7 +194,7 @@ go version  # Should show 1.18 or higher
 3. **Development Environment**
 ```bash
 # Clone the SDK
-git clone https://github.com/MoonBaZZe/znn-sdk-go
+git clone https://github.com/0x3639/znn-sdk-go
 cd znn-sdk-go
 
 # Install dependencies
@@ -208,21 +208,16 @@ package main
 
 import (
     "fmt"
-    "github.com/MoonBaZZe/znn-sdk-go/zenon"
+    "github.com/0x3639/znn-sdk-go/rpc_client"
 )
 
 func main() {
-    // Create client without wallet (read-only)
-    z, err := zenon.NewZenon("")
+    // Connect to node (read-only)
+    client, err := rpc_client.NewRpcClient("ws://127.0.0.1:35998")
     if err != nil {
         panic(err)
     }
-    
-    // Connect to node
-    err = z.Start("", "ws://127.0.0.1:35998", 0)
-    if err != nil {
-        panic(err)
-    }
+    defer client.Stop()
     defer z.Stop()
     
     // Get network info
@@ -310,7 +305,7 @@ Auto-generated for transactions when Plasma is insufficient:
 mkdir my-zenon-app
 cd my-zenon-app
 go mod init my-zenon-app
-go get github.com/MoonBaZZe/znn-sdk-go
+go get github.com/0x3639/znn-sdk-go
 ```
 
 2. **Create Application Structure**
@@ -343,29 +338,25 @@ package services
 
 import (
     "math/big"
-    "github.com/MoonBaZZe/znn-sdk-go/zenon"
+    "github.com/0x3639/znn-sdk-go/rpc_client"
     "github.com/zenon-network/go-zenon/common/types"
 )
 
 type WalletService struct {
-    client *zenon.Zenon
+    client *rpc_client.RpcClient
 }
 
-func NewWalletService(keyFile, password, nodeURL string) (*WalletService, error) {
-    z, err := zenon.NewZenon(keyFile)
+func NewWalletService(nodeURL string) (*WalletService, error) {
+    client, err := rpc_client.NewRpcClient(nodeURL)
     if err != nil {
         return nil, err
     }
-    
-    if err := z.Start(password, nodeURL, 0); err != nil {
-        return nil, err
-    }
-    
-    return &WalletService{client: z}, nil
+
+    return &WalletService{client: client}, nil
 }
 
 func (w *WalletService) GetBalance(address types.Address) (*big.Int, *big.Int, error) {
-    info, err := w.client.Client.LedgerApi.GetAccountInfoByAddress(address)
+    info, err := w.client.LedgerApi.GetAccountInfoByAddress(address)
     if err != nil {
         return nil, nil, err
     }
@@ -621,9 +612,9 @@ Error: cannot decrypt keyfile
 - Developer Documentation
 
 ### SDK Specific
-- [Go SDK Repository](https://github.com/MoonBaZZe/znn-sdk-go)
+- [Go SDK Repository](https://github.com/0x3639/znn-sdk-go)
 - [Example Applications](./examples/)
-- [API Reference](https://godoc.org/github.com/MoonBaZZe/znn-sdk-go)
+- [API Reference](https://godoc.org/github.com/0x3639/znn-sdk-go)
 
 ### Learning Path
 

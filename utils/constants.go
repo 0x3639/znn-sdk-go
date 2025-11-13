@@ -3,7 +3,7 @@ package utils
 import (
 	"time"
 
-	"github.com/MoonBaZZe/znn-sdk-go/embedded"
+	"github.com/0x3639/znn-sdk-go/embedded"
 )
 
 // =============================================================================

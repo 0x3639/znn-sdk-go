@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/MoonBaZZe/znn-sdk-go/wallet"
+	"github.com/0x3639/znn-sdk-go/wallet"
 )
 
 func main() {

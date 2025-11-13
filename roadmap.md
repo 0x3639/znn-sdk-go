@@ -6,9 +6,9 @@
 
 ## Progress Overview
 
-- [ ] Phase 1: Foundation (ABI + Embedded Definitions)
-- [ ] Phase 2: Utils Enhancement
-- [ ] Phase 3: Crypto & Argon2
+- [x] Phase 1: Foundation (ABI + Embedded Definitions)
+- [x] Phase 2: Utils Enhancement
+- [x] Phase 3: Crypto & Argon2
 - [ ] Phase 4: Wallet System
 - [ ] Phase 5: PoW Module
 - [ ] Phase 6: WebSocket Client Enhancement
@@ -20,7 +20,7 @@
 ## Phase 1: Foundation - ABI Module & Embedded Definitions
 
 **Priority**: CRITICAL
-**Status**: Not Started
+**Status**: ✅ Complete
 **Estimated**: 5-7 days
 
 ### 1.1 ABI Types (`abi/types.go`)
@@ -514,7 +514,7 @@
 ## Phase 2: Utils Enhancement
 
 **Priority**: HIGH
-**Status**: Not Started
+**Status**: ✅ Complete
 **Estimated**: 2-3 days
 
 ### 2.1 NOM Constants (`utils/constants.go`)
@@ -686,68 +686,85 @@
 ## Phase 3: Crypto & Argon2
 
 **Priority**: HIGH
-**Status**: Not Started
+**Status**: ✅ Complete
 **Estimated**: 2-3 days
 
 ### 3.1 Argon2 Wrapper (`crypto/argon2.go`)
 
-- [ ] `Argon2IDKey(password, salt []byte, time, memory uint32, threads uint8, keyLen uint32)` function
-  - [ ] Use golang.org/x/crypto/argon2
-  - [ ] Return derived key
-  - [ ] Unit test: Known test vector
-  - [ ] Unit test: Wallet encryption parameters
+- [x] `Argon2Parameters` struct
+  - [x] Memory, Iterations, Parallelism, SaltLength, KeyLength fields
+  - [x] Unit test: Default parameters
+- [x] `DefaultArgon2Parameters()` function
+  - [x] Returns default parameters (64MB, 1 iteration, 4 threads, 32-byte key)
+  - [x] Unit test: Parameter values
+- [x] `DeriveKey(password, salt []byte, params Argon2Parameters)` function
+  - [x] Use golang.org/x/crypto/argon2.IDKey
+  - [x] Return derived key
+  - [x] Unit test: Same inputs same output
+  - [x] Unit test: Different passwords different outputs
+  - [x] Unit test: Different salts different outputs
+  - [x] Unit test: Custom parameters
+  - [x] Unit test: Empty password
+  - [x] Unit test: Known vector
+- [x] `DeriveKeyDefault(password, salt []byte)` function
+  - [x] Use default parameters
+  - [x] Unit test: Matches manual call with defaults
+  - [x] Unit test: Output length
 
 ### 3.2 Crypto Utilities (`crypto/crypto.go`)
 
-- [ ] `GetPublicKey(privateKey []byte)` function
-  - [ ] Derive Ed25519 public key
-  - [ ] Unit test: Known keypair
+- [x] `GetPublicKey(privateKey []byte)` function
+  - [x] Derive Ed25519 public key
+  - [x] Validate private key size
+  - [x] Unit test: Valid private key
+  - [x] Unit test: Invalid key sizes
+  - [x] Unit test: Output size
 
-- [ ] `Sign(message, privateKey, publicKey []byte)` function
-  - [ ] Ed25519 signature
-  - [ ] Unit test: Sign and verify
+- [x] `Sign(message, privateKey []byte)` function
+  - [x] Ed25519 signature
+  - [x] Validate private key size
+  - [x] Unit test: Valid signature
+  - [x] Unit test: Invalid key sizes
+  - [x] Unit test: Empty message
+  - [x] Unit test: Different messages different signatures
+  - [x] Unit test: Same message same signature
 
-- [ ] `Verify(signature, message, publicKey []byte)` function
-  - [ ] Verify Ed25519 signature
-  - [ ] Unit test: Valid signature
-  - [ ] Unit test: Invalid signature
+- [x] `Verify(signature, message, publicKey []byte)` function
+  - [x] Verify Ed25519 signature
+  - [x] Validate signature and public key sizes
+  - [x] Unit test: Valid signature
+  - [x] Unit test: Invalid signature (tampered)
+  - [x] Unit test: Wrong message
+  - [x] Unit test: Wrong public key
+  - [x] Unit test: Invalid sizes
 
-- [ ] `DeriveKey(path, seed string)` function
-  - [ ] BIP32 key derivation
-  - [ ] Unit test: BIP44 path
+- [x] `Digest(data []byte, digestSize int)` function
+  - [x] SHA3-256 digest (default 32 bytes)
+  - [x] SHAKE256 for custom sizes
+  - [x] Unit test: Default size (32)
+  - [x] Unit test: Zero size (uses default)
+  - [x] Unit test: Custom size (64)
+  - [x] Unit test: Empty data
+  - [x] Unit test: Deterministic
+  - [x] Unit test: Different data different hash
+  - [x] Unit test: Known SHA3-256 vector
 
-- [ ] `Digest(data []byte, digestSize int)` function
-  - [ ] SHA3-256 digest
-  - [ ] Unit test: Known hash
+- [x] `DigestDefault(data []byte)` function
+  - [x] SHA3-256 with 32-byte output
+  - [x] Unit test: Matches Digest(data, 32)
 
-- [ ] `SHA256Bytes(data []byte)` function
-  - [ ] SHA256 hash
-  - [ ] Unit test: Known hash
+- [x] `SHA256Bytes(data []byte)` function
+  - [x] SHA-256 hash
+  - [x] Unit test: Empty data (known vector)
+  - [x] Unit test: Deterministic
+  - [x] Unit test: Different data different hash
 
-### 3.3 Ed25519 Implementation (`crypto/ed25519.go`)
+- [x] Round-trip tests
+  - [x] Unit test: Sign/Verify round-trip with various message sizes
 
-**Note**: This is a complex module. Most of Go's crypto/ed25519 can be used directly.
-Only implement custom BIP32 derivation if needed.
+### 3.3 Ed25519 Implementation
 
-- [ ] `KeyData` struct
-  - [ ] `Key` field
-  - [ ] `ChainCode` field
-
-#### BIP32 Key Derivation
-- [ ] `GetMasterKeyFromSeed(seed string)` function
-  - [ ] HMAC-SHA512 derivation
-  - [ ] Unit test: Master key derivation
-
-- [ ] `DerivePath(path, seed string)` function
-  - [ ] Parse BIP32 path
-  - [ ] Derive child keys
-  - [ ] Unit test: m/44'/73404'/0'/0/0
-
-- [ ] `getCKDPriv(data *KeyData, index uint32)` function (private)
-  - [ ] Child key derivation
-  - [ ] Handle hardened keys
-  - [ ] Unit test: Hardened derivation
-  - [ ] Unit test: Normal derivation
+**Note**: BIP32 key derivation will be implemented in Phase 4 (Wallet System) as it's tightly coupled with wallet functionality.
 
 ---
 

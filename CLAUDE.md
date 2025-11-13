@@ -31,19 +31,19 @@ This is the Zenon Go SDK implementation, a client library for interacting with Z
 ### Connection Model
 
 The SDK connects to Zenon nodes via WebSocket (default: `ws://127.0.0.1:35998`).
-- **Read operations**: No keyfile required, can initialize with `NewZenon("")`
-- **Write operations**: Require valid keyfile and password for wallet decryption
+- **Read operations**: Initialize RpcClient - no wallet required
+- **Write operations**: Require wallet/keypair for signing transactions
 
 ### Transaction Flow
 
 All transactions follow this pattern:
-1. Create transaction template using API method (e.g., `z.Client.LedgerApi.SendTemplate()` or `z.Client.TokenApi.IssueToken()`)
-2. Pass to `z.Send()` which:
-   - Autofills transaction parameters (height, previous hash, momentum acknowledgment)
-   - Queries required PoW difficulty via `PlasmaApi`
-   - Generates PoW nonce if needed (or uses fused plasma)
-   - Signs transaction with keypair
-   - Publishes to node via `LedgerApi.PublishRawTransaction()`
+1. Create transaction template using API method (e.g., `client.LedgerApi.SendTemplate()` or `client.TokenApi.IssueToken()`)
+2. Sign and send transaction:
+   - Autofill transaction parameters (height, previous hash, momentum acknowledgment)
+   - Query required PoW difficulty via `PlasmaApi`
+   - Generate PoW nonce if needed (or use fused plasma)
+   - Sign transaction with keypair
+   - Publish to node via `LedgerApi.PublishRawTransaction()`
 
 ## Development Commands
 
@@ -103,29 +103,51 @@ go run examples/scripts/generate_genesis.go
 
 ### Initializing the SDK
 
-**With wallet (for transactions):**
+**Connect to node (read-only):**
 ```go
-z, err := zenon.NewZenon("keyfile-name")  // keyfile in DefaultWalletDir
+import "github.com/MoonBaZZe/znn-sdk-go/rpc_client"
+
+client, err := rpc_client.NewRpcClient("ws://127.0.0.1:35998")
 if err != nil {
     return err
 }
-// Connect and decrypt wallet at index 0
-if err := z.Start("password", "ws://127.0.0.1:35998", 0); err != nil {
-    return err
-}
-defer z.Stop()  // Always cleanup
+defer client.Stop()
+
+// Query data
+momentum, err := client.LedgerApi.GetFrontierMomentum()
 ```
 
-**Without wallet (read-only):**
+**With wallet (for transactions):**
 ```go
-z, err := zenon.NewZenon("")  // Empty string = no wallet
+import (
+    "github.com/MoonBaZZe/znn-sdk-go/rpc_client"
+    "github.com/MoonBaZZe/znn-sdk-go/wallet"
+)
+
+// Initialize client
+client, err := rpc_client.NewRpcClient("ws://127.0.0.1:35998")
 if err != nil {
     return err
 }
-if err := z.Start("", "ws://127.0.0.1:35998", 0); err != nil {
+defer client.Stop()
+
+// Load wallet
+manager, err := wallet.NewKeyStoreManager("./wallets")
+if err != nil {
     return err
 }
-defer z.Stop()
+keystore, err := manager.ReadKeyStore("password", "my-wallet")
+if err != nil {
+    return err
+}
+
+// Get keypair for signing
+keypair, err := keystore.GetKeyPair(0)
+if err != nil {
+    return err
+}
+
+// Now you can sign transactions
 ```
 
 ### Transaction Pattern
@@ -134,65 +156,80 @@ All embedded contract methods return `*nom.AccountBlock` templates:
 
 ```go
 // 1. Create template
-template := z.Client.TokenApi.IssueToken(
+template := client.TokenApi.IssueToken(
     name, symbol, domain,
     totalSupply, maxSupply, decimals,
     isMintable, isBurnable, isUtility,
 )
 
-// 2. Send transaction (handles PoW, signing, submission)
-if err := z.Send(template); err != nil {
-    return err
-}
+// 2. Sign and send transaction
+// (Implementation depends on your wallet setup)
+// - Autofill parameters
+// - Generate PoW if needed
+// - Sign with keypair
+// - Publish via client.LedgerApi.PublishRawTransaction()
 ```
 
 For basic transfers, use `LedgerApi.SendTemplate()`:
 ```go
-template := z.Client.LedgerApi.SendTemplate(
+template := client.LedgerApi.SendTemplate(
     toAddress,
     types.ZnnTokenStandard,  // or types.QsrTokenStandard
     amount,
     []byte{},  // optional data
 )
-if err := z.Send(template); err != nil {
-    return err
-}
+// Then sign and send as above
 ```
 
 ### Reading Blockchain Data
 
-Query methods return data directly (don't use `z.Send()`):
+Query methods return data directly:
 
 ```go
 // Get account info
-info, err := z.Client.LedgerApi.GetAccountInfoByAddress(address)
+info, err := client.LedgerApi.GetAccountInfoByAddress(address)
 
 // Get frontier momentum
-momentum, err := z.Client.LedgerApi.GetFrontierMomentum()
+momentum, err := client.LedgerApi.GetFrontierMomentum()
 
 // Get token info
-token, err := z.Client.TokenApi.GetByZts(zts)
+token, err := client.TokenApi.GetByZts(zts)
 
 // Get unreceived blocks
-blocks, err := z.Client.LedgerApi.GetUnreceivedBlocksByAddress(address, 0, 25)
+blocks, err := client.LedgerApi.GetUnreceivedBlocksByAddress(address, 0, 25)
 ```
 
 ### Wallet Management
 
 ```go
-// Create new keyfile
-kf, err := wallet.NewKeyFile()
-if err := wallet.WriteKeyFile(kf, "my-wallet", "password"); err != nil {
+import "github.com/MoonBaZZe/znn-sdk-go/wallet"
+
+// Create wallet manager
+manager, err := wallet.NewKeyStoreManager("./wallets")
+if err != nil {
     return err
 }
 
-// Read existing keyfile
-kf, err := wallet.ReadKeyFile("my-wallet", "password")
-fmt.Println("Base address:", kf.BaseAddress)
+// Create new keystore
+keystore, err := manager.CreateNew("password", "my-wallet")
+if err != nil {
+    return err
+}
+
+// Load existing keystore
+keystore, err := manager.ReadKeyStore("password", "my-wallet")
+if err != nil {
+    return err
+}
+
+fmt.Println("Base address:", keystore.GetBaseAddress())
 
 // Derive keypair at index
-_, kp, err := kf.DeriveForIndexPath(0)
-fmt.Println("Address:", kp.Address.String())
+keypair, err := keystore.GetKeyPair(0)
+if err != nil {
+    return err
+}
+fmt.Println("Address:", keypair.GetAddress())
 ```
 
 ## Important Implementation Details

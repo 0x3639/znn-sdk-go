@@ -92,7 +92,10 @@ client.AddOnConnectionLostCallback(func(err error) {
 import "github.com/MoonBaZZe/znn-sdk-go/wallet"
 
 // Create new keystore with random mnemonic
-manager := wallet.NewKeyStoreManager("./wallets")
+manager, err := wallet.NewKeyStoreManager("./wallets")
+if err != nil {
+    panic(err)
+}
 keystore, err := manager.CreateNew("password123", "my-wallet")
 if err != nil {
     panic(err)
@@ -400,12 +403,37 @@ go test ./rpc_client/...
 
 ## Examples
 
-See the `examples/` directory for complete examples:
+See the `examples/` directory for working examples:
 
-- `examples/simple_client/` - Basic node connection
-- `examples/rpc/` - RPC operations
-- `examples/wallet/` - Wallet management
-- `examples/subscribe/` - Real-time subscriptions
+### Basic Client Example
+
+Connect to a node and query data:
+
+```bash
+cd examples/basic_client
+go run main.go
+```
+
+This example demonstrates:
+- Connecting to a Zenon node
+- Registering connection callbacks
+- Querying frontier momentum
+- Querying network info
+
+### Wallet Management Example
+
+Create and manage wallets:
+
+```bash
+cd examples/wallet_management
+go run main.go
+```
+
+This example demonstrates:
+- Creating new wallets
+- Deriving keypairs (BIP44)
+- Signing and verifying messages
+- Loading existing wallets
 
 ## Development
 

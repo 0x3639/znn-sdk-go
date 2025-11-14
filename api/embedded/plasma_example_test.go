@@ -92,8 +92,6 @@ func Example_checkRequiredPoW() {
 	}
 	defer client.Stop()
 
-	address := types.ParseAddressPanic("z1qqjnwjjpnue8xmmpanz6csze6tcmtzzdtfsww7")
-
 	// Create a sample transaction template
 	template := client.LedgerApi.SendTemplate(
 		types.ParseAddressPanic("z1qqga8s8rkypgsg5qg2g7rp68nqh3r4lkm54tta"),

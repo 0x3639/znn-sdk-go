@@ -19,6 +19,38 @@ func NewLedgerApi(client *server.Client) *LedgerApi {
 	}
 }
 
+// PublishRawTransaction submits a signed and finalized transaction to the Zenon Network.
+//
+// This is the final step in the transaction flow. Before calling this method, the
+// transaction must be:
+//  1. Created (via SendTemplate, ReceiveTemplate, or embedded contract API)
+//  2. Autofilled with height, previous hash, and momentum acknowledgment
+//  3. Enhanced with PoW nonce or plasma
+//  4. Signed with a keypair
+//  5. Hash computed
+//
+// Parameters:
+//   - transaction: Fully prepared AccountBlock ready for submission
+//
+// Returns an error if the transaction is rejected by the node. Common rejection reasons:
+//   - Insufficient PoW/plasma
+//   - Invalid signature
+//   - Incorrect height or previous hash
+//   - Insufficient balance
+//   - Invalid contract call parameters
+//
+// Example:
+//
+//	// Assuming transaction is fully prepared
+//	err := client.LedgerApi.PublishRawTransaction(transaction)
+//	if err != nil {
+//	    log.Printf("Transaction failed: %v", err)
+//	    return err
+//	}
+//	fmt.Println("Transaction published successfully")
+//
+// Note: A successful publish means the transaction was accepted by the node, but it
+// still needs to be confirmed in a momentum. Use GetAccountBlockByHash to check confirmation.
 func (la *LedgerApi) PublishRawTransaction(transaction *nom.AccountBlock) error {
 	var ans interface{}
 	if err := la.client.Call(&ans, "ledger.publishRawTransaction", transaction); err != nil {
@@ -27,7 +59,38 @@ func (la *LedgerApi) PublishRawTransaction(transaction *nom.AccountBlock) error 
 	return nil
 }
 
-// Unconfirmed AccountBlocks
+// GetUnconfirmedBlocksByAddress retrieves account blocks that have been published but
+// not yet confirmed in a momentum.
+//
+// Unconfirmed blocks are transactions that:
+//   - Have been accepted by the node
+//   - Are waiting to be included in a momentum
+//   - May still fail validation during momentum confirmation
+//
+// This is useful for:
+//   - Checking pending outgoing transactions
+//   - Monitoring transaction status before confirmation
+//   - Detecting potential issues with transactions
+//
+// Parameters:
+//   - address: Account address to query
+//   - pageIndex: Page number (0-indexed)
+//   - pageSize: Number of blocks per page (typically 10-50)
+//
+// Returns a paginated list of unconfirmed blocks or an error.
+//
+// Example:
+//
+//	// Get first page of unconfirmed blocks
+//	blocks, err := client.LedgerApi.GetUnconfirmedBlocksByAddress(address, 0, 10)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//
+//	fmt.Printf("Pending transactions: %d\n", blocks.Count)
+//	for _, block := range blocks.List {
+//	    fmt.Printf("Block hash: %s\n", block.Hash)
+//	}
 func (la *LedgerApi) GetUnconfirmedBlocksByAddress(address types.Address, pageIndex, pageSize uint32) (*api.AccountBlockList, error) {
 	ans := new(api.AccountBlockList)
 	if err := la.client.Call(ans, "ledger.getUnconfirmedBlocksByAddress", address.String(), pageIndex, pageSize); err != nil {
@@ -45,6 +108,32 @@ func (la *LedgerApi) GetFrontierAccountBlock(address types.Address) (*api.Accoun
 	return ans, nil
 }
 
+// GetAccountBlockByHash retrieves a specific account block by its hash.
+//
+// Use this to:
+//   - Check if a transaction was confirmed
+//   - Get transaction details
+//   - Verify transaction status
+//   - Retrieve confirmation height
+//
+// Parameters:
+//   - blockHash: Hash of the account block to retrieve
+//
+// Returns the account block or an error if the block doesn't exist.
+//
+// Example:
+//
+//	block, err := client.LedgerApi.GetAccountBlockByHash(blockHash)
+//	if err != nil {
+//	    fmt.Println("Block not found or not yet confirmed")
+//	    return err
+//	}
+//
+//	fmt.Printf("Block confirmed at height: %d\n", block.Height)
+//	fmt.Printf("Amount: %s\n", block.Amount)
+//	fmt.Printf("Token: %s\n", block.TokenStandard)
+//
+// A nil error and non-nil block indicates the transaction is confirmed.
 func (la *LedgerApi) GetAccountBlockByHash(blockHash types.Hash) (*api.AccountBlock, error) {
 	ans := new(api.AccountBlock)
 	if err := la.client.Call(ans, "ledger.getAccountBlockByHash", blockHash.String()); err != nil {
@@ -69,6 +158,36 @@ func (la *LedgerApi) GetAccountBlocksByPage(address types.Address, pageIndex, pa
 	return ans, nil
 }
 
+// GetAccountInfoByAddress retrieves comprehensive account information including balances
+// and account chain state.
+//
+// Returns account information containing:
+//   - Address: The account address
+//   - AccountHeight: Number of blocks in the account chain
+//   - BalanceInfoMap: Map of token standards to balance information
+//   - BlockCount: Total number of blocks
+//   - Znn(): Helper method to get ZNN balance
+//   - Qsr(): Helper method to get QSR balance
+//
+// This is the primary method for checking account balances and state.
+//
+// Parameters:
+//   - address: Zenon address to query
+//
+// Returns account info or an error if the address doesn't exist or query fails.
+//
+// Example:
+//
+//	info, err := client.LedgerApi.GetAccountInfoByAddress(address)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//
+//	fmt.Printf("ZNN Balance: %s\n", info.Znn())
+//	fmt.Printf("QSR Balance: %s\n", info.Qsr())
+//	fmt.Printf("Account Height: %d\n", info.AccountHeight)
+//
+// Balance amounts are returned in base units (1 ZNN = 10^8 base units).
 func (la *LedgerApi) GetAccountInfoByAddress(address types.Address) (*api.AccountInfo, error) {
 	ans := new(api.AccountInfo)
 	if err := la.client.Call(ans, "ledger.getAccountInfoByAddress", address.String()); err != nil {
@@ -77,6 +196,40 @@ func (la *LedgerApi) GetAccountInfoByAddress(address types.Address) (*api.Accoun
 	return ans, nil
 }
 
+// GetUnreceivedBlocksByAddress retrieves incoming transactions that have not yet been
+// received by the account.
+//
+// In Zenon's dual-ledger architecture, receiving funds is a two-step process:
+//  1. Sender publishes a send block
+//  2. Recipient must publish a receive block to accept the funds
+//
+// This method returns all send blocks waiting to be received. Each unreceived block
+// represents incoming funds or contract calls that need to be accepted.
+//
+// Parameters:
+//   - address: Account address to check for unreceived blocks
+//   - pageIndex: Page number (0-indexed)
+//   - pageSize: Number of blocks per page (typically 10-50)
+//
+// Returns a paginated list of unreceived blocks or an error.
+//
+// Example:
+//
+//	// Check for unreceived blocks
+//	blocks, err := client.LedgerApi.GetUnreceivedBlocksByAddress(address, 0, 10)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//
+//	fmt.Printf("Unreceived blocks: %d\n", blocks.Count)
+//	for _, block := range blocks.List {
+//	    // Create receive template for each block
+//	    receiveTemplate := client.LedgerApi.ReceiveTemplate(block.Hash)
+//	    // Sign and publish receiveTemplate...
+//	}
+//
+// Note: Unreceived blocks must be received to access the funds. They don't expire but
+// remain pending until explicitly received.
 func (la *LedgerApi) GetUnreceivedBlocksByAddress(address types.Address, pageIndex, pageSize uint32) (*api.AccountBlockList, error) {
 	ans := new(api.AccountBlockList)
 	if err := la.client.Call(ans, "ledger.getUnreceivedBlocksByAddress", address.String(), pageIndex, pageSize); err != nil {
@@ -85,7 +238,36 @@ func (la *LedgerApi) GetUnreceivedBlocksByAddress(address types.Address, pageInd
 	return ans, nil
 }
 
-// Momentum
+// GetFrontierMomentum retrieves the latest momentum (block) from the network.
+//
+// Momentums are the backbone of Zenon Network, similar to blocks in other blockchains.
+// Each momentum:
+//   - Contains a batch of confirmed account blocks
+//   - Represents a specific height in the chain
+//   - Includes timestamp and hash
+//   - Is produced by pillars in a coordinated manner
+//
+// This is commonly used to:
+//   - Get the current blockchain height
+//   - Check network liveness
+//   - Determine the latest confirmed state
+//   - Use as momentum acknowledgment for new transactions
+//
+// Returns the latest momentum or an error if the network is unreachable.
+//
+// Example:
+//
+//	momentum, err := client.LedgerApi.GetFrontierMomentum()
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//
+//	fmt.Printf("Current height: %d\n", momentum.Height)
+//	fmt.Printf("Timestamp: %d\n", momentum.Timestamp)
+//	fmt.Printf("Hash: %s\n", momentum.Hash)
+//
+// The frontier momentum height is used when constructing new transactions
+// to acknowledge the current state of the network.
 func (la *LedgerApi) GetFrontierMomentum() (*api.Momentum, error) {
 	ans := new(api.Momentum)
 	if err := la.client.Call(ans, "ledger.getFrontierMomentum"); err != nil {
@@ -134,6 +316,46 @@ func (la *LedgerApi) GetDetailedMomentumsByHeight(height, count uint64) (*api.De
 	return ans, nil
 }
 
+// SendTemplate creates an unsigned transaction template for sending tokens.
+//
+// This is the starting point for all token transfers (ZNN, QSR, or any ZTS token).
+// The template must be further processed before submission:
+//  1. Autofill with account height, previous hash, and momentum acknowledgment
+//  2. Generate PoW or use plasma
+//  3. Sign with keypair
+//  4. Publish via PublishRawTransaction
+//
+// Parameters:
+//   - toAddress: Recipient address
+//   - tokenStandard: Token to send (types.ZnnTokenStandard, types.QsrTokenStandard, or custom ZTS)
+//   - amount: Amount in base units (1 ZNN = 10^8 base units, use big.NewInt)
+//   - data: Optional arbitrary data (empty []byte{} for simple transfers)
+//
+// Returns an unsigned AccountBlock template ready for processing.
+//
+// Example - Send 10 ZNN:
+//
+//	amount := big.NewInt(10 * 100000000) // 10 ZNN in base units
+//	template := client.LedgerApi.SendTemplate(
+//	    recipientAddress,
+//	    types.ZnnTokenStandard,
+//	    amount,
+//	    []byte{}, // no data
+//	)
+//	// Now: autofill, add PoW, sign, and publish
+//
+// Example - Send with data:
+//
+//	data := []byte("Payment for invoice #123")
+//	template := client.LedgerApi.SendTemplate(
+//	    recipientAddress,
+//	    types.ZnnTokenStandard,
+//	    amount,
+//	    data,
+//	)
+//
+// Note: The template is NOT a complete transaction. It must be processed through
+// the full transaction pipeline before publishing.
 func (la *LedgerApi) SendTemplate(toAddress types.Address, tokenStandard types.ZenonTokenStandard, amount *big.Int, data []byte) *nom.AccountBlock {
 	return &nom.AccountBlock{
 		BlockType:     nom.BlockTypeUserSend,
@@ -144,6 +366,41 @@ func (la *LedgerApi) SendTemplate(toAddress types.Address, tokenStandard types.Z
 	}
 }
 
+// ReceiveTemplate creates an unsigned transaction template for receiving tokens.
+//
+// In Zenon's dual-ledger model, receiving funds requires publishing a receive block
+// that references the sender's send block. This method creates that receive template.
+//
+// The receive process:
+//  1. Get unreceived blocks via GetUnreceivedBlocksByAddress
+//  2. For each unreceived block, create a receive template with its hash
+//  3. Autofill, add PoW/plasma, sign, and publish
+//
+// Parameters:
+//   - fromBlockHash: Hash of the send block to receive (from GetUnreceivedBlocksByAddress)
+//
+// Returns an unsigned AccountBlock template for receiving.
+//
+// Example - Receive all unreceived blocks:
+//
+//	// Get unreceived blocks
+//	unreceived, _ := client.LedgerApi.GetUnreceivedBlocksByAddress(myAddress, 0, 10)
+//
+//	for _, block := range unreceived.List {
+//	    // Create receive template
+//	    template := client.LedgerApi.ReceiveTemplate(block.Hash)
+//
+//	    // Autofill, add PoW, sign, and publish
+//	    // (full transaction flow needed here)
+//	}
+//
+// Example - Receive specific block:
+//
+//	template := client.LedgerApi.ReceiveTemplate(sendBlockHash)
+//	// Process: autofill -> PoW -> sign -> publish
+//
+// Note: Like SendTemplate, this is just the first step. The template must go through
+// the full transaction pipeline before submission.
 func (la *LedgerApi) ReceiveTemplate(fromBlockHash types.Hash) *nom.AccountBlock {
 	return &nom.AccountBlock{
 		BlockType:     nom.BlockTypeUserReceive,

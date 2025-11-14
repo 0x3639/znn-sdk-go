@@ -597,7 +597,6 @@ fmt.Printf("Current plasma: %d\n", plasma.CurrentPlasma)
 
 - **[pkg.go.dev](https://pkg.go.dev/github.com/0x3639/znn-sdk-go)** - Complete API reference with 96+ examples
 - **[CLAUDE.md](CLAUDE.md)** - Detailed architecture and development guide
-- **[roadmap.md](roadmap.md)** - Implementation roadmap and progress
 
 ### Running Example Functions
 

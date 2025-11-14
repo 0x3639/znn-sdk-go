@@ -71,8 +71,40 @@ func NewKeyStoreRandom() (*KeyStore, error) {
 	return NewKeyStoreFromMnemonic(mnemonic)
 }
 
-// GetKeyPair derives a KeyPair at the given account index
-// Uses BIP44 path: m/44'/73404'/account'
+// GetKeyPair derives a keypair at the specified BIP44 account index.
+//
+// The derivation follows BIP44 path: m/44'/73404'/account'/0'/0' where:
+//   - 44 is the BIP44 standard
+//   - 73404 is Zenon's registered coin type
+//   - account is the index you specify
+//
+// Each account index generates a unique address from the same mnemonic/seed.
+// This allows deriving multiple addresses from a single backup mnemonic.
+//
+// Parameters:
+//   - account: Account index (0 for first address, 1 for second, etc.)
+//
+// Returns a KeyPair that can:
+//   - Get the Zenon address
+//   - Sign transactions
+//   - Access public/private keys
+//
+// Example:
+//
+//	// Get first address (index 0 - this is the default/base address)
+//	keypair0, err := keystore.GetKeyPair(0)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	addr0, _ := keypair0.GetAddress()
+//	fmt.Println("First address:", addr0)
+//
+//	// Get second address (index 1)
+//	keypair1, _ := keystore.GetKeyPair(1)
+//	addr1, _ := keypair1.GetAddress()
+//	fmt.Println("Second address:", addr1)
+//
+// Note: GetKeyPair(0) returns the base address - the primary address for this wallet.
 func (ks *KeyStore) GetKeyPair(account int) (*KeyPair, error) {
 	if ks.Seed == nil {
 		return nil, fmt.Errorf("keystore seed not initialized")
@@ -94,8 +126,38 @@ func (ks *KeyStore) GetKeyPair(account int) (*KeyPair, error) {
 	return kp, nil
 }
 
-// DeriveAddressesByRange derives addresses for a range of account indices
-// Returns slice of addresses from left (inclusive) to right (exclusive)
+// DeriveAddressesByRange derives multiple addresses efficiently in a single operation.
+//
+// This is useful for:
+//   - Displaying multiple addresses to the user
+//   - Searching for addresses with specific properties
+//   - Generating address pools for services
+//
+// The range is [left, right) - includes left, excludes right.
+//
+// Parameters:
+//   - left: Starting account index (inclusive)
+//   - right: Ending account index (exclusive)
+//
+// Returns a slice of addresses in order, or an error if derivation fails.
+//
+// Example:
+//
+//	// Derive first 5 addresses (indices 0-4)
+//	addresses, err := keystore.DeriveAddressesByRange(0, 5)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//
+//	for i, addr := range addresses {
+//	    fmt.Printf("Address %d: %s\n", i, addr)
+//	}
+//
+// Example output:
+//
+//	Address 0: z1qqjnwjjpnue8xmmpanz6csze6tcmtzzdtfsww7
+//	Address 1: z1qqga8s8rkypgsg5qg2g7rp68nqh3r4lkm54tta
+//	...
 func (ks *KeyStore) DeriveAddressesByRange(left, right int) ([]*types.Address, error) {
 	if left < 0 || right < left {
 		return nil, fmt.Errorf("invalid range: [%d, %d)", left, right)
@@ -126,8 +188,36 @@ type FindResponse struct {
 	KeyPair *KeyPair
 }
 
-// FindAddress searches for an address in the keystore up to maxAccounts
-// Returns FindResponse with the account index and keypair if found
+// FindAddress searches for a specific address within the keystore by trying account
+// indices sequentially until found or maxAccounts is reached.
+//
+// This is useful when you know an address belongs to this wallet but don't know which
+// account index it uses. Common scenarios:
+//   - Finding the account index for an address shown in a block explorer
+//   - Locating which derivation path was used for a transaction
+//   - Verifying an address belongs to this wallet
+//
+// Parameters:
+//   - address: The Zenon address to search for
+//   - maxAccounts: Maximum number of indices to check (0 uses DefaultMaxIndex)
+//
+// Returns FindResponse containing the account index and keypair, or ErrAddressNotFound.
+//
+// Example:
+//
+//	// Search for address in first 100 accounts
+//	targetAddr := types.ParseAddressPanic("z1qqjnwjjpnue8xmmpanz6csze6tcmtzzdtfsww7")
+//	result, err := keystore.FindAddress(targetAddr, 100)
+//	if err == wallet.ErrAddressNotFound {
+//	    fmt.Println("Address not found in this wallet")
+//	} else if err != nil {
+//	    log.Fatal(err)
+//	} else {
+//	    fmt.Printf("Found at index %d\n", result.Index)
+//	    // Use result.KeyPair to sign transactions
+//	}
+//
+// Performance note: This is a linear search. If maxAccounts is large, it may take time.
 func (ks *KeyStore) FindAddress(address types.Address, maxAccounts int) (*FindResponse, error) {
 	if maxAccounts <= 0 {
 		maxAccounts = DefaultMaxIndex

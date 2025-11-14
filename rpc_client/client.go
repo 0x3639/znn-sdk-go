@@ -98,12 +98,75 @@ func DefaultClientOptions() ClientOptions {
 	}
 }
 
-// NewRpcClient creates a new RPC client with default options
+// NewRpcClient creates a new RPC client connected to a Zenon node with default options.
+//
+// This is the main entry point for the SDK. It establishes a WebSocket connection to the
+// specified node URL and initializes all API endpoints (Ledger, Stats, Subscriber, and
+// all embedded contract APIs).
+//
+// Default options include:
+//   - Auto-reconnect enabled with exponential backoff
+//   - Health checks every 30 seconds
+//   - Infinite reconnection attempts
+//
+// Parameters:
+//   - url: WebSocket URL of the Zenon node (e.g., "ws://127.0.0.1:35998")
+//
+// Returns an initialized RpcClient ready to use, or an error if connection fails.
+//
+// Example:
+//
+//	client, err := rpc_client.NewRpcClient("ws://127.0.0.1:35998")
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	defer client.Stop()
+//
+//	// Use the client
+//	momentum, _ := client.LedgerApi.GetFrontierMomentum()
+//	fmt.Printf("Height: %d\n", momentum.Height)
+//
+// For custom configuration (e.g., disable auto-reconnect, custom health check intervals),
+// use NewRpcClientWithOptions instead.
 func NewRpcClient(url string) (*RpcClient, error) {
 	return NewRpcClientWithOptions(url, DefaultClientOptions())
 }
 
-// NewRpcClientWithOptions creates a new RPC client with custom options
+// NewRpcClientWithOptions creates a new RPC client with custom configuration options.
+//
+// This allows fine-grained control over connection behavior including auto-reconnection,
+// health checks, and retry policies.
+//
+// Parameters:
+//   - url: WebSocket URL of the Zenon node (e.g., "ws://127.0.0.1:35998")
+//   - opts: ClientOptions struct configuring connection behavior
+//
+// Available options:
+//   - AutoReconnect: Enable automatic reconnection on connection loss (default: true)
+//   - ReconnectDelay: Initial delay between reconnect attempts (default: 1s)
+//   - MaxReconnectDelay: Maximum delay with exponential backoff (default: 30s)
+//   - ReconnectAttempts: Max reconnection attempts, 0 for infinite (default: 0)
+//   - HealthCheckInterval: Interval for connection health checks (default: 30s, 0 to disable)
+//   - HealthCheckCommand: RPC command for health checks (default: "ledger.getFrontierMomentum")
+//
+// Returns an initialized RpcClient or an error if the initial connection fails.
+//
+// Example with custom options:
+//
+//	opts := rpc_client.ClientOptions{
+//	    AutoReconnect:       true,
+//	    ReconnectDelay:      2 * time.Second,
+//	    MaxReconnectDelay:   60 * time.Second,
+//	    ReconnectAttempts:   10,  // Give up after 10 attempts
+//	    HealthCheckInterval: 15 * time.Second,
+//	}
+//	client, err := rpc_client.NewRpcClientWithOptions("ws://127.0.0.1:35998", opts)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	defer client.Stop()
+//
+// The client will validate and normalize the WebSocket URL automatically.
 func NewRpcClientWithOptions(url string, opts ClientOptions) (*RpcClient, error) {
 	if err := ValidateWsConnectionURL(url); err != nil {
 		return nil, fmt.Errorf("invalid WebSocket URL: %w", err)
@@ -182,7 +245,24 @@ func (c *RpcClient) initializeAPIs() {
 	c.SubscriberApi = api.NewSubscriberApi(c.client)
 }
 
-// Status returns the current connection status
+// Status returns the current WebSocket connection status.
+//
+// Possible statuses:
+//   - Uninitialized: Client created but not yet connected
+//   - Connecting: Connection attempt in progress
+//   - Running: Successfully connected and operational
+//   - Stopped: Connection closed or failed
+//
+// This method is thread-safe and can be called from any goroutine.
+//
+// Example:
+//
+//	status := client.Status()
+//	if status == rpc_client.Running {
+//	    // Connection is healthy
+//	} else {
+//	    // Handle connection issue
+//	}
 func (c *RpcClient) Status() WebsocketStatus {
 	c.statusLock.RLock()
 	defer c.statusLock.RUnlock()
@@ -201,14 +281,57 @@ func (c *RpcClient) IsClosed() bool {
 	return c.Status() == Stopped
 }
 
-// AddOnConnectionEstablishedCallback registers a callback for connection established events
+// AddOnConnectionEstablishedCallback registers a callback function that will be called
+// when the WebSocket connection is successfully established or re-established.
+//
+// This is useful for:
+//   - Logging connection events
+//   - Reinitializing state after reconnection
+//   - Resubscribing to blockchain events
+//   - Notifying other parts of your application
+//
+// Multiple callbacks can be registered and will be called in registration order.
+// Callbacks are executed in separate goroutines to prevent blocking.
+//
+// Parameters:
+//   - callback: Function to call when connection is established (no parameters)
+//
+// Example:
+//
+//	client.AddOnConnectionEstablishedCallback(func() {
+//	    fmt.Println("Connected to Zenon node")
+//	    // Reinitialize subscriptions or state
+//	})
 func (c *RpcClient) AddOnConnectionEstablishedCallback(callback ConnectionEstablishedCallback) {
 	c.callbackLock.Lock()
 	defer c.callbackLock.Unlock()
 	c.onConnectionEstablished = append(c.onConnectionEstablished, callback)
 }
 
-// AddOnConnectionLostCallback registers a callback for connection lost events
+// AddOnConnectionLostCallback registers a callback function that will be called
+// when the WebSocket connection is lost or fails.
+//
+// This is useful for:
+//   - Logging disconnection events
+//   - Alerting monitoring systems
+//   - Implementing custom reconnection logic
+//   - Cleaning up resources or state
+//
+// Multiple callbacks can be registered and will be called in registration order.
+// Callbacks are executed in separate goroutines to prevent blocking.
+//
+// If auto-reconnect is enabled, the client will attempt to reconnect automatically
+// after calling these callbacks.
+//
+// Parameters:
+//   - callback: Function to call when connection is lost (receives error describing the failure)
+//
+// Example:
+//
+//	client.AddOnConnectionLostCallback(func(err error) {
+//	    log.Printf("Connection lost: %v", err)
+//	    // Clean up subscriptions or notify application
+//	})
 func (c *RpcClient) AddOnConnectionLostCallback(callback ConnectionLostCallback) {
 	c.callbackLock.Lock()
 	defer c.callbackLock.Unlock()
@@ -366,7 +489,31 @@ func (c *RpcClient) Restart() error {
 	return c.connect()
 }
 
-// Stop closes the connection and stops all monitoring/reconnection
+// Stop gracefully shuts down the RPC client, closing the WebSocket connection
+// and stopping all background tasks.
+//
+// This method:
+//   - Closes the WebSocket connection
+//   - Stops health check monitoring
+//   - Cancels any ongoing reconnection attempts
+//   - Cleans up all resources
+//
+// After calling Stop(), the client cannot be reused. Create a new client if you need
+// to reconnect.
+//
+// This method is idempotent - calling it multiple times is safe.
+// It's recommended to use defer for proper cleanup:
+//
+//	client, err := rpc_client.NewRpcClient("ws://127.0.0.1:35998")
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	defer client.Stop()
+//
+//	// Use client...
+//
+// Note: This method does not trigger connection lost callbacks since it's an
+// intentional shutdown rather than a connection failure.
 func (c *RpcClient) Stop() {
 	c.setStatus(Stopped)
 

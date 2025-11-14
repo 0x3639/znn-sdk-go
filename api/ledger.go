@@ -165,9 +165,6 @@ func (la *LedgerApi) GetAccountBlocksByPage(address types.Address, pageIndex, pa
 //   - Address: The account address
 //   - AccountHeight: Number of blocks in the account chain
 //   - BalanceInfoMap: Map of token standards to balance information
-//   - BlockCount: Total number of blocks
-//   - Znn(): Helper method to get ZNN balance
-//   - Qsr(): Helper method to get QSR balance
 //
 // This is the primary method for checking account balances and state.
 //
@@ -183,8 +180,16 @@ func (la *LedgerApi) GetAccountBlocksByPage(address types.Address, pageIndex, pa
 //	    log.Fatal(err)
 //	}
 //
-//	fmt.Printf("ZNN Balance: %s\n", info.Znn())
-//	fmt.Printf("QSR Balance: %s\n", info.Qsr())
+//	// Get ZNN balance
+//	if znnBalance, ok := info.BalanceInfoMap[types.ZnnTokenStandard]; ok {
+//	    fmt.Printf("ZNN Balance: %s\n", znnBalance.Balance)
+//	}
+//
+//	// Get QSR balance
+//	if qsrBalance, ok := info.BalanceInfoMap[types.QsrTokenStandard]; ok {
+//	    fmt.Printf("QSR Balance: %s\n", qsrBalance.Balance)
+//	}
+//
 //	fmt.Printf("Account Height: %d\n", info.AccountHeight)
 //
 // Balance amounts are returned in base units (1 ZNN = 10^8 base units).

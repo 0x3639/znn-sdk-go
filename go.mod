@@ -6,7 +6,7 @@ toolchain go1.24.4
 
 require (
 	github.com/tyler-smith/go-bip39 v1.1.0
-	github.com/zenon-network/go-zenon v0.0.7-alphanet.0.20240326090609-429e853ba038
+	github.com/zenon-network/go-zenon v0.0.8-alphanet.0.20250515170359-667a69d9e9a4
 	golang.org/x/crypto v0.44.0
 )
 

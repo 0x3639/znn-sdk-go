@@ -116,8 +116,8 @@ github.com/tyler-smith/go-bip39 v1.1.0 h1:5eUemwrMargf3BSLRRCalXT93Ns6pQJIjYQN2n
 github.com/tyler-smith/go-bip39 v1.1.0/go.mod h1:gUYDtqQw1JS3ZJ8UWVcGTGqqr6YIN3CWg+kkNaLt55U=
 github.com/yusufpapurcu/wmi v1.2.2 h1:KBNDSne4vP5mbSWnJbO+51IMOXJB67QiYCSBrubbPRg=
 github.com/yusufpapurcu/wmi v1.2.2/go.mod h1:SBZ9tNy3G9/m5Oi98Zks0QjeHVDvuK0qfxQmPyzfmi0=
-github.com/zenon-network/go-zenon v0.0.7-alphanet.0.20240326090609-429e853ba038 h1:l/EMaLDD8IDVZ4aauMa99G7a2CeDje1pZLSzv7YwWnQ=
-github.com/zenon-network/go-zenon v0.0.7-alphanet.0.20240326090609-429e853ba038/go.mod h1:yJNas9Yg1p8DA+O1Zs41BWLdXayqKOqJn8LF+fAEOCg=
+github.com/zenon-network/go-zenon v0.0.8-alphanet.0.20250515170359-667a69d9e9a4 h1:a5zn3g3aTW9qB4Db99XL1UZUtnz39TvpZbZ9HmL1UvQ=
+github.com/zenon-network/go-zenon v0.0.8-alphanet.0.20250515170359-667a69d9e9a4/go.mod h1:yJNas9Yg1p8DA+O1Zs41BWLdXayqKOqJn8LF+fAEOCg=
 golang.org/x/crypto v0.0.0-20170930174604-9419663f5a44/go.mod h1:6SG95UA2DQfeDnfUPMdvaQW0Q7yPrPDi9nlGo2tz2b4=
 golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2/go.mod h1:djNgcEr1/C05ACkg1iLfiJU5Ep61QUkGW8qpdssI0+w=
 golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9/go.mod h1:LzIPMQfyMNhhGPhUkYOs5KpL4U8rLKemX1yGLhDgUto=

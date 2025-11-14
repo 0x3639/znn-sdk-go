@@ -18,6 +18,38 @@ func NewSubscriberApi(client *server.Client) *SubscriberApi {
 	}
 }
 
+// ToMomentums subscribes to real-time momentum (block) production events.
+//
+// Momentums are Zenon's equivalent of blocks - each momentum contains a batch of
+// confirmed account blocks. This subscription allows monitoring the blockchain as
+// new momentums are produced by Pillars.
+//
+// Use cases:
+//   - Monitor blockchain height and progress
+//   - Detect new blocks in real-time
+//   - Build block explorers and analytics
+//   - Trigger actions on new momentums
+//
+// Returns:
+//   - ClientSubscription: Subscription handle for management
+//   - Channel: Receives arrays of new Momentum events
+//   - Error: If subscription fails
+//
+// Example:
+//
+//	sub, momentumChan, err := client.SubscriberApi.ToMomentums()
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	defer sub.Unsubscribe()
+//
+//	for momentums := range momentumChan {
+//	    for _, m := range momentums {
+//	        fmt.Printf("New momentum: Height %d, Hash %s\n", m.Height, m.Hash)
+//	    }
+//	}
+//
+// Note: Always call Unsubscribe() when done to clean up resources.
 func (sa *SubscriberApi) ToMomentums() (*rpc.ClientSubscription, chan []subscribe.Momentum, error) {
 	ctx := context.Background()
 	ch := make(chan []subscribe.Momentum)
@@ -28,6 +60,39 @@ func (sa *SubscriberApi) ToMomentums() (*rpc.ClientSubscription, chan []subscrib
 	return subscription, ch, err
 }
 
+// ToAllAccountBlocks subscribes to all account block events across the entire network.
+//
+// This provides a real-time stream of every transaction on Zenon Network as they
+// are confirmed. Use with caution - high volume on active networks.
+//
+// Use cases:
+//   - Network-wide transaction monitoring
+//   - Building comprehensive block explorers
+//   - Analytics and metrics collection
+//   - Detecting protocol-level events
+//
+// Returns:
+//   - ClientSubscription: Subscription handle for management
+//   - Channel: Receives arrays of AccountBlock events
+//   - Error: If subscription fails
+//
+// Example:
+//
+//	sub, blockChan, err := client.SubscriberApi.ToAllAccountBlocks()
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	defer sub.Unsubscribe()
+//
+//	for blocks := range blockChan {
+//	    for _, block := range blocks {
+//	        fmt.Printf("Block: %s -> %s, Amount: %s\n",
+//	            block.Address, block.ToAddress, block.Amount)
+//	    }
+//	}
+//
+// Warning: This subscription can generate high data volume on busy networks.
+// Consider using ToAccountBlocksByAddress for specific addresses instead.
 func (sa *SubscriberApi) ToAllAccountBlocks() (*rpc.ClientSubscription, chan []subscribe.AccountBlock, error) {
 	ctx := context.Background()
 	ch := make(chan []subscribe.AccountBlock)
@@ -38,6 +103,45 @@ func (sa *SubscriberApi) ToAllAccountBlocks() (*rpc.ClientSubscription, chan []s
 	return subscription, ch, err
 }
 
+// ToAccountBlocksByAddress subscribes to account block events for a specific address.
+//
+// Monitors all transactions (both send and receive blocks) for a single address.
+// This is the most common subscription pattern for wallet and application monitoring.
+//
+// Use cases:
+//   - Wallet transaction notifications
+//   - Payment processing confirmations
+//   - Account activity monitoring
+//   - Real-time balance tracking
+//
+// Parameters:
+//   - address: Address to monitor for transactions
+//
+// Returns:
+//   - ClientSubscription: Subscription handle for management
+//   - Channel: Receives arrays of AccountBlock events for this address
+//   - Error: If subscription fails
+//
+// Example:
+//
+//	myAddress := types.ParseAddressPanic("z1qqjnwjjpnue8xmmpanz6csze6tcmtzzdtfsww7")
+//	sub, blockChan, err := client.SubscriberApi.ToAccountBlocksByAddress(myAddress)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	defer sub.Unsubscribe()
+//
+//	for blocks := range blockChan {
+//	    for _, block := range blocks {
+//	        if block.BlockType == nom.BlockTypeUserReceive {
+//	            fmt.Printf("Received: %s from %s\n", block.Amount, block.Address)
+//	        } else {
+//	            fmt.Printf("Sent: %s to %s\n", block.Amount, block.ToAddress)
+//	        }
+//	    }
+//	}
+//
+// This is ideal for monitoring a single wallet or application address.
 func (sa *SubscriberApi) ToAccountBlocksByAddress(address types.Address) (*rpc.ClientSubscription, chan []subscribe.AccountBlock, error) {
 	ctx := context.Background()
 	ch := make(chan []subscribe.AccountBlock)
@@ -48,6 +152,47 @@ func (sa *SubscriberApi) ToAccountBlocksByAddress(address types.Address) (*rpc.C
 	return subscription, ch, err
 }
 
+// ToUnreceivedAccountBlocksByAddress subscribes to incoming unreceived blocks for an address.
+//
+// Monitors specifically for send blocks directed to this address that haven't been
+// received yet. Perfect for payment processing where you need to know when funds
+// arrive and automatically create receive blocks.
+//
+// Use cases:
+//   - Payment gateway implementations
+//   - Auto-receive transaction automation
+//   - Incoming payment notifications
+//   - Fund monitoring for services
+//
+// Parameters:
+//   - address: Address to monitor for incoming transactions
+//
+// Returns:
+//   - ClientSubscription: Subscription handle for management
+//   - Channel: Receives arrays of unreceived AccountBlock events
+//   - Error: If subscription fails
+//
+// Example - Auto-receive payments:
+//
+//	myAddress := types.ParseAddressPanic("z1qqjnwjjpnue8xmmpanz6csze6tcmtzzdtfsww7")
+//	sub, blockChan, err := client.SubscriberApi.ToUnreceivedAccountBlocksByAddress(myAddress)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	defer sub.Unsubscribe()
+//
+//	for blocks := range blockChan {
+//	    for _, block := range blocks {
+//	        fmt.Printf("Incoming payment: %s %s from %s\n",
+//	            block.Amount, block.TokenStandard, block.Address)
+//
+//	        // Create receive block automatically
+//	        receiveTemplate := client.LedgerApi.ReceiveTemplate(block.Hash)
+//	        // Autofill, sign, and publish receive block...
+//	    }
+//	}
+//
+// This is essential for automated payment processing and wallet auto-receive features.
 func (sa *SubscriberApi) ToUnreceivedAccountBlocksByAddress(address types.Address) (*rpc.ClientSubscription, chan []subscribe.AccountBlock, error) {
 	ctx := context.Background()
 	ch := make(chan []subscribe.AccountBlock)

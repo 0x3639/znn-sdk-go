@@ -16,7 +16,7 @@ Follows the [official Dart SDK](https://github.com/zenon-network/znn_sdk_dart) s
 - **Wallet Management** - BIP39/BIP44 HD wallets with keystore encryption
 - **PoW Generation** - Pure Go implementation of Zenon's proof-of-work algorithm
 - **Enhanced WebSocket Client** - Auto-reconnect, health monitoring, event callbacks
-- **Comprehensive Testing** - 497+ unit tests covering all modules
+- **Comprehensive Documentation** - 96+ Example functions demonstrating all SDK capabilities
 - **Type Safety** - Leverages Go's type system for compile-time safety
 
 ## Installation
@@ -38,6 +38,7 @@ package main
 
 import (
     "fmt"
+    "log"
     "github.com/0x3639/znn-sdk-go/rpc_client"
 )
 
@@ -45,14 +46,14 @@ func main() {
     // Connect to local node
     client, err := rpc_client.NewRpcClient("ws://127.0.0.1:35998")
     if err != nil {
-        panic(err)
+        log.Fatal(err)
     }
     defer client.Stop()
 
     // Query frontier momentum
     momentum, err := client.LedgerApi.GetFrontierMomentum()
     if err != nil {
-        panic(err)
+        log.Fatal(err)
     }
     fmt.Printf("Current height: %d\n", momentum.Height)
 }
@@ -84,6 +85,201 @@ client.AddOnConnectionLostCallback(func(err error) {
 })
 ```
 
+## API Overview
+
+All embedded contracts are accessible via the RPC client:
+
+```go
+client, _ := rpc_client.NewRpcClient("ws://127.0.0.1:35998")
+
+// Core APIs
+client.LedgerApi       // Account blocks, momentums, transactions
+client.StatsApi        // Network statistics
+client.SubscriberApi   // Real-time event subscriptions
+
+// Embedded Contract APIs
+client.PillarApi       // Pillar registration and delegation
+client.SentinelApi     // Sentinel node operations
+client.TokenApi        // ZTS token issuance and management
+client.PlasmaApi       // Plasma fusion for feeless transactions
+client.StakeApi        // ZNN staking for rewards
+client.AcceleratorApi  // Accelerator-Z ecosystem funding
+client.SwapApi         // Legacy asset migration
+client.BridgeApi       // Cross-chain bridge operations
+client.LiquidityApi    // Liquidity pool management
+client.HtlcApi         // Hash Time Locked Contracts (atomic swaps)
+client.SporkApi        // Protocol activation mechanism
+```
+
+## Examples
+
+The SDK includes 96+ runnable Example functions demonstrating all APIs. View examples:
+- **[On pkg.go.dev](https://pkg.go.dev/github.com/0x3639/znn-sdk-go)** - Browse all examples with documentation
+- **Run locally**: `go test -run Example` in any package directory
+
+### Example: Query Account Balance
+
+```go
+import (
+    "fmt"
+    "log"
+    "github.com/0x3639/znn-sdk-go/rpc_client"
+    "github.com/zenon-network/go-zenon/common/types"
+)
+
+func Example_queryAccountBalance() {
+    client, err := rpc_client.NewRpcClient("ws://127.0.0.1:35998")
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer client.Stop()
+
+    address := types.ParseAddressPanic("z1qqjnwjjpnue8xmmpanz6csze6tcmtzzdtfsww7")
+    info, err := client.LedgerApi.GetAccountInfoByAddress(address)
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    fmt.Printf("Address: %s\n", info.Address)
+    for token, balance := range info.BalanceInfoMap {
+        fmt.Printf("  %s: %s\n", token, balance.Balance)
+    }
+}
+```
+
+### Example: Send Transaction
+
+```go
+func Example_sendTransaction() {
+    client, err := rpc_client.NewRpcClient("ws://127.0.0.1:35998")
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer client.Stop()
+
+    toAddress := types.ParseAddressPanic("z1qqjnwjjpnue8xmmpanz6csze6tcmtzzdtfsww7")
+    amount := big.NewInt(100 * 100000000) // 100 ZNN
+
+    template := client.LedgerApi.SendTemplate(
+        toAddress,
+        types.ZnnTokenStandard,
+        amount,
+        []byte{}, // optional data
+    )
+
+    // Template must be:
+    // 1. Autofilled (height, previous hash, momentum acknowledgment)
+    // 2. Enhanced with PoW or use fused plasma
+    // 3. Signed with keypair
+    // 4. Published via client.LedgerApi.PublishRawTransaction()
+
+    fmt.Println("Transaction template created")
+    fmt.Printf("Amount: %s ZNN\n", amount)
+}
+```
+
+### Example: Issue Token
+
+```go
+func Example_issueToken() {
+    client, err := rpc_client.NewRpcClient("ws://127.0.0.1:35998")
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer client.Stop()
+
+    template := client.TokenApi.IssueToken(
+        "MyToken",                     // name
+        "MTK",                         // symbol
+        "mytoken.com",                 // domain
+        big.NewInt(1000000 * 1e8),    // totalSupply
+        big.NewInt(10000000 * 1e8),   // maxSupply
+        8,                             // decimals
+        true,                          // isMintable
+        true,                          // isBurnable
+        false,                         // isUtility
+    )
+
+    fmt.Println("Token issuance template created")
+    fmt.Println("Cost: 1 ZNN (burned as protocol fee)")
+}
+```
+
+### Example: Stake ZNN
+
+```go
+func Example_stakeZNN() {
+    client, err := rpc_client.NewRpcClient("ws://127.0.0.1:35998")
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer client.Stop()
+
+    // Stake for 12 months (highest rewards)
+    duration := int64(31536000) // 365 days in seconds
+    amount := big.NewInt(5000 * 100000000) // 5000 ZNN
+
+    template := client.StakeApi.Stake(duration, amount)
+
+    fmt.Println("Staking template created")
+    fmt.Printf("Duration: 12 months\n")
+    fmt.Printf("Amount: %s ZNN\n", amount)
+}
+```
+
+### Example: Delegate to Pillar
+
+```go
+func Example_delegateToPillar() {
+    client, err := rpc_client.NewRpcClient("ws://127.0.0.1:35998")
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer client.Stop()
+
+    pillarName := "MyFavoritePillar"
+    template := client.PillarApi.Delegate(pillarName)
+
+    fmt.Printf("Delegation template created for Pillar: %s\n", pillarName)
+    fmt.Println("Delegation becomes active after 2 momentum confirmations")
+}
+```
+
+### Example: Subscribe to Momentums
+
+```go
+func Example_subscribeMomentums() {
+    client, err := rpc_client.NewRpcClient("ws://127.0.0.1:35998")
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer client.Stop()
+
+    // Subscribe to momentum events
+    sub, momentumChan, err := client.SubscriberApi.ToMomentums()
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer sub.Unsubscribe()
+
+    fmt.Println("Monitoring new momentums...")
+
+    timeout := time.After(30 * time.Second)
+    for {
+        select {
+        case momentums := <-momentumChan:
+            for _, m := range momentums {
+                fmt.Printf("New Momentum - Height: %d, Hash: %s\n",
+                    m.Height, m.Hash.String()[:16]+"...")
+            }
+        case <-timeout:
+            fmt.Println("Monitoring complete")
+            return
+        }
+    }
+}
+```
+
 ## Wallet Management
 
 ### Create New Wallet
@@ -94,14 +290,15 @@ import "github.com/0x3639/znn-sdk-go/wallet"
 // Create new keystore with random mnemonic
 manager, err := wallet.NewKeyStoreManager("./wallets")
 if err != nil {
-    panic(err)
+    log.Fatal(err)
 }
 keystore, err := manager.CreateNew("password123", "my-wallet")
 if err != nil {
-    panic(err)
+    log.Fatal(err)
 }
 
 fmt.Println("Base address:", keystore.GetBaseAddress())
+fmt.Println("Mnemonic:", keystore.GetMnemonic())
 ```
 
 ### Import from Mnemonic
@@ -117,7 +314,7 @@ keystore, err := manager.CreateFromMnemonic(mnemonic, "password123", "imported-w
 // Get keypair at account index 0
 keypair, err := keystore.GetKeyPair(0)
 if err != nil {
-    panic(err)
+    log.Fatal(err)
 }
 
 fmt.Println("Address:", keypair.GetAddress())
@@ -125,6 +322,9 @@ fmt.Println("Public key:", hex.EncodeToString(keypair.GetPublicKey()))
 
 // Sign message
 signature := keypair.Sign([]byte("Hello Zenon"))
+
+// Verify signature
+valid := keypair.Verify(signature, []byte("Hello Zenon"))
 ```
 
 ### Load Existing Wallet
@@ -132,180 +332,36 @@ signature := keypair.Sign([]byte("Hello Zenon"))
 ```go
 keystore, err := manager.ReadKeyStore("password123", "my-wallet")
 if err != nil {
-    panic(err)
+    log.Fatal(err)
 }
 ```
 
-## Embedded Contract APIs
+## Transaction Flow
 
-All embedded contracts are accessible via the RPC client:
+All Zenon transactions follow this pattern:
 
-```go
-client, _ := rpc_client.NewRpcClient("ws://127.0.0.1:35998")
-
-// Access contract APIs
-client.PillarApi       // Pillar management
-client.SentinelApi     // Sentinel operations
-client.TokenApi        // Token issuance/management
-client.PlasmaApi       // Plasma fusion
-client.StakeApi        // Staking operations
-client.AcceleratorApi  // Accelerator Z projects
-client.SwapApi         // Legacy swap contract
-client.BridgeApi       // Bridge operations
-client.LiquidityApi    // Liquidity management
-client.HtlcApi         // HTLC atomic swaps
-client.SporkApi        // Protocol upgrades
-```
-
-### Token Operations
+1. **Create Template** - Use API methods to create transaction templates
+2. **Autofill** - Set height, previous hash, momentum acknowledgment
+3. **PoW/Plasma** - Generate PoW nonce or use fused plasma
+4. **Sign** - Sign transaction with keypair
+5. **Publish** - Submit via `LedgerApi.PublishRawTransaction()`
 
 ```go
-// Issue new token
-template := client.TokenApi.IssueToken(
-    "MyToken",                      // name
-    "MTK",                          // symbol
-    "mytoken.com",                  // domain
-    big.NewInt(1000000 * 1e8),     // totalSupply
-    big.NewInt(10000000 * 1e8),    // maxSupply
-    8,                              // decimals
-    true,                           // isMintable
-    true,                           // isBurnable
-    false,                          // isUtility
-)
-
-// Mint tokens
-template := client.TokenApi.Mint(tokenZTS, amount, beneficiary)
-
-// Burn tokens
-template := client.TokenApi.Burn(tokenZTS, amount)
-```
-
-### Pillar Operations
-
-```go
-// Register pillar
-template := client.PillarApi.Register(
-    "MyPillar",                     // name
-    producerAddress,                // block producer address
-    rewardAddress,                  // reward recipient
-    0,                              // giveBlockRewardPercentage
-    50,                             // giveDelegateRewardPercentage
-)
-
-// Delegate to pillar
-template := client.PillarApi.Delegate("MyPillar")
-
-// Undelegate
-template := client.PillarApi.Undelegate()
-```
-
-### Plasma Fusion
-
-```go
-// Fuse QSR for plasma
-template := client.PlasmaApi.Fuse(
-    beneficiaryAddress,
-    big.NewInt(100 * 1e8), // 100 QSR
-)
-
-// Cancel plasma fusion
-template := client.PlasmaApi.CancelFuse(fusionId)
-```
-
-### Staking
-
-```go
-// Stake ZNN
-template := client.StakeApi.Stake(
-    6 * 30 * 24 * 60 * 60, // 6 months in seconds
-    big.NewInt(5000 * 1e8), // 5000 ZNN
-)
-
-// Cancel stake
-template := client.StakeApi.Cancel(stakeHash)
-```
-
-### HTLC (Atomic Swaps)
-
-```go
-import "crypto/sha256"
-
-// Create HTLC
-preimage := []byte("secret")
-hash := sha256.Sum256(preimage)
-
-template := client.HtlcApi.Create(
-    types.ZnnTokenStandard,         // token
-    big.NewInt(100 * 1e8),         // amount
-    hashLockedAddress,              // recipient
-    time.Now().Add(24*time.Hour).Unix(), // expiration
-    1,                              // SHA-256 hash type
-    32,                             // max preimage size
-    hash[:],                        // hash lock
-)
-
-// Unlock HTLC with preimage
-template := client.HtlcApi.Unlock(htlcId, preimage)
-
-// Reclaim expired HTLC
-template := client.HtlcApi.Reclaim(htlcId)
-```
-
-### Bridge Operations
-
-```go
-// Wrap tokens
-template := client.BridgeApi.WrapToken(
-    networkClass,
-    chainId,
-    toAddress,
-    types.ZnnTokenStandard,
-    big.NewInt(100 * 1e8),
-)
-
-// Unwrap tokens
-template := client.BridgeApi.UnwrapToken(
-    types.ZnnTokenStandard,
-    big.NewInt(100 * 1e8),
-    signature,
-)
-```
-
-## Sending Transactions
-
-Transactions require a wallet/keypair:
-
-```go
-// For contract calls, first get the template
+// 1. Create template
 template := client.TokenApi.IssueToken(...)
 
-// Then sign and send (requires wallet integration)
-// Implementation depends on your wallet setup
-```
+// 2. Autofill transaction parameters
+// (Implementation in zenon/utils.go)
 
-## ABI Encoding/Decoding
+// 3. Generate PoW or use plasma
+difficulty := 80000
+nonce := pow.GeneratePoW(template.Hash, difficulty)
 
-The SDK includes a complete ABI implementation:
+// 4. Sign transaction
+signature := keypair.Sign(template.Hash.Bytes())
 
-```go
-import "github.com/0x3639/znn-sdk-go/abi"
-import "github.com/0x3639/znn-sdk-go/embedded"
-
-// Encode function call
-data, err := embedded.Token.EncodeFunction("IssueToken", []interface{}{
-    name,
-    symbol,
-    domain,
-    totalSupply,
-    maxSupply,
-    decimals,
-    isMintable,
-    isBurnable,
-    isUtility,
-})
-
-// Decode function call
-functionName, args, err := embedded.Token.DecodeFunction(data)
+// 5. Publish
+err := client.LedgerApi.PublishRawTransaction(template)
 ```
 
 ## PoW Generation
@@ -326,7 +382,7 @@ nonce := pow.GeneratePoW(hash, difficulty)
 valid := pow.CheckPoW(hash, nonce, difficulty)
 ```
 
-### Asynchronous PoW with Context (Recommended)
+### Asynchronous PoW (Recommended)
 
 ```go
 import (
@@ -354,30 +410,6 @@ if result.Error != nil {
 fmt.Println("PoW nonce:", result.Nonce)
 ```
 
-### Multiple Concurrent PoW Operations
-
-```go
-// Generate PoW for multiple transactions concurrently
-ctx := context.Background()
-hashes := []types.Hash{hash1, hash2, hash3, hash4, hash5}
-results := make([]<-chan pow.PowResult, len(hashes))
-
-// Start all PoW operations
-for i, h := range hashes {
-    results[i] = pow.GeneratePowAsync(ctx, h, difficulty)
-}
-
-// Collect results
-for i, resultChan := range results {
-    result := <-resultChan
-    if result.Error != nil {
-        fmt.Printf("Transaction %d failed: %v\n", i, result.Error)
-        continue
-    }
-    fmt.Printf("Transaction %d nonce: %s\n", i, result.Nonce)
-}
-```
-
 ### Context-Based Cancellation
 
 ```go
@@ -399,9 +431,28 @@ if result.Error == pow.ErrCancelled {
 }
 ```
 
+## Real-Time Subscriptions
+
+Monitor blockchain events in real-time:
+
+```go
+// Subscribe to momentums
+sub, momentumChan, err := client.SubscriberApi.ToMomentums()
+defer sub.Unsubscribe()
+
+// Subscribe to all account blocks
+sub, blockChan, err := client.SubscriberApi.ToAllAccountBlocks()
+
+// Subscribe to specific address
+sub, blockChan, err := client.SubscriberApi.ToAccountBlocksByAddress(address)
+
+// Subscribe to unreceived blocks (for auto-receive)
+sub, blockChan, err := client.SubscriberApi.ToUnreceivedAccountBlocksByAddress(address)
+```
+
 ## Connection Management
 
-The enhanced WebSocket client provides:
+The enhanced WebSocket client provides robust connection handling:
 
 ### Status Monitoring
 
@@ -430,14 +481,14 @@ client.Stop() // Stops monitoring, reconnection, and closes connection
 
 ### Core Modules
 
+- **`rpc_client/`** - Enhanced WebSocket client with auto-reconnect
+- **`api/`** - Core blockchain APIs (Ledger, Stats, Subscriber)
+- **`api/embedded/`** - Embedded contract APIs (11 contracts)
+- **`wallet/`** - HD wallet management (BIP39/BIP44)
+- **`pow/`** - Proof-of-work generation (sync and async)
+- **`crypto/`** - Cryptographic primitives (Ed25519, SHA3, Argon2)
 - **`abi/`** - Complete Solidity ABI implementation
 - **`embedded/`** - Contract definitions and constants
-- **`api/`** - Core blockchain APIs (Ledger, Stats, Subscriber)
-- **`api/embedded/`** - Embedded contract APIs
-- **`wallet/`** - HD wallet management (BIP39/BIP44)
-- **`crypto/`** - Cryptographic primitives (Ed25519, SHA3, Argon2)
-- **`pow/`** - Proof-of-work generation
-- **`rpc_client/`** - Enhanced WebSocket client
 - **`utils/`** - Common utilities (bytes, amounts, blocks)
 
 ### Type System
@@ -447,68 +498,137 @@ The SDK uses go-zenon's type system:
 ```go
 import "github.com/zenon-network/go-zenon/common/types"
 
-types.Address           // Zenon address
+types.Address           // Zenon address (z1...)
 types.Hash              // 32-byte hash
 types.ZenonTokenStandard // Token standard (ZTS)
-types.ZnnTokenStandard  // ZNN token
-types.QsrTokenStandard  // QSR token
+types.ZnnTokenStandard  // ZNN token constant
+types.QsrTokenStandard  // QSR token constant
 ```
 
-## Testing
+### Embedded Contracts
 
-The SDK includes comprehensive test coverage:
+Zenon's protocol is powered by 11 embedded smart contracts:
+
+| Contract | Purpose | Key Functions |
+|----------|---------|---------------|
+| **Pillar** | Consensus nodes | Register, Delegate, Undelegate |
+| **Sentinel** | Infrastructure nodes | Register, Revoke, Collect rewards |
+| **Token** | ZTS tokens | Issue, Mint, Burn, Update |
+| **Plasma** | Feeless transactions | Fuse, Cancel fusion |
+| **Stake** | Staking rewards | Stake, Cancel, Collect |
+| **Accelerator** | Ecosystem funding | Create project, Vote, Add phase |
+| **Bridge** | Cross-chain | Wrap, Unwrap, Set metadata |
+| **Liquidity** | Liquidity pools | Add liquidity, Withdraw, Swap |
+| **HTLC** | Atomic swaps | Create, Unlock, Reclaim |
+| **Swap** | Legacy migration | Query swap assets |
+| **Spork** | Protocol upgrades | Query active sporks |
+
+## Token Standards (ZTS)
+
+Zenon uses the ZTS (Zenon Token Standard) for all tokens:
+
+- **ZNN**: Native coin, used for gas and staking
+- **QSR**: Quasar token, used for plasma fusion
+- **Custom ZTS**: User-issued tokens via TokenApi
+
+All amounts use 8 decimals (base units):
+```go
+1 ZNN = 100000000 base units
+amount := big.NewInt(100 * 100000000) // 100 ZNN
+```
+
+## Common Patterns
+
+### Check Account Balance
+
+```go
+info, err := client.LedgerApi.GetAccountInfoByAddress(address)
+for zts, balance := range info.BalanceInfoMap {
+    fmt.Printf("%s: %s\n", zts, balance.Balance)
+}
+```
+
+### List Unreceived Transactions
+
+```go
+blocks, err := client.LedgerApi.GetUnreceivedBlocksByAddress(address, 0, 25)
+for _, block := range blocks.List {
+    fmt.Printf("Unreceived: %s ZNN from %s\n", block.Amount, block.Address)
+}
+```
+
+### Auto-Receive Payments
+
+```go
+sub, blockChan, err := client.SubscriberApi.ToUnreceivedAccountBlocksByAddress(myAddress)
+defer sub.Unsubscribe()
+
+for blocks := range blockChan {
+    for _, block := range blocks {
+        // Create receive block
+        receiveTemplate := client.LedgerApi.ReceiveTemplate(block.Hash)
+        // Sign and publish...
+    }
+}
+```
+
+### Query Pillar Rewards
+
+```go
+pillar, err := client.PillarApi.GetByName("MyPillar")
+uncollected, err := client.PillarApi.GetUncollectedReward(pillar.StakeAddress)
+fmt.Printf("Uncollected rewards: %s ZNN, %s QSR\n",
+    uncollected.Znn, uncollected.Qsr)
+```
+
+### Fuse Plasma for Feeless Transactions
+
+```go
+// Fuse 100 QSR for beneficiary address
+amount := big.NewInt(100 * 100000000)
+template := client.PlasmaApi.Fuse(beneficiaryAddress, amount)
+
+// Check plasma
+plasma, err := client.PlasmaApi.Get(beneficiaryAddress)
+fmt.Printf("Current plasma: %d\n", plasma.CurrentPlasma)
+```
+
+## Documentation
+
+- **[pkg.go.dev](https://pkg.go.dev/github.com/0x3639/znn-sdk-go)** - Complete API reference with 96+ examples
+- **[CLAUDE.md](CLAUDE.md)** - Detailed architecture and development guide
+- **[roadmap.md](roadmap.md)** - Implementation roadmap and progress
+
+### Running Example Functions
+
+All Example functions are runnable tests:
 
 ```bash
-# Run all tests
-go test ./...
+# List all examples
+go test -list Example ./...
 
-# Run tests with coverage
-go test ./... -cover
+# Run all examples in a package
+go test -run Example ./api/embedded
 
-# Run specific package tests
-go test ./abi/...
-go test ./wallet/...
-go test ./rpc_client/...
+# Run specific example
+go test -run Example_issueToken ./api/embedded
+
+# Run all examples across SDK
+go test -run Example ./...
 ```
 
-**Test Statistics:**
-- 497+ unit tests
-- Covers all public APIs
-- 80%+ test coverage
-
-## Examples
-
-See the `examples/` directory for working examples:
-
-### Basic Client Example
-
-Connect to a node and query data:
-
-```bash
-cd examples/basic_client
-go run main.go
-```
-
-This example demonstrates:
-- Connecting to a Zenon node
-- Registering connection callbacks
-- Querying frontier momentum
-- Querying network info
-
-### Wallet Management Example
-
-Create and manage wallets:
-
-```bash
-cd examples/wallet_management
-go run main.go
-```
-
-This example demonstrates:
-- Creating new wallets
-- Deriving keypairs (BIP44)
-- Signing and verifying messages
-- Loading existing wallets
+Examples include:
+- **RPC Client** (11 examples): Connection, options, callbacks, monitoring
+- **Wallet** (10 examples): Creation, import, keypair derivation, signing
+- **Ledger API** (13 examples): Balance, blocks, send, receive, account info
+- **Token API** (11 examples): Issue, mint, burn, transfer ownership
+- **Staking API** (11 examples): Stake, cancel, collect rewards
+- **Pillar API** (9 examples): List, register, delegate, rewards
+- **Sentinel API** (9 examples): Register, revoke, deposit QSR
+- **Plasma API** (10 examples): Fuse, cancel, query plasma
+- **Subscription API** (8 examples): Momentums, account blocks, payment gateway
+- **Accelerator API** (6 examples): Projects, voting, donations
+- **Plus**: HTLC, Bridge, Liquidity examples
 
 ## Development
 
@@ -530,21 +650,81 @@ go fmt ./...
 go vet ./...
 ```
 
-## Documentation
+### Test
 
-- **[CLAUDE.md](CLAUDE.md)** - Detailed SDK architecture and development guide
-- **[roadmap.md](roadmap.md)** - Implementation roadmap and progress
-- **[GoDoc](https://godoc.org/github.com/0x3639/znn-sdk-go)** - API reference
+```bash
+# Run all tests
+go test ./...
+
+# Run with coverage
+go test ./... -cover
+
+# Run examples only
+go test -run Example ./...
+```
+
+## Troubleshooting
+
+### Connection Issues
+
+**Problem**: Cannot connect to node
+```
+Solution: Ensure Zenon node is running at ws://127.0.0.1:35998
+Check with: curl http://127.0.0.1:35997
+```
+
+**Problem**: Connection drops frequently
+```go
+// Solution: Enable auto-reconnect
+opts := rpc_client.ClientOptions{
+    AutoReconnect: true,
+    ReconnectAttempts: 10,
+}
+client, err := rpc_client.NewRpcClientWithOptions(url, opts)
+```
+
+### Wallet Issues
+
+**Problem**: Cannot load wallet
+```
+Solution: Verify wallet file exists and password is correct
+Check location: wallet.DefaultWalletDir()
+```
+
+**Problem**: Invalid address derivation
+```
+Solution: Ensure correct BIP44 path index
+First address: keystore.GetKeyPair(0)
+```
+
+### Transaction Issues
+
+**Problem**: Transaction fails with "insufficient plasma"
+```go
+// Solution 1: Fuse QSR for plasma
+template := client.PlasmaApi.Fuse(myAddress, qsrAmount)
+
+// Solution 2: Generate PoW
+nonce := pow.GeneratePoW(hash, difficulty)
+```
+
+**Problem**: Transaction not confirmed
+```
+Solution: Wait 2 momentums (~20 seconds) for confirmation
+Use SubscriberApi.ToMomentums() to monitor confirmations
+```
 
 ## Contributing
 
 Contributions are welcome! Please:
 
 1. Fork the repository
-2. Create a feature branch
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
 3. Add tests for new functionality
-4. Ensure all tests pass
-5. Submit a pull request
+4. Ensure all tests pass (`go test ./...`)
+5. Format code (`go fmt ./...`)
+6. Run linter (`go vet ./...`)
+7. Submit a pull request
 
 ## License
 
@@ -560,3 +740,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - **Issues**: [GitHub Issues](https://github.com/0x3639/znn-sdk-go/issues)
 - **Community**: [Zenon Network](https://zenon.network)
+- **Documentation**: [pkg.go.dev](https://pkg.go.dev/github.com/0x3639/znn-sdk-go)

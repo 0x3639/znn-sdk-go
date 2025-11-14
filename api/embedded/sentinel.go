@@ -64,6 +64,29 @@ func (sa *SentinelApi) GetFrontierRewardByPage(address types.Address, pageIndex,
 
 // Contract calls
 
+// Register creates a transaction template to register a new Sentinel.
+//
+// Sentinels are network infrastructure nodes that provide reliability and support.
+// Running a Sentinel requires:
+//   - 5,000 ZNN collateral (locked, returned upon revocation)
+//   - 50,000 QSR collateral (locked, returned upon revocation)
+//   - Dedicated node infrastructure
+//
+// Sentinel benefits:
+//   - Earn ZNN and QSR rewards
+//   - Support network infrastructure
+//   - Lower barrier than Pillar operation
+//   - Collateral fully returned on revocation
+//
+// Returns an unsigned AccountBlock template ready for processing.
+//
+// Example:
+//
+//	template := client.SentinelApi.Register()
+//	// Sign and publish transaction
+//	// Requires 5,000 ZNN + 50,000 QSR
+//
+// Note: Ensure you have sufficient ZNN and QSR before attempting registration.
 func (sa *SentinelApi) Register() *nom.AccountBlock {
 	return &nom.AccountBlock{
 		BlockType:     nom.BlockTypeUserSend,

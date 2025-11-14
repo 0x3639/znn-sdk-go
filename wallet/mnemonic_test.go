@@ -111,9 +111,9 @@ func TestValidateMnemonic_InvalidChecksum(t *testing.T) {
 
 func TestValidateMnemonic_WrongWordCount(t *testing.T) {
 	testCases := [][]string{
-		{"abandon", "abandon", "abandon"},                           // Too few
-		{"abandon", "abandon", "abandon", "abandon", "abandon"},     // Wrong count
-		strings.Split(strings.Repeat("abandon ", 50), " ")[:50],     // Too many
+		{"abandon", "abandon", "abandon"},                       // Too few
+		{"abandon", "abandon", "abandon", "abandon", "abandon"}, // Wrong count
+		strings.Split(strings.Repeat("abandon ", 50), " ")[:50], // Too many
 	}
 
 	for _, words := range testCases {

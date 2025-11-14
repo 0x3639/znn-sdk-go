@@ -140,8 +140,8 @@ func Example_issueFixedSupplyToken() {
 		"Fixed Token",
 		"FTK",
 		"",
-		supply,  // total supply
-		supply,  // max = total (fixed)
+		supply, // total supply
+		supply, // max = total (fixed)
 		8,
 		false, // NOT mintable
 		false, // NOT burnable

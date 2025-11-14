@@ -154,10 +154,10 @@ func (sa *StakeApi) GetEntriesByAddress(address types.Address, pageIndex, pageSi
 // Staking parameters:
 //   - Minimum amount: 1 ZNN (10^8 base units)
 //   - Duration options (in seconds):
-//     • 1 month: 2592000 (30 days)
-//     • 3 months: 7776000 (90 days)
-//     • 6 months: 15552000 (180 days)
-//     • 12 months: 31536000 (365 days)
+//   - 1 month: 2592000 (30 days)
+//   - 3 months: 7776000 (90 days)
+//   - 6 months: 15552000 (180 days)
+//   - 12 months: 31536000 (365 days)
 //   - Longer durations = higher rewards
 //   - Can stake multiple times with different durations
 //

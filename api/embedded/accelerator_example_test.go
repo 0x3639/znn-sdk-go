@@ -48,8 +48,8 @@ func Example_createAcceleratorProject() {
 	url := "https://myproject.com"
 
 	// Funding request
-	znnNeeded := big.NewInt(5000 * 100000000)   // 5,000 ZNN
-	qsrNeeded := big.NewInt(50000 * 100000000)  // 50,000 QSR
+	znnNeeded := big.NewInt(5000 * 100000000)  // 5,000 ZNN
+	qsrNeeded := big.NewInt(50000 * 100000000) // 50,000 QSR
 
 	_ = client.AcceleratorApi.CreateProject(
 		name,

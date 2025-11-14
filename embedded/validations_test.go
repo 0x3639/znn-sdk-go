@@ -116,11 +116,11 @@ func TestValidateTokenSymbol_TooLong(t *testing.T) {
 
 func TestValidateTokenSymbol_InvalidPattern(t *testing.T) {
 	invalidSymbols := []string{
-		"test",       // lowercase
-		"Test",       // mixed case
-		"TOKEN-1",    // hyphen
-		"TOKEN_1",    // underscore
-		"token.sym",  // dot
+		"test",        // lowercase
+		"Test",        // mixed case
+		"TOKEN-1",     // hyphen
+		"TOKEN_1",     // underscore
+		"token.sym",   // dot
 		"TOKEN SPACE", // space
 	}
 

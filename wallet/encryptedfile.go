@@ -22,10 +22,10 @@ type EncryptedFile struct {
 // CryptoParams contains encryption parameters
 type CryptoParams struct {
 	Argon2Params *Argon2Params `json:"argon2Params"`
-	CipherData   string        `json:"cipherData"`   // Hex encoded
-	CipherName   string        `json:"cipherName"`   // "aes-256-gcm"
-	Kdf          string        `json:"kdf"`          // "argon2.IDKey"
-	Nonce        string        `json:"nonce"`        // Hex encoded
+	CipherData   string        `json:"cipherData"` // Hex encoded
+	CipherName   string        `json:"cipherName"` // "aes-256-gcm"
+	Kdf          string        `json:"kdf"`        // "argon2.IDKey"
+	Nonce        string        `json:"nonce"`      // Hex encoded
 }
 
 // Argon2Params contains Argon2 key derivation parameters

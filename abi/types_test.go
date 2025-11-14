@@ -1305,11 +1305,11 @@ func TestAddressType_Decode(t *testing.T) {
 	}
 
 	tests := []struct {
-		name         string
-		encodedHex   string
-		offset       int
-		wantAddr     string
-		wantErr      bool
+		name       string
+		encodedHex string
+		offset     int
+		wantAddr   string
+		wantErr    bool
 	}{
 		{
 			name:       "valid address at offset 0",
@@ -1382,8 +1382,8 @@ func TestAddressType_RoundTrip(t *testing.T) {
 	}
 
 	tests := []struct {
-		name  string
-		addr  string
+		name string
+		addr string
 	}{
 		{"normal address", "z1qqjnwjjpnue8xmmpanz6csze6tcmtzzdtfsww7"},
 		{"zero address", "z1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqsggv2f"},
@@ -2556,8 +2556,8 @@ func TestBytesType_Decode(t *testing.T) {
 	}
 
 	tests := []struct {
-		name      string
-		data      []byte
+		name string
+		data []byte
 	}{
 		{"empty", []byte{}},
 		{"small", []byte{1, 2, 3, 4, 5}},
@@ -3348,10 +3348,10 @@ func TestFunctionType_Encode(t *testing.T) {
 	ft, _ := NewFunctionType()
 
 	tests := []struct {
-		name     string
-		value    interface{}
-		wantHex  string
-		wantErr  bool
+		name    string
+		value   interface{}
+		wantHex string
+		wantErr bool
 	}{
 		{
 			name:    "24-byte selector from bytes",

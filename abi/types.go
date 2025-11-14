@@ -1095,7 +1095,7 @@ func (sat *StaticArrayType) EncodeTuple(values []interface{}) ([]byte, error) {
 			elems[len(values)+i] = encoded
 
 			// Update offset (round up to 32-byte multiple)
-			offset += (len(encoded)/Int32Size)*Int32Size
+			offset += (len(encoded) / Int32Size) * Int32Size
 			if len(encoded)%Int32Size != 0 {
 				offset += Int32Size
 			}
@@ -1293,7 +1293,7 @@ func (dat *DynamicArrayType) EncodeTuple(values []interface{}) ([]byte, error) {
 			elems[len(values)+i] = encoded
 
 			// Update offset (round up to 32-byte multiple)
-			offset += (len(encoded)/Int32Size)*Int32Size
+			offset += (len(encoded) / Int32Size) * Int32Size
 			if len(encoded)%Int32Size != 0 {
 				offset += Int32Size
 			}

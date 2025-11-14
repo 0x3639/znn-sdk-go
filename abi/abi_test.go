@@ -12,10 +12,10 @@ import (
 
 func TestNewParam(t *testing.T) {
 	tests := []struct {
-		name     string
+		name      string
 		paramName string
-		typeName string
-		wantErr  bool
+		typeName  string
+		wantErr   bool
 	}{
 		{
 			name:      "uint256 param",
@@ -120,10 +120,10 @@ func TestNewEntry(t *testing.T) {
 
 func TestEntry_FormatSignature(t *testing.T) {
 	tests := []struct {
-		name      string
-		funcName  string
-		params    []Param
-		wantSig   string
+		name     string
+		funcName string
+		params   []Param
+		wantSig  string
 	}{
 		{
 			name:     "no params",

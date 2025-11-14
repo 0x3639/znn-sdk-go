@@ -69,15 +69,15 @@ func TestToken_IssueTokenEncoding(t *testing.T) {
 
 	// Test encoding IssueToken function
 	args := []interface{}{
-		"TestToken",  // tokenName
-		"TST",        // tokenSymbol
-		"test.com",   // tokenDomain
-		1000000,      // totalSupply
-		1000000,      // maxSupply
-		8,            // decimals
-		false,        // isMintable
-		true,         // isBurnable
-		false,        // isUtility
+		"TestToken", // tokenName
+		"TST",       // tokenSymbol
+		"test.com",  // tokenDomain
+		1000000,     // totalSupply
+		1000000,     // maxSupply
+		8,           // decimals
+		false,       // isMintable
+		true,        // isBurnable
+		false,       // isUtility
 	}
 
 	encoded, err := Token.EncodeFunction("IssueToken", args)

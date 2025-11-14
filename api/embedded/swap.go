@@ -16,6 +16,15 @@ func NewSwapApi(client *server.Client) *SwapApi {
 	}
 }
 
+// GetAssetsByKeyIdHash retrieves swap asset information by key ID hash.
+//
+// The Swap contract manages the legacy swap from old Zenon assets. This query
+// returns information about swapped assets for a specific key.
+//
+// Parameters:
+//   - keyIdHash: Hash of the key ID to query
+//
+// Returns swap asset entry or an error.
 func (sa *SwapApi) GetAssetsByKeyIdHash(keyIdHash types.Hash) (*embedded.SwapAssetEntry, error) {
 	ans := new(embedded.SwapAssetEntry)
 	if err := sa.client.Call(ans, "embedded.swap.getAssetsByKeyIdHash", keyIdHash.String()); err != nil {

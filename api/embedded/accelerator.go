@@ -62,6 +62,39 @@ func (aa *AcceleratorApi) GetPillarVotes(name string, hashes []types.Hash) ([]*d
 	return ans, nil
 }
 
+// CreateProject creates a transaction template to submit a new Accelerator-Z project proposal.
+//
+// Accelerator-Z is Zenon's decentralized funding mechanism for ecosystem development.
+// Projects submit proposals requesting ZNN/QSR funding, which Pillars vote on.
+//
+// Requirements:
+//   - Cost: 1 ZNN (project creation fee, non-refundable)
+//   - Project must include clear deliverables and milestones
+//   - Funding delivered in phases as milestones are completed
+//
+// Parameters:
+//   - name: Project name (3-50 characters)
+//   - description: Detailed project description
+//   - url: Project website or documentation URL
+//   - znnFundsNeeded: Total ZNN requested
+//   - qsrFundsNeeded: Total QSR requested
+//
+// Returns an unsigned AccountBlock template ready for processing.
+//
+// Example:
+//
+//	znnNeeded := big.NewInt(5000 * 100000000) // 5,000 ZNN
+//	qsrNeeded := big.NewInt(50000 * 100000000) // 50,000 QSR
+//
+//	template := client.AcceleratorApi.CreateProject(
+//	    "My Zenon Project",
+//	    "Building a new tool for the ecosystem...",
+//	    "https://myproject.com",
+//	    znnNeeded,
+//	    qsrNeeded,
+//	)
+//
+// Note: After submission, Pillars vote on the project. If approved, add phases with milestones.
 func (aa *AcceleratorApi) CreateProject(name, description, url string, znnFundsNeeded, qsrFundsNeeded *big.Int) *nom.AccountBlock {
 	return &nom.AccountBlock{
 		BlockType:     nom.BlockTypeUserSend,
@@ -125,6 +158,29 @@ func (aa *AcceleratorApi) Donate(amount *big.Int, tokenStandard types.ZenonToken
 	}
 }
 
+// VoteByName creates a transaction template for a Pillar to vote on a project/phase.
+//
+// Only Pillar operators can vote on Accelerator proposals. Votes determine whether
+// projects receive funding and whether phases are approved for payment.
+//
+// Vote options:
+//   - 0: Abstain
+//   - 1: Yes (approve)
+//   - 2: No (reject)
+//
+// Parameters:
+//   - id: Project or phase ID to vote on
+//   - pillarName: Name of the voting Pillar
+//   - vote: Vote choice (0=abstain, 1=yes, 2=no)
+//
+// Returns an unsigned AccountBlock template ready for processing.
+//
+// Example:
+//
+//	projectId := types.HexToHashPanic("0x123...")
+//	template := client.AcceleratorApi.VoteByName(projectId, "MyPillar", 1) // Vote yes
+//
+// Note: Only Pillar owners can call this. Voting period has time limits.
 func (aa *AcceleratorApi) VoteByName(id types.Hash, pillarName string, vote uint8) *nom.AccountBlock {
 	return &nom.AccountBlock{
 		BlockType:     nom.BlockTypeUserSend,

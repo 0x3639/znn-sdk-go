@@ -10,8 +10,42 @@ import (
 // Amount Utilities
 // =============================================================================
 
-// ExtractDecimals parses a decimal string and converts it to big.Int
-// Example: "1.5" with 8 decimals becomes 150000000
+// ExtractDecimals parses a decimal string amount and converts it to a big.Int
+// in base units according to the specified number of decimal places.
+//
+// This function is used to convert human-readable token amounts (e.g., "1.5 ZNN")
+// into the integer representation required by the Zenon protocol.
+//
+// Parameters:
+//   - amount: Decimal string representation (e.g., "1.5", "100", "0.00000001")
+//   - decimals: Number of decimal places (e.g., 8 for ZNN/QSR)
+//
+// Returns the amount in base units as a big.Int, or an error if:
+//   - Amount is empty (unless decimals is 0)
+//   - Amount has invalid decimal format (multiple decimal points)
+//   - Amount contains non-numeric characters
+//   - Amount is negative
+//
+// Behavior:
+//   - Integer amounts: "100" with 8 decimals becomes 10000000000
+//   - Decimal amounts: "1.5" with 8 decimals becomes 150000000
+//   - Excess decimals are truncated: "1.123456789" with 8 decimals becomes 112345678
+//   - Missing decimals are padded: "1.5" with 8 decimals becomes "1.50000000"
+//   - Negative amounts are rejected (returns error)
+//
+// Example - ZNN transfer (8 decimals):
+//
+//	amount, err := ExtractDecimals("1.5", 8)
+//	// Returns: 150000000 (1.5 * 10^8)
+//
+// Example - Custom token (2 decimals):
+//
+//	amount, err := ExtractDecimals("99.99", 2)
+//	// Returns: 9999 (99.99 * 10^2)
+//
+// Security:
+//   - Validates against negative amounts to prevent balance underflow
+//   - Dual validation in both integer and decimal paths
 func ExtractDecimals(amount string, decimals int) (*big.Int, error) {
 	if amount == "" {
 		if decimals == 0 {

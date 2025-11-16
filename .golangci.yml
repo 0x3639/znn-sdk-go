@@ -19,8 +19,6 @@ linters:
     - unused        # Find unused code
 
     # Additional recommended linters
-    - gofmt         # Ensure code is formatted
-    - goimports     # Ensure imports are formatted
     - misspell      # Find commonly misspelled words
     - unconvert     # Remove unnecessary type conversions
     - unparam       # Find unused function parameters

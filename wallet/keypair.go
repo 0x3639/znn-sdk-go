@@ -79,6 +79,39 @@ func (kp *KeyPair) Verify(signature []byte, message []byte) (bool, error) {
 	return crypto.Verify(signature, message, pubKey)
 }
 
+// Destroy securely zeros out the private key from memory
+// This method should be called when the KeyPair is no longer needed
+// to prevent the private key from lingering in memory.
+//
+// IMPORTANT: After calling Destroy(), the KeyPair should not be used
+// for any operations. Attempting to use it will result in undefined behavior.
+//
+// Example:
+//
+//	kp, _ := NewKeyPairFromSeed(seed)
+//	defer kp.Destroy()  // Ensure cleanup even if function panics
+//	// ... use keypair for signing ...
+func (kp *KeyPair) Destroy() {
+	// Zero out private key bytes
+	if kp.privateKey != nil {
+		for i := range kp.privateKey {
+			kp.privateKey[i] = 0
+		}
+		kp.privateKey = nil
+	}
+
+	// Zero out public key bytes (defense in depth)
+	if kp.publicKey != nil {
+		for i := range kp.publicKey {
+			kp.publicKey[i] = 0
+		}
+		kp.publicKey = nil
+	}
+
+	// Clear address reference
+	kp.address = nil
+}
+
 // GeneratePublicKey is a static method that generates a public key from a private key
 func GeneratePublicKey(privateKey []byte) ([]byte, error) {
 	return crypto.GetPublicKey(privateKey)

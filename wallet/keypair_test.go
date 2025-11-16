@@ -590,3 +590,114 @@ func BenchmarkVerify(b *testing.B) {
 		kp.Verify(signature, message)
 	}
 }
+
+// =============================================================================
+// Destroy Tests (Security)
+// =============================================================================
+
+func TestDestroy(t *testing.T) {
+	// Generate a keypair
+	_, privateKey, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatalf("Failed to generate key: %v", err)
+	}
+
+	// Create copy of original private key for comparison
+	originalPrivateKey := make([]byte, len(privateKey))
+	copy(originalPrivateKey, privateKey)
+
+	kp := NewKeyPair(privateKey)
+
+	// Derive public key and address before destruction
+	publicKey, err := kp.GetPublicKey()
+	if err != nil {
+		t.Fatalf("Failed to get public key: %v", err)
+	}
+	originalPublicKey := make([]byte, len(publicKey))
+	copy(originalPublicKey, publicKey)
+
+	_, err = kp.GetAddress()
+	if err != nil {
+		t.Fatalf("Failed to get address: %v", err)
+	}
+
+	// Destroy the keypair
+	kp.Destroy()
+
+	// Verify private key is zeroed
+	if kp.privateKey != nil {
+		t.Error("Private key reference should be nil after Destroy()")
+	}
+
+	// Verify public key is zeroed
+	if kp.publicKey != nil {
+		t.Error("Public key reference should be nil after Destroy()")
+	}
+
+	// Verify address is cleared
+	if kp.address != nil {
+		t.Error("Address reference should be nil after Destroy()")
+	}
+
+	// Verify the original byte slice was zeroed
+	allZeros := true
+	for _, b := range privateKey {
+		if b != 0 {
+			allZeros = false
+			break
+		}
+	}
+	if !allZeros {
+		t.Error("Original private key bytes should be zeroed after Destroy()")
+	}
+}
+
+func TestDestroy_CanCallMultipleTimes(t *testing.T) {
+	// Generate a keypair
+	_, privateKey, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatalf("Failed to generate key: %v", err)
+	}
+
+	kp := NewKeyPair(privateKey)
+
+	// Calling Destroy() multiple times should not panic
+	kp.Destroy()
+	kp.Destroy() // Second call should be safe
+	kp.Destroy() // Third call should be safe
+}
+
+func TestDestroy_PreventMemoryLeaks(t *testing.T) {
+	// This test demonstrates the recommended defer pattern
+	_, privateKey, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatalf("Failed to generate key: %v", err)
+	}
+
+	// Simulate a function that uses keypair and ensures cleanup
+	func() {
+		kp := NewKeyPair(privateKey)
+		defer kp.Destroy() // Ensure cleanup even on panic
+
+		// Use the keypair
+		message := []byte("test message")
+		_, err := kp.Sign(message)
+		if err != nil {
+			t.Errorf("Sign() failed: %v", err)
+		}
+
+		// When function exits, Destroy() is called automatically
+	}()
+
+	// After function exits, verify private key was zeroed
+	allZeros := true
+	for _, b := range privateKey {
+		if b != 0 {
+			allZeros = false
+			break
+		}
+	}
+	if !allZeros {
+		t.Error("Private key should be zeroed after defer Destroy()")
+	}
+}

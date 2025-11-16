@@ -1,7 +1,10 @@
 package api
 
 import (
+	"fmt"
 	"math/big"
+	"strings"
+	"time"
 
 	"github.com/zenon-network/go-zenon/chain/nom"
 	"github.com/zenon-network/go-zenon/common/types"
@@ -57,6 +60,163 @@ func (la *LedgerApi) PublishRawTransaction(transaction *nom.AccountBlock) error 
 		return err
 	}
 	return nil
+}
+
+// PublishRawTransactionWithRetry publishes a transaction with automatic retry logic
+// for transient failures.
+//
+// This method wraps PublishRawTransaction with exponential backoff retry logic,
+// making it more resilient to temporary network issues, node synchronization delays,
+// or transient errors.
+//
+// Retry behavior:
+//   - Retries only on transient errors (network errors, timeouts, temporary unavailability)
+//   - Does NOT retry on permanent errors (invalid signature, insufficient balance, etc.)
+//   - Uses exponential backoff: 1s, 2s, 4s, 8s, ...
+//   - Maximum backoff delay capped at 30 seconds
+//
+// Parameters:
+//   - transaction: Fully prepared AccountBlock ready for submission
+//   - maxRetries: Maximum number of retry attempts (0 = no retries, just one attempt)
+//
+// Returns an error if all retry attempts fail or if a permanent error is encountered.
+//
+// Example - Standard retry (3 attempts):
+//
+//	err := client.LedgerApi.PublishRawTransactionWithRetry(transaction, 3)
+//	if err != nil {
+//	    log.Printf("Transaction failed after retries: %v", err)
+//	    return err
+//	}
+//	fmt.Println("Transaction published successfully")
+//
+// Example - No retries (same as PublishRawTransaction):
+//
+//	err := client.LedgerApi.PublishRawTransactionWithRetry(transaction, 0)
+//
+// Example - Aggressive retry for critical transactions:
+//
+//	err := client.LedgerApi.PublishRawTransactionWithRetry(transaction, 5)
+//
+// Common transient errors that trigger retry:
+//   - Connection errors
+//   - Timeout errors
+//   - "connection refused" or "connection reset"
+//   - Temporary node unavailability
+//
+// Permanent errors (no retry):
+//   - Invalid signature
+//   - Insufficient balance
+//   - Incorrect account height
+//   - Invalid PoW/plasma
+//   - Malformed transaction data
+func (la *LedgerApi) PublishRawTransactionWithRetry(transaction *nom.AccountBlock, maxRetries int) error {
+	var lastErr error
+
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		// Attempt to publish
+		err := la.PublishRawTransaction(transaction)
+		if err == nil {
+			// Success!
+			return nil
+		}
+
+		// Save the error
+		lastErr = err
+
+		// Check if this is a transient error worth retrying
+		if !isTransientError(err) {
+			// Permanent error - don't retry
+			return fmt.Errorf("permanent error, not retrying: %w", err)
+		}
+
+		// Check if we have retries left
+		if attempt >= maxRetries {
+			// No more retries
+			break
+		}
+
+		// Calculate backoff delay with exponential backoff
+		// 1s, 2s, 4s, 8s, 16s, 30s (capped)
+		backoff := time.Duration(1<<uint(attempt)) * time.Second
+		if backoff > 30*time.Second {
+			backoff = 30 * time.Second
+		}
+
+		// Wait before retry
+		time.Sleep(backoff)
+	}
+
+	// All retries exhausted
+	return fmt.Errorf("transaction failed after %d attempts: %w", maxRetries+1, lastErr)
+}
+
+// isTransientError determines if an error is transient (retry-worthy) or permanent.
+//
+// Transient errors include:
+//   - Network connectivity issues
+//   - Timeouts
+//   - Temporary node unavailability
+//   - Connection resets
+//
+// Permanent errors include:
+//   - Invalid signature
+//   - Insufficient balance/plasma
+//   - Invalid transaction parameters
+//   - Invalid account height or hash
+func isTransientError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	errStr := strings.ToLower(err.Error())
+
+	// Transient network errors
+	transientPatterns := []string{
+		"connection refused",
+		"connection reset",
+		"connection closed",
+		"timeout",
+		"temporary failure",
+		"try again",
+		"temporarily unavailable",
+		"network unreachable",
+		"host unreachable",
+		"no route to host",
+		"broken pipe",
+		"i/o timeout",
+		"deadline exceeded",
+	}
+
+	for _, pattern := range transientPatterns {
+		if strings.Contains(errStr, pattern) {
+			return true
+		}
+	}
+
+	// Permanent errors (explicit check)
+	permanentPatterns := []string{
+		"invalid signature",
+		"insufficient",
+		"invalid hash",
+		"invalid height",
+		"invalid data",
+		"invalid amount",
+		"invalid address",
+		"invalid block",
+		"account chain",
+		"invalid parameter",
+		"invalid token",
+	}
+
+	for _, pattern := range permanentPatterns {
+		if strings.Contains(errStr, pattern) {
+			return false
+		}
+	}
+
+	// Default: treat unknown errors as transient (safer to retry)
+	return true
 }
 
 // GetUnconfirmedBlocksByAddress retrieves account blocks that have been published but

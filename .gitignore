@@ -33,3 +33,6 @@ coverage.html
 
 # Go workspace file
 go.work
+
+# Claude Code working directory (audit notes, temp files, etc.)
+.claude/

@@ -65,9 +65,9 @@ func DecodeList(params []Param, encoded []byte) ([]interface{}, error) {
 
 		if param.Type.IsDynamicType() {
 			// For dynamic types, read the offset pointer
-			offsetBig, err := DecodeInt(encoded, offset)
-			if err != nil {
-				return nil, fmt.Errorf("failed to decode offset for param %s: %w", param.Name, err)
+			offsetBig, decodeErr := DecodeInt(encoded, offset)
+			if decodeErr != nil {
+				return nil, fmt.Errorf("failed to decode offset for param %s: %w", param.Name, decodeErr)
 			}
 			dataOffset := int(offsetBig.Int64())
 

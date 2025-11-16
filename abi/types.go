@@ -240,6 +240,7 @@ func bigIntToBytesSigned(b *big.Int, numBytes int) []byte {
 		// First, get absolute value
 		absVal := new(big.Int).Abs(b)
 		// Create a value with numBytes*8 bits set
+		//nolint:gosec // numBytes is capped at 32, so numBytes*8 cannot overflow
 		maxVal := new(big.Int).Lsh(big.NewInt(1), uint(numBytes*8))
 		// Subtract absolute value from 2^(numBytes*8)
 		twosComp := new(big.Int).Sub(maxVal, absVal)

@@ -2,10 +2,10 @@ package api
 
 import (
 	"context"
+
 	"github.com/zenon-network/go-zenon/common/types"
 	"github.com/zenon-network/go-zenon/rpc/api/subscribe"
 	"github.com/zenon-network/go-zenon/rpc/server"
-	rpc "github.com/zenon-network/go-zenon/rpc/server"
 )
 
 type SubscriberApi struct {
@@ -50,7 +50,7 @@ func NewSubscriberApi(client *server.Client) *SubscriberApi {
 //	}
 //
 // Note: Always call Unsubscribe() when done to clean up resources.
-func (sa *SubscriberApi) ToMomentums() (*rpc.ClientSubscription, chan []subscribe.Momentum, error) {
+func (sa *SubscriberApi) ToMomentums() (*server.ClientSubscription, chan []subscribe.Momentum, error) {
 	ctx := context.Background()
 	ch := make(chan []subscribe.Momentum)
 	subscription, err := sa.client.Subscribe(ctx, "ledger", ch, "momentums")
@@ -93,7 +93,7 @@ func (sa *SubscriberApi) ToMomentums() (*rpc.ClientSubscription, chan []subscrib
 //
 // Warning: This subscription can generate high data volume on busy networks.
 // Consider using ToAccountBlocksByAddress for specific addresses instead.
-func (sa *SubscriberApi) ToAllAccountBlocks() (*rpc.ClientSubscription, chan []subscribe.AccountBlock, error) {
+func (sa *SubscriberApi) ToAllAccountBlocks() (*server.ClientSubscription, chan []subscribe.AccountBlock, error) {
 	ctx := context.Background()
 	ch := make(chan []subscribe.AccountBlock)
 	subscription, err := sa.client.Subscribe(ctx, "ledger", ch, "allAccountBlocks")
@@ -142,7 +142,7 @@ func (sa *SubscriberApi) ToAllAccountBlocks() (*rpc.ClientSubscription, chan []s
 //	}
 //
 // This is ideal for monitoring a single wallet or application address.
-func (sa *SubscriberApi) ToAccountBlocksByAddress(address types.Address) (*rpc.ClientSubscription, chan []subscribe.AccountBlock, error) {
+func (sa *SubscriberApi) ToAccountBlocksByAddress(address types.Address) (*server.ClientSubscription, chan []subscribe.AccountBlock, error) {
 	ctx := context.Background()
 	ch := make(chan []subscribe.AccountBlock)
 	subscription, err := sa.client.Subscribe(ctx, "ledger", ch, "accountBlocksByAddress", address.String())
@@ -193,7 +193,7 @@ func (sa *SubscriberApi) ToAccountBlocksByAddress(address types.Address) (*rpc.C
 //	}
 //
 // This is essential for automated payment processing and wallet auto-receive features.
-func (sa *SubscriberApi) ToUnreceivedAccountBlocksByAddress(address types.Address) (*rpc.ClientSubscription, chan []subscribe.AccountBlock, error) {
+func (sa *SubscriberApi) ToUnreceivedAccountBlocksByAddress(address types.Address) (*server.ClientSubscription, chan []subscribe.AccountBlock, error) {
 	ctx := context.Background()
 	ch := make(chan []subscribe.AccountBlock)
 	subscription, err := sa.client.Subscribe(ctx, "ledger", ch, "unreceivedAccountBlocksByAddress", address.String())

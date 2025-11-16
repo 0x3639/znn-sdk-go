@@ -1,6 +1,7 @@
 package wallet
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -44,7 +45,8 @@ func TestNewKeyStoreManager_ExistingDirectory(t *testing.T) {
 
 	// Create directory first
 	walletPath := filepath.Join(tmpDir, "wallets")
-	if err := os.MkdirAll(walletPath, 0700); err != nil {
+	err = os.MkdirAll(walletPath, 0700)
+	if err != nil {
 		t.Fatalf("Failed to create wallet directory: %v", err)
 	}
 
@@ -82,7 +84,8 @@ func TestSaveKeyStore_Success(t *testing.T) {
 	}
 
 	// Save keystore
-	if err := manager.SaveKeyStore(store, "password123", "test-wallet"); err != nil {
+	err = manager.SaveKeyStore(store, "password123", "test-wallet")
+	if err != nil {
 		t.Fatalf("SaveKeyStore() error = %v", err)
 	}
 
@@ -172,7 +175,8 @@ func TestReadKeyStore_Success(t *testing.T) {
 		t.Fatalf("NewKeyStoreFromMnemonic() error = %v", err)
 	}
 
-	if err := manager.SaveKeyStore(store1, "password123", "test-wallet"); err != nil {
+	err = manager.SaveKeyStore(store1, "password123", "test-wallet")
+	if err != nil {
 		t.Fatalf("SaveKeyStore() error = %v", err)
 	}
 
@@ -202,7 +206,8 @@ func TestReadKeyStore_WrongPassword(t *testing.T) {
 
 	// Create and save keystore
 	store, _ := NewKeyStoreRandom()
-	if err := manager.SaveKeyStore(store, "password123", "test-wallet"); err != nil {
+	err = manager.SaveKeyStore(store, "password123", "test-wallet")
+	if err != nil {
 		t.Fatalf("SaveKeyStore() error = %v", err)
 	}
 
@@ -267,7 +272,8 @@ func TestFindKeyStore_ExactMatch(t *testing.T) {
 
 	// Create keystore
 	store, _ := NewKeyStoreRandom()
-	if err := manager.SaveKeyStore(store, "password", "my-wallet"); err != nil {
+	err = manager.SaveKeyStore(store, "password", "my-wallet")
+	if err != nil {
 		t.Fatalf("SaveKeyStore() error = %v", err)
 	}
 
@@ -296,7 +302,8 @@ func TestFindKeyStore_CaseInsensitive(t *testing.T) {
 
 	// Create keystore
 	store, _ := NewKeyStoreRandom()
-	if err := manager.SaveKeyStore(store, "password", "MyWallet"); err != nil {
+	err = manager.SaveKeyStore(store, "password", "MyWallet")
+	if err != nil {
 		t.Fatalf("SaveKeyStore() error = %v", err)
 	}
 
@@ -324,7 +331,7 @@ func TestFindKeyStore_NotFound(t *testing.T) {
 	}
 
 	_, err = manager.FindKeyStore("nonexistent")
-	if err != ErrKeystoreNotFound {
+	if !errors.Is(err, ErrKeystoreNotFound) {
 		t.Errorf("FindKeyStore() error = %v, want ErrKeystoreNotFound", err)
 	}
 }
@@ -389,8 +396,9 @@ func TestListAllKeyStores_Multiple(t *testing.T) {
 	names := []string{"wallet1", "wallet2", "wallet3"}
 	for _, name := range names {
 		store, _ := NewKeyStoreRandom()
-		if err := manager.SaveKeyStore(store, "password", name); err != nil {
-			t.Fatalf("SaveKeyStore() error = %v", err)
+		saveErr := manager.SaveKeyStore(store, "password", name)
+		if saveErr != nil {
+			t.Fatalf("SaveKeyStore() error = %v", saveErr)
 		}
 	}
 
@@ -432,7 +440,8 @@ func TestListAllKeyStores_IgnoresHiddenFiles(t *testing.T) {
 
 	// Create regular keystore
 	store, _ := NewKeyStoreRandom()
-	if err := manager.SaveKeyStore(store, "password", "wallet"); err != nil {
+	err = manager.SaveKeyStore(store, "password", "wallet")
+	if err != nil {
 		t.Fatalf("SaveKeyStore() error = %v", err)
 	}
 
@@ -600,7 +609,8 @@ func TestGetKeystoreInfo_Success(t *testing.T) {
 
 	// Create keystore
 	store, _ := NewKeyStoreRandom()
-	if err := manager.SaveKeyStore(store, "password", "test-wallet"); err != nil {
+	err = manager.SaveKeyStore(store, "password", "test-wallet")
+	if err != nil {
 		t.Fatalf("SaveKeyStore() error = %v", err)
 	}
 

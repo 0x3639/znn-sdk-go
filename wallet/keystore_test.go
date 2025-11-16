@@ -473,7 +473,7 @@ func TestFromEncryptedFile_WrongPassword(t *testing.T) {
 	ef, _ := ks.ToEncryptedFile("password123", nil)
 
 	_, err := FromEncryptedFile(ef, "wrongpassword")
-	if err != ErrIncorrectPassword {
+	if !errors.Is(err, ErrIncorrectPassword) {
 		t.Errorf("FromEncryptedFile() error = %v, want ErrIncorrectPassword", err)
 	}
 }

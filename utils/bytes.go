@@ -144,6 +144,7 @@ func Merge(arrays [][]byte) []byte {
 // IntToBytes converts int32 to 4 bytes (big-endian)
 func IntToBytes(integer int32) []byte {
 	bytes := make([]byte, 4)
+	//nolint:gosec // Safe conversion: int32 fits in uint32
 	binary.BigEndian.PutUint32(bytes, uint32(integer))
 	return bytes
 }
@@ -151,6 +152,7 @@ func IntToBytes(integer int32) []byte {
 // LongToBytes converts int64 to 8 bytes (big-endian)
 func LongToBytes(longValue int64) []byte {
 	bytes := make([]byte, 8)
+	//nolint:gosec // Safe conversion: int64 fits in uint64
 	binary.BigEndian.PutUint64(bytes, uint64(longValue))
 	return bytes
 }

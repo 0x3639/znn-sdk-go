@@ -265,7 +265,7 @@ func (la *LedgerApi) GetUnconfirmedBlocksByAddress(address types.Address, pageIn
 	return ans, nil
 }
 
-// AccountBlocks
+// GetFrontierAccountBlock returns the frontier account block for an address
 func (la *LedgerApi) GetFrontierAccountBlock(address types.Address) (*api.AccountBlock, error) {
 	ans := new(api.AccountBlock)
 	if err := la.client.Call(ans, "ledger.getFrontierAccountBlock", address.String()); err != nil {

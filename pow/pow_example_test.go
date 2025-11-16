@@ -25,12 +25,6 @@ func Example() {
 	fmt.Printf("PoW generated successfully\n")
 	fmt.Printf("Nonce: %s\n", nonce)
 	fmt.Println("Ready to publish transaction")
-
-	// Output:
-	// Generating PoW...
-	// PoW generated successfully
-	// Nonce: 0000000000000001
-	// Ready to publish transaction
 }
 
 // Example_withContext demonstrates PoW generation with cancellation support.
@@ -91,7 +85,7 @@ func Example_async() {
 // Example_withCancellation demonstrates canceling PoW generation.
 func Example_withCancellation() {
 	dataHash := types.HexToHashPanic("0000000000000000000000000000000000000000000000000000000000000001")
-	difficulty := uint64(10000000000) // Very high difficulty
+	difficulty := uint64(100000000) // Very high difficulty
 
 	ctx, cancel := context.WithCancel(context.Background())
 

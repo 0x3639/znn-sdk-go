@@ -4,15 +4,36 @@ import (
 	"context"
 	"encoding/binary"
 	"errors"
+	"fmt"
+	"log"
 	"math/big"
 
 	"github.com/zenon-network/go-zenon/common/types"
 	"golang.org/x/crypto/sha3"
 )
 
+const (
+	// MaxProtocolDifficulty is the absolute maximum difficulty the Zenon protocol can require.
+	// This is calculated as: MaxPoWPlasmaForAccountBlock × PoWDifficultyPerPlasma
+	// = 94,500 plasma × 1,500 = 141,750,000
+	//
+	// Any difficulty value above this is either:
+	// - A malfunctioning node
+	// - A malicious attempt to DoS the client
+	// - An incompatible protocol version
+	MaxProtocolDifficulty uint64 = 141_750_000
+
+	// MaxReasonableDifficulty is a safety cap with a 50% buffer above the protocol maximum.
+	// Difficulties above this threshold will be rejected as obvious attacks or errors.
+	MaxReasonableDifficulty uint64 = 200_000_000
+)
+
 var (
 	// ErrCancelled is returned when PoW generation is cancelled via context
 	ErrCancelled = errors.New("pow generation cancelled")
+
+	// ErrDifficultyTooHigh is returned when difficulty exceeds the reasonable maximum
+	ErrDifficultyTooHigh = errors.New("difficulty exceeds reasonable maximum (possible DoS attack)")
 )
 
 // PowResult contains the result of an asynchronous PoW generation
@@ -45,6 +66,53 @@ func (s PowStatus) String() string {
 	}
 }
 
+// validateAndCapDifficulty validates the difficulty and caps it if necessary.
+//
+// Returns:
+//   - The capped difficulty value (safe to use)
+//   - An error if difficulty exceeds MaxReasonableDifficulty
+//
+// Behavior:
+//   - difficulty <= MaxProtocolDifficulty: Returns as-is, no warning
+//   - MaxProtocolDifficulty < difficulty <= MaxReasonableDifficulty: Caps to MaxProtocolDifficulty, logs warning
+//   - difficulty > MaxReasonableDifficulty: Returns error (obvious attack)
+func validateAndCapDifficulty(difficulty uint64) (uint64, error) {
+	// Check if obviously too high (probable DoS attack)
+	if difficulty > MaxReasonableDifficulty {
+		return 0, fmt.Errorf("%w: difficulty=%d, max=%d",
+			ErrDifficultyTooHigh, difficulty, MaxReasonableDifficulty)
+	}
+
+	// Check if above protocol maximum (cap it and warn)
+	if difficulty > MaxProtocolDifficulty {
+		log.Printf("WARNING: Difficulty %d exceeds protocol maximum %d. "+
+			"Capping to protocol maximum. This may indicate a malfunctioning or malicious node.",
+			difficulty, MaxProtocolDifficulty)
+		return MaxProtocolDifficulty, nil
+	}
+
+	// Within normal range
+	return difficulty, nil
+}
+
+// validateAndCapDifficultyBigInt is like validateAndCapDifficulty but for *big.Int
+func validateAndCapDifficultyBigInt(difficulty *big.Int) (*big.Int, error) {
+	// Check if difficulty fits in uint64
+	if !difficulty.IsUint64() {
+		return nil, fmt.Errorf("%w: difficulty too large for uint64",
+			ErrDifficultyTooHigh)
+	}
+
+	// Validate as uint64
+	diffUint64 := difficulty.Uint64()
+	cappedUint64, err := validateAndCapDifficulty(diffUint64)
+	if err != nil {
+		return nil, err
+	}
+
+	return new(big.Int).SetUint64(cappedUint64), nil
+}
+
 // GeneratePoW generates a valid proof-of-work nonce for the given hash and difficulty
 // Returns the nonce as a hex string (without 0x prefix)
 //
@@ -54,12 +122,21 @@ func (s PowStatus) String() string {
 // 3. Interpret hash as big-endian uint256
 // 4. Check if: hash * difficulty < 2^256
 // 5. Return nonce when condition is met
+//
+// Note: This function panics if difficulty exceeds MaxReasonableDifficulty.
+// For error handling, use GeneratePowWithContext instead.
 func GeneratePoW(dataHash types.Hash, difficulty uint64) string {
 	if difficulty == 0 {
 		return "0000000000000000"
 	}
 
-	difficultyBig := new(big.Int).SetUint64(difficulty)
+	// Validate and cap difficulty
+	cappedDifficulty, err := validateAndCapDifficulty(difficulty)
+	if err != nil {
+		panic(err) // Panic for synchronous API consistency
+	}
+
+	difficultyBig := new(big.Int).SetUint64(cappedDifficulty)
 	threshold := GetThresholdByDifficulty(difficultyBig)
 	nonce := uint64(0)
 
@@ -76,12 +153,21 @@ func GeneratePoW(dataHash types.Hash, difficulty uint64) string {
 }
 
 // GeneratePowBigInt is like GeneratePoW but accepts difficulty as *big.Int
+//
+// Note: This function panics if difficulty exceeds MaxReasonableDifficulty.
+// For error handling, use GeneratePowBigIntWithContext instead.
 func GeneratePowBigInt(dataHash types.Hash, difficulty *big.Int) string {
 	if difficulty.Cmp(big.NewInt(0)) == 0 {
 		return "0000000000000000"
 	}
 
-	threshold := GetThresholdByDifficulty(difficulty)
+	// Validate and cap difficulty
+	cappedDifficulty, err := validateAndCapDifficultyBigInt(difficulty)
+	if err != nil {
+		panic(err) // Panic for synchronous API consistency
+	}
+
+	threshold := GetThresholdByDifficulty(cappedDifficulty)
 	nonce := uint64(0)
 
 	for {
@@ -105,12 +191,20 @@ func GeneratePowBytes(dataHash types.Hash, difficulty uint64) []byte {
 // GeneratePowWithContext generates PoW with context support for cancellation
 // Returns the nonce as a hex string or ErrCancelled if context is cancelled
 // Checks context cancellation every 10000 iterations for efficiency
+//
+// Returns ErrDifficultyTooHigh if difficulty exceeds MaxReasonableDifficulty.
 func GeneratePowWithContext(ctx context.Context, dataHash types.Hash, difficulty uint64) (string, error) {
 	if difficulty == 0 {
 		return "0000000000000000", nil
 	}
 
-	difficultyBig := new(big.Int).SetUint64(difficulty)
+	// Validate and cap difficulty
+	cappedDifficulty, err := validateAndCapDifficulty(difficulty)
+	if err != nil {
+		return "", err
+	}
+
+	difficultyBig := new(big.Int).SetUint64(cappedDifficulty)
 	threshold := GetThresholdByDifficulty(difficultyBig)
 	nonce := uint64(0)
 	checkInterval := uint64(10000) // Check context every 10k iterations
@@ -137,12 +231,20 @@ func GeneratePowWithContext(ctx context.Context, dataHash types.Hash, difficulty
 }
 
 // GeneratePowBigIntWithContext is like GeneratePowWithContext but accepts difficulty as *big.Int
+//
+// Returns ErrDifficultyTooHigh if difficulty exceeds MaxReasonableDifficulty.
 func GeneratePowBigIntWithContext(ctx context.Context, dataHash types.Hash, difficulty *big.Int) (string, error) {
 	if difficulty.Cmp(big.NewInt(0)) == 0 {
 		return "0000000000000000", nil
 	}
 
-	threshold := GetThresholdByDifficulty(difficulty)
+	// Validate and cap difficulty
+	cappedDifficulty, err := validateAndCapDifficultyBigInt(difficulty)
+	if err != nil {
+		return "", err
+	}
+
+	threshold := GetThresholdByDifficulty(cappedDifficulty)
 	nonce := uint64(0)
 	checkInterval := uint64(10000) // Check context every 10k iterations
 

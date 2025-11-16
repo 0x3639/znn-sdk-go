@@ -15,7 +15,7 @@ import (
 func TestNewHtlcApi(t *testing.T) {
 	api := NewHtlcApi(nil)
 	if api == nil {
-		t.Error("NewHtlcApi() should not return nil")
+		t.Fatal("NewHtlcApi() should not return nil")
 	}
 
 	if api.client != nil {

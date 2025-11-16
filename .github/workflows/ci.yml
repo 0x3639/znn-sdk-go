@@ -129,10 +129,13 @@ jobs:
         args: '-no-fail -fmt sarif -out results.sarif ./...'
 
     - name: Upload SARIF file
+      # Note: SARIF upload requires security-events:write permission
+      # This is typically only available on the main repository, not forks
       if: always()
       uses: github/codeql-action/upload-sarif@v3
       with:
         sarif_file: results.sarif
+      continue-on-error: true
 
   build:
     name: Build

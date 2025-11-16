@@ -12,10 +12,9 @@ linters:
   enable:
     # Default linters
     - errcheck      # Check for unchecked errors
-    - gosimple      # Simplify code
     - govet         # Standard go vet checks
     - ineffassign   # Detect ineffectual assignments
-    - staticcheck   # Advanced static analysis
+    - staticcheck   # Advanced static analysis (includes gosimple checks)
     - unused        # Find unused code
 
     # Additional recommended linters

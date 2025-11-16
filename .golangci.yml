@@ -97,7 +97,8 @@ linters:
 issues:
   max-same-issues: 0
   max-issues-per-linter: 0
-  new: false
+  new: true
+  new-from-rev: HEAD~30  # Check issues introduced in last 30 commits
 
 output:
   formats:

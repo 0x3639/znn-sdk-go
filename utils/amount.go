@@ -28,6 +28,11 @@ func ExtractDecimals(amount string, decimals int) (*big.Int, error) {
 			return nil, fmt.Errorf("invalid amount format: %s", amount)
 		}
 
+		// Validate that amount is not negative
+		if intPart.Sign() < 0 {
+			return nil, fmt.Errorf("amount cannot be negative: %s", amount)
+		}
+
 		// Multiply by 10^decimals
 		multiplier := new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(decimals)), nil)
 		result := new(big.Int).Mul(intPart, multiplier)
@@ -55,6 +60,11 @@ func ExtractDecimals(amount string, decimals int) (*big.Int, error) {
 	result, ok := new(big.Int).SetString(combined, 10)
 	if !ok {
 		return nil, fmt.Errorf("invalid amount format: %s", amount)
+	}
+
+	// Validate that amount is not negative
+	if result.Sign() < 0 {
+		return nil, fmt.Errorf("amount cannot be negative: %s", amount)
 	}
 
 	return result, nil

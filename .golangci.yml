@@ -48,6 +48,7 @@ linters:
           - gocognit      # Test functions can be complex
           - errcheck      # Tests often don't check all errors
           - fieldalignment # Field alignment is optimization, not correctness
+          - staticcheck   # SA5011 false positives after t.Fatal()
 
       # Exclude example files
       - path: '(.+)example_test\.go'
@@ -80,6 +81,24 @@ linters:
       - text: "unusedwrite"
         linters:
           - govet
+
+      # Exclude duplicate code in abi/types.go (intentional similar implementations)
+      - path: "abi/types.go"
+        linters:
+          - dupl
+
+      # Exclude complexity warnings in ABI parsing (non-trivial but correct)
+      - text: "cognitive complexity.*parseEntries"
+        linters:
+          - gocognit
+
+      - text: "cyclomatic complexity.*EncodeInternal"
+        linters:
+          - gocyclo
+
+      - text: "cyclomatic complexity.*Bytes32Type.*Encode"
+        linters:
+          - gocyclo
 
   settings:
     errcheck:

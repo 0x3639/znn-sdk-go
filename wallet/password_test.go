@@ -11,13 +11,13 @@ import (
 
 func TestValidatePassword_Valid(t *testing.T) {
 	validPasswords := []string{
-		"12345678",        // Minimum length
-		"abcdefgh",        // All lowercase
-		"ABCDEFGH",        // All uppercase
-		"password123",     // Mixed alphanumeric
-		"MyP@ssw0rd",      // Mixed with special chars
+		"12345678",                           // Minimum length
+		"abcdefgh",                           // All lowercase
+		"ABCDEFGH",                           // All uppercase
+		"password123",                        // Mixed alphanumeric
+		"MyP@ssw0rd",                         // Mixed with special chars
 		"a very long passphrase with spaces", // Long phrase
-		"こんにちは世界", // Unicode characters
+		"こんにちは世界",                            // Unicode characters
 	}
 
 	for _, password := range validPasswords {
@@ -50,11 +50,11 @@ func TestValidatePassword_TooShort(t *testing.T) {
 
 func TestValidatePassword_AllSameChar(t *testing.T) {
 	sameCharPasswords := []string{
-		"aaaaaaaa",        // All 'a'
-		"00000000",        // All '0'
-		"        ",        // All spaces
-		"!!!!!!!!",        // All '!'
-		"zzzzzzzzzzzzzz",  // Longer but all same
+		"aaaaaaaa",       // All 'a'
+		"00000000",       // All '0'
+		"        ",       // All spaces
+		"!!!!!!!!",       // All '!'
+		"zzzzzzzzzzzzzz", // Longer but all same
 	}
 
 	for _, password := range sameCharPasswords {
@@ -90,11 +90,11 @@ func TestAnalyzePasswordStrength_Weak(t *testing.T) {
 
 func TestAnalyzePasswordStrength_Moderate(t *testing.T) {
 	moderatePasswords := []string{
-		"abcdefgh",   // All lowercase, minimum length
-		"ABCDEFGH",   // All uppercase, minimum length
-		"12345678",   // All digits, minimum length
-		"password",   // Single class, >= 8 chars
-		"lowercase",  // All lowercase
+		"abcdefgh",  // All lowercase, minimum length
+		"ABCDEFGH",  // All uppercase, minimum length
+		"12345678",  // All digits, minimum length
+		"password",  // Single class, >= 8 chars
+		"lowercase", // All lowercase
 	}
 
 	for _, password := range moderatePasswords {
@@ -107,11 +107,11 @@ func TestAnalyzePasswordStrength_Moderate(t *testing.T) {
 
 func TestAnalyzePasswordStrength_Strong(t *testing.T) {
 	strongPasswords := []string{
-		"Password1",    // Upper + lower + digit
-		"mypass123",    // Lower + digit
-		"HELLO123",     // Upper + digit
-		"Pass@word",    // Upper + lower + special
-		"hello-world",  // Lower + special
+		"Password1",   // Upper + lower + digit
+		"mypass123",   // Lower + digit
+		"HELLO123",    // Upper + digit
+		"Pass@word",   // Upper + lower + special
+		"hello-world", // Lower + special
 	}
 
 	for _, password := range strongPasswords {
@@ -124,10 +124,10 @@ func TestAnalyzePasswordStrength_Strong(t *testing.T) {
 
 func TestAnalyzePasswordStrength_VeryStrong(t *testing.T) {
 	veryStrongPasswords := []string{
-		"MyP@ssw0rd123",             // 13 chars, all 4 classes
-		"Tr0ub4dor&34",              // 12 chars, all 4 classes
-		"Correct Horse Battery 1",   // 24 chars, 4 classes (upper+lower+digit+space)
-		"aB3!def@9hij",              // 12+ chars, 4 classes
+		"MyP@ssw0rd123",           // 13 chars, all 4 classes
+		"Tr0ub4dor&34",            // 12 chars, all 4 classes
+		"Correct Horse Battery 1", // 24 chars, 4 classes (upper+lower+digit+space)
+		"aB3!def@9hij",            // 12+ chars, 4 classes
 	}
 
 	for _, password := range veryStrongPasswords {
@@ -196,19 +196,19 @@ func TestCountCharacterClasses(t *testing.T) {
 		expected int
 	}{
 		{"", 0},
-		{"abc", 1},            // lowercase only
-		{"ABC", 1},            // uppercase only
-		{"123", 1},            // digits only
-		{"!@#", 1},            // special only
-		{"Aa", 2},             // upper + lower
-		{"a1", 2},             // lower + digit
-		{"A!", 2},             // upper + special
-		{"Aa1", 3},            // upper + lower + digit
-		{"Aa!", 3},            // upper + lower + special
-		{"a1!", 3},            // lower + digit + special
-		{"Aa1!", 4},           // all 4 classes
-		{"P@ssw0rd", 4},       // all 4 classes
-		{"hello world", 2},    // lower + special (space)
+		{"abc", 1},         // lowercase only
+		{"ABC", 1},         // uppercase only
+		{"123", 1},         // digits only
+		{"!@#", 1},         // special only
+		{"Aa", 2},          // upper + lower
+		{"a1", 2},          // lower + digit
+		{"A!", 2},          // upper + special
+		{"Aa1", 3},         // upper + lower + digit
+		{"Aa!", 3},         // upper + lower + special
+		{"a1!", 3},         // lower + digit + special
+		{"Aa1!", 4},        // all 4 classes
+		{"P@ssw0rd", 4},    // all 4 classes
+		{"hello world", 2}, // lower + special (space)
 	}
 
 	for _, test := range tests {
@@ -227,10 +227,10 @@ func TestCountCharacterClasses(t *testing.T) {
 func TestValidatePassword_Unicode(t *testing.T) {
 	// Unicode passwords should work fine
 	unicodePasswords := []string{
-		"こんにちは世界",        // Japanese
-		"Привет123",         // Russian + numbers
-		"🔐🔑🗝️12345",        // Emojis + numbers
-		"café☕️pass",         // Mixed
+		"こんにちは世界",    // Japanese
+		"Привет123",  // Russian + numbers
+		"🔐🔑🗝️12345",  // Emojis + numbers
+		"café☕️pass", // Mixed
 	}
 
 	for _, password := range unicodePasswords {
@@ -264,9 +264,9 @@ func TestAnalyzePasswordStrength_CommonPatterns(t *testing.T) {
 func TestAnalyzePasswordStrength_Passphrases(t *testing.T) {
 	// Long passphrases should be strong even with simple words
 	passphrases := []string{
-		"correct horse battery staple",     // 28 chars, spaces make it 4 classes
-		"the quick brown fox jumps",        // 26 chars
-		"i love zenon network very much",   // 31 chars
+		"correct horse battery staple",   // 28 chars, spaces make it 4 classes
+		"the quick brown fox jumps",      // 26 chars
+		"i love zenon network very much", // 31 chars
 	}
 
 	for _, passphrase := range passphrases {

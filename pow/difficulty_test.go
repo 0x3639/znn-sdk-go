@@ -19,9 +19,9 @@ func TestValidateAndCapDifficulty_WithinRange(t *testing.T) {
 		1,
 		1000,
 		1000000,
-		31500000,      // Base transaction
-		78750000,      // Embedded simple
-		141750000,     // Max protocol
+		31500000,  // Base transaction
+		78750000,  // Embedded simple
+		141750000, // Max protocol
 		MaxProtocolDifficulty,
 	}
 

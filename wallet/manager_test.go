@@ -438,7 +438,8 @@ func TestListAllKeyStores_IgnoresHiddenFiles(t *testing.T) {
 
 	// Create hidden file
 	hiddenPath := filepath.Join(tmpDir, ".hidden")
-	if err := os.WriteFile(hiddenPath, []byte("test"), 0600); err != nil {
+	err = os.WriteFile(hiddenPath, []byte("test"), 0600)
+	if err != nil {
 		t.Fatalf("Failed to create hidden file: %v", err)
 	}
 

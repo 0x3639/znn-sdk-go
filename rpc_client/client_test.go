@@ -1,6 +1,7 @@
 package rpc_client
 
 import (
+	"errors"
 	"sync"
 	"testing"
 	"time"
@@ -153,7 +154,7 @@ func TestRpcClient_AddOnConnectionLostCallback(t *testing.T) {
 	if receivedErr == nil {
 		t.Error("Callback did not receive error")
 	}
-	if receivedErr != testErr {
+	if !errors.Is(receivedErr, testErr) {
 		t.Errorf("Expected error %v, got %v", testErr, receivedErr)
 	}
 }

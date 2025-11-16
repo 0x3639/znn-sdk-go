@@ -2,6 +2,7 @@ package pow_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -41,7 +42,7 @@ func Example_withContext() {
 	// Generate with context
 	nonce, err := pow.GeneratePowWithContext(ctx, dataHash, difficulty)
 	if err != nil {
-		if err == pow.ErrCancelled {
+		if errors.Is(err, pow.ErrCancelled) {
 			fmt.Println("PoW generation cancelled")
 		} else {
 			fmt.Printf("Error: %v\n", err)
@@ -101,7 +102,7 @@ func Example_withCancellation() {
 
 	// Wait for result or cancellation
 	result := <-resultChan
-	if result.Error == pow.ErrCancelled {
+	if errors.Is(result.Error, pow.ErrCancelled) {
 		fmt.Println("PoW was cancelled as expected")
 	} else if result.Error != nil {
 		fmt.Printf("Unexpected error: %v\n", result.Error)

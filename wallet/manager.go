@@ -79,8 +79,9 @@ func (m *KeyStoreManager) SaveKeyStore(store *KeyStore, password, name string) e
 		return fmt.Errorf("keystore cannot be nil")
 	}
 
-	if password == "" {
-		return fmt.Errorf("password cannot be empty")
+	// Validate password strength
+	if err := ValidatePassword(password); err != nil {
+		return fmt.Errorf("invalid password: %w", err)
 	}
 
 	if name == "" {
@@ -153,6 +154,8 @@ func (m *KeyStoreManager) SaveKeyStore(store *KeyStore, password, name string) e
 //	address, _ := keypair.GetAddress()
 //	fmt.Println("Address:", address)
 func (m *KeyStoreManager) ReadKeyStore(password string, keyStoreFile string) (*KeyStore, error) {
+	// Note: When reading, we don't validate password strength since the keystore
+	// may have been created before validation was added. We only check non-empty.
 	if password == "" {
 		return nil, fmt.Errorf("password cannot be empty")
 	}

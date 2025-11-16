@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/0x3639/znn-sdk-go/crypto"
@@ -164,7 +165,10 @@ func FromJSON(data []byte) (*EncryptedFile, error) {
 
 	// Extract standard fields
 	if crypto, ok := raw["crypto"].(map[string]interface{}); ok {
-		cryptoJSON, _ := json.Marshal(crypto)
+		cryptoJSON, err := json.Marshal(crypto)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal crypto params: %w", err)
+		}
 		var cp CryptoParams
 		if err := json.Unmarshal(cryptoJSON, &cp); err != nil {
 			return nil, err

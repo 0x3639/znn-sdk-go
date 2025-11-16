@@ -1,6 +1,7 @@
 package wallet
 
 import (
+	"errors"
 	"testing"
 )
 
@@ -339,7 +340,7 @@ func TestFindAddress_NotFound(t *testing.T) {
 
 	// Try to find it (should not be found)
 	_, err := ks.FindAddress(*otherAddr, 10)
-	if err != ErrAddressNotFound {
+	if !errors.Is(err, ErrAddressNotFound) {
 		t.Errorf("FindAddress() error = %v, want ErrAddressNotFound", err)
 	}
 }

@@ -125,6 +125,7 @@ func (e *Entry) FormatSignature() string {
 func (e *Entry) FingerprintSignature() []byte {
 	signature := e.FormatSignature()
 	hash := sha3.New256()
+	//nolint:errcheck // hash.Write never returns an error
 	hash.Write([]byte(signature))
 	return hash.Sum(nil)
 }
@@ -302,6 +303,7 @@ func parseEntries(jsonStr string) ([]Entry, error) {
 					return nil, fmt.Errorf("invalid input format")
 				}
 
+				//nolint:errcheck // Name is optional in ABI, defaults to empty string if not present
 				paramName, _ := inputMap["name"].(string)
 				paramType, ok := inputMap["type"].(string)
 				if !ok {

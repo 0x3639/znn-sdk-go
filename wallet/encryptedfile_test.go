@@ -3,6 +3,7 @@ package wallet
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 )
@@ -174,7 +175,7 @@ func TestDecrypt_IncorrectPassword(t *testing.T) {
 	}
 
 	_, err = ef.Decrypt("wrongpassword")
-	if err != ErrIncorrectPassword {
+	if !errors.Is(err, ErrIncorrectPassword) {
 		t.Errorf("Decrypt() error = %v, want ErrIncorrectPassword", err)
 	}
 }
@@ -501,7 +502,7 @@ func TestEncryptedFile_CompleteWorkflow(t *testing.T) {
 
 	// 6. Try wrong password
 	_, err = ef2.Decrypt("wrong-password")
-	if err != ErrIncorrectPassword {
+	if !errors.Is(err, ErrIncorrectPassword) {
 		t.Error("Should fail with incorrect password")
 	}
 }

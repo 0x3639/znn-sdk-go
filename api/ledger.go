@@ -138,7 +138,13 @@ func (la *LedgerApi) PublishRawTransactionWithRetry(transaction *nom.AccountBloc
 
 		// Calculate backoff delay with exponential backoff
 		// 1s, 2s, 4s, 8s, 16s, 30s (capped)
-		backoff := time.Duration(1<<uint(attempt)) * time.Second
+		// Cap shift amount to prevent overflow (attempt is always >= 0 in our loop)
+		shiftAmount := attempt
+		if shiftAmount > 5 {
+			shiftAmount = 5 // Cap at 2^5 = 32 seconds
+		}
+		// #nosec G115 - shiftAmount is capped to prevent overflow
+		backoff := time.Duration(1<<uint(shiftAmount)) * time.Second
 		if backoff > 30*time.Second {
 			backoff = 30 * time.Second
 		}
@@ -259,7 +265,7 @@ func (la *LedgerApi) GetUnconfirmedBlocksByAddress(address types.Address, pageIn
 	return ans, nil
 }
 
-// AccountBlocks
+// GetFrontierAccountBlock returns the frontier account block for an address
 func (la *LedgerApi) GetFrontierAccountBlock(address types.Address) (*api.AccountBlock, error) {
 	ans := new(api.AccountBlock)
 	if err := la.client.Call(ans, "ledger.getFrontierAccountBlock", address.String()); err != nil {

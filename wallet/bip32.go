@@ -202,7 +202,10 @@ func (kd *KeyData) GetPublicKey() ([]byte, error) {
 	privateKey := ed25519.NewKeyFromSeed(kd.Key)
 
 	// Get public key
-	publicKey := privateKey.Public().(ed25519.PublicKey)
+	publicKey, ok := privateKey.Public().(ed25519.PublicKey)
+	if !ok {
+		return nil, fmt.Errorf("failed to derive public key: type assertion failed")
+	}
 
 	return []byte(publicKey), nil
 }

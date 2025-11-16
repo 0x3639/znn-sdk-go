@@ -72,11 +72,12 @@ func Example_monitorAccountActivity() {
 		select {
 		case blocks := <-blockChan:
 			for _, block := range blocks {
-				if block.BlockType == nom.BlockTypeUserReceive {
+				switch block.BlockType {
+				case nom.BlockTypeUserReceive:
 					fmt.Printf("\n✓ Received transaction\n")
 					fmt.Printf("  Height: %d\n", block.Height)
 					fmt.Printf("  From: %s\n", block.Address)
-				} else if block.BlockType == nom.BlockTypeUserSend {
+				case nom.BlockTypeUserSend:
 					fmt.Printf("\n→ Sent transaction\n")
 					fmt.Printf("  Height: %d\n", block.Height)
 					fmt.Printf("  To: %s\n", block.ToAddress)

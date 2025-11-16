@@ -1,6 +1,7 @@
 package wallet
 
 import (
+	"errors"
 	"testing"
 )
 
@@ -339,7 +340,7 @@ func TestFindAddress_NotFound(t *testing.T) {
 
 	// Try to find it (should not be found)
 	_, err := ks.FindAddress(*otherAddr, 10)
-	if err != ErrAddressNotFound {
+	if !errors.Is(err, ErrAddressNotFound) {
 		t.Errorf("FindAddress() error = %v, want ErrAddressNotFound", err)
 	}
 }
@@ -472,7 +473,7 @@ func TestFromEncryptedFile_WrongPassword(t *testing.T) {
 	ef, _ := ks.ToEncryptedFile("password123", nil)
 
 	_, err := FromEncryptedFile(ef, "wrongpassword")
-	if err != ErrIncorrectPassword {
+	if !errors.Is(err, ErrIncorrectPassword) {
 		t.Errorf("FromEncryptedFile() error = %v, want ErrIncorrectPassword", err)
 	}
 }

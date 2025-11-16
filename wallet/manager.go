@@ -168,6 +168,7 @@ func (m *KeyStoreManager) ReadKeyStore(password string, keyStoreFile string) (*K
 	filePath := filepath.Join(m.WalletPath, keyStoreFile)
 
 	// Read file
+	// #nosec G304 - filePath is constructed from controlled wallet directory
 	jsonData, err := os.ReadFile(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read keystore file: %w", err)
@@ -343,6 +344,7 @@ func (m *KeyStoreManager) GetKeystoreInfo(keyStoreFile string) (map[string]inter
 	filePath := filepath.Join(m.WalletPath, keyStoreFile)
 
 	// Read file
+	// #nosec G304 - filePath is constructed from controlled wallet directory
 	jsonData, err := os.ReadFile(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read keystore file: %w", err)

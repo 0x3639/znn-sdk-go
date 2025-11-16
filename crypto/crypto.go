@@ -15,7 +15,10 @@ func GetPublicKey(privateKey []byte) ([]byte, error) {
 	}
 
 	privKey := ed25519.PrivateKey(privateKey)
-	pubKey := privKey.Public().(ed25519.PublicKey)
+	pubKey, ok := privKey.Public().(ed25519.PublicKey)
+	if !ok {
+		return nil, fmt.Errorf("failed to derive public key: type assertion failed")
+	}
 
 	return []byte(pubKey), nil
 }
@@ -57,8 +60,10 @@ func Digest(data []byte, digestSize int) []byte {
 
 	// Use SHAKE256 for custom output sizes
 	hasher := sha3.NewShake256()
+	//nolint:errcheck // shake.Write never returns an error
 	hasher.Write(data)
 	result := make([]byte, digestSize)
+	//nolint:errcheck // shake.Read always succeeds with sufficient buffer
 	hasher.Read(result)
 	return result
 }

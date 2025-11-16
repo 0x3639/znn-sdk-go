@@ -1,6 +1,7 @@
 package wallet_test
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -129,7 +130,7 @@ func Example_findAddress() {
 
 	// Find which index this address belongs to
 	result, err := keystore.FindAddress(*targetAddr, 10)
-	if err == wallet.ErrAddressNotFound {
+	if errors.Is(err, wallet.ErrAddressNotFound) {
 		fmt.Println("Address not found")
 	} else if err != nil {
 		log.Fatal(err)

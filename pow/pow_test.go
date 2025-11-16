@@ -2,6 +2,7 @@ package pow
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"testing"
@@ -37,7 +38,7 @@ func TestPowStatus_String(t *testing.T) {
 
 func TestGetThresholdByDifficulty_Zero(t *testing.T) {
 	threshold := GetThresholdByDifficulty(big.NewInt(0))
-	expected := uint64(^uint64(0)) // Max uint64
+	expected := ^uint64(0) // Max uint64
 
 	if threshold != expected {
 		t.Errorf("GetThresholdByDifficulty(0) = %d, want %d", threshold, expected)
@@ -577,7 +578,7 @@ func TestGeneratePowAsync_Cancellation(t *testing.T) {
 	// Wait for result
 	result := <-resultChan
 
-	if result.Error != ErrCancelled {
+	if !errors.Is(result.Error, ErrCancelled) {
 		t.Errorf("GeneratePowAsync() after cancel error = %v, want %v", result.Error, ErrCancelled)
 	}
 
@@ -603,7 +604,7 @@ func TestGeneratePowAsync_Timeout(t *testing.T) {
 		t.Error("GeneratePowAsync() with timeout should return error")
 	}
 
-	if result.Error != ErrCancelled {
+	if !errors.Is(result.Error, ErrCancelled) {
 		t.Errorf("GeneratePowAsync() timeout error = %v, want %v", result.Error, ErrCancelled)
 	}
 }
@@ -714,7 +715,7 @@ func TestGeneratePowBigIntAsync_Cancellation(t *testing.T) {
 
 	result := <-resultChan
 
-	if result.Error != ErrCancelled {
+	if !errors.Is(result.Error, ErrCancelled) {
 		t.Errorf("GeneratePowBigIntAsync() cancel error = %v, want %v", result.Error, ErrCancelled)
 	}
 }

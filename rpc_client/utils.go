@@ -60,9 +60,10 @@ func NormalizeWsURL(urlStr string) (string, error) {
 
 	// Add default port if missing
 	if parsedURL.Port() == "" {
-		if parsedURL.Scheme == "ws" {
+		switch parsedURL.Scheme {
+		case "ws":
 			parsedURL.Host = parsedURL.Host + ":80"
-		} else if parsedURL.Scheme == "wss" {
+		case "wss":
 			parsedURL.Host = parsedURL.Host + ":443"
 		}
 	}

@@ -128,7 +128,7 @@ func Merge(arrays [][]byte) []byte {
 	merged := make([]byte, count)
 	start := 0
 	for _, array := range arrays {
-		if array != nil && len(array) > 0 {
+		if len(array) > 0 {
 			copy(merged[start:], array)
 			start += len(array)
 		}

@@ -24,7 +24,7 @@ func TestEncrypt_BasicUsage(t *testing.T) {
 	}
 
 	if ef == nil {
-		t.Error("Encrypted file should not be nil")
+		t.Fatal("Encrypted file should not be nil")
 	}
 
 	if ef.Crypto == nil {

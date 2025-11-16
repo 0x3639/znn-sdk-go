@@ -37,7 +37,7 @@ func TestPowStatus_String(t *testing.T) {
 
 func TestGetThresholdByDifficulty_Zero(t *testing.T) {
 	threshold := GetThresholdByDifficulty(big.NewInt(0))
-	expected := uint64(^uint64(0)) // Max uint64
+	expected := ^uint64(0) // Max uint64
 
 	if threshold != expected {
 		t.Errorf("GetThresholdByDifficulty(0) = %d, want %d", threshold, expected)

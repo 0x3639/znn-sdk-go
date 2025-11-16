@@ -56,7 +56,11 @@ func NormalizeWsURL(urlStr string) (string, error) {
 		return "", err
 	}
 
-	parsedURL, _ := url.Parse(urlStr)
+	parsedURL, err := url.Parse(urlStr)
+	if err != nil {
+		// This should not happen since ValidateWsConnectionURL already validated the URL
+		return "", fmt.Errorf("failed to parse URL: %w", err)
+	}
 
 	// Add default port if missing
 	if parsedURL.Port() == "" {

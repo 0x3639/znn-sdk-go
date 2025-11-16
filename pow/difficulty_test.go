@@ -2,6 +2,7 @@ package pow
 
 import (
 	"context"
+	"errors"
 	"math/big"
 	"strings"
 	"testing"
@@ -148,7 +149,7 @@ func TestGeneratePowWithContext_RejectsHighDifficulty(t *testing.T) {
 	if err == nil {
 		t.Error("GeneratePowWithContext should return error for high difficulty")
 	}
-	if err != ErrDifficultyTooHigh && !strings.Contains(err.Error(), "exceeds reasonable maximum") {
+	if !errors.Is(err, ErrDifficultyTooHigh) && !strings.Contains(err.Error(), "exceeds reasonable maximum") {
 		t.Errorf("Expected ErrDifficultyTooHigh, got: %v", err)
 	}
 }

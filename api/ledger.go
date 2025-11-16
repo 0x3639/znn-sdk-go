@@ -143,6 +143,7 @@ func (la *LedgerApi) PublishRawTransactionWithRetry(transaction *nom.AccountBloc
 		if shiftAmount > 5 {
 			shiftAmount = 5 // Cap at 2^5 = 32 seconds
 		}
+		// #nosec G115 - shiftAmount is capped to prevent overflow
 		backoff := time.Duration(1<<uint(shiftAmount)) * time.Second
 		if backoff > 30*time.Second {
 			backoff = 30 * time.Second

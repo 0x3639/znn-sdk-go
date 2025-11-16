@@ -45,6 +45,173 @@ All transactions follow this pattern:
    - Sign transaction with keypair
    - Publish to node via `LedgerApi.PublishRawTransaction()`
 
+## Documentation Standards
+
+### Go Documentation (godoc)
+
+**CRITICAL**: All code contributions MUST include comprehensive godoc comments that render correctly on pkg.go.dev.
+
+#### Package-Level Documentation
+
+Every package must have a package comment explaining its purpose:
+
+```go
+// Package wallet provides hierarchical deterministic (HD) wallet functionality
+// for the Zenon Network, including BIP39 mnemonic generation, BIP32/BIP44 key
+// derivation, and encrypted keystore management.
+//
+// Basic Usage:
+//
+//     manager, err := wallet.NewKeyStoreManager("./wallets")
+//     keystore, err := manager.CreateNew("password", "main-wallet")
+//     fmt.Println("Mnemonic:", keystore.Mnemonic)
+//
+// For more examples, see https://pkg.go.dev/github.com/0x3639/znn-sdk-go/wallet
+package wallet
+```
+
+#### Function Documentation
+
+Every exported function/method MUST have:
+1. **Summary line** - Starts with function name, describes what it does
+2. **Detailed description** - Explains purpose and behavior
+3. **Parameters** - Document each parameter
+4. **Returns** - Explain return values and error conditions
+5. **Examples** - Show common usage patterns
+6. **Notes** - Security considerations, edge cases, related functions
+
+**Example - Complete Function Documentation:**
+
+```go
+// ValidatePassword checks if a password meets minimum security requirements.
+//
+// This function validates passwords for wallet encryption to ensure adequate
+// security. Passwords must be at least 8 characters and cannot consist of
+// all identical characters.
+//
+// Parameters:
+//   - password: The password string to validate
+//
+// Returns an error if the password doesn't meet requirements:
+//   - Password shorter than MinPasswordLength (8 characters)
+//   - Password contains all identical characters (e.g., "aaaaaaaa")
+//
+// For detailed password strength analysis, use AnalyzePasswordStrength instead.
+//
+// Example:
+//
+//     err := ValidatePassword("mypassword123")
+//     if err != nil {
+//         fmt.Println("Password too weak:", err)
+//     }
+//
+// Security Note: This validates minimum requirements only. For production use,
+// consider requiring stronger passwords or using AnalyzePasswordStrength to
+// provide user feedback.
+func ValidatePassword(password string) error {
+```
+
+#### Type and Constant Documentation
+
+All exported types, constants, and variables need documentation:
+
+```go
+// PasswordStrength represents the strength level of a password.
+//
+// Strength is analyzed based on character diversity and length.
+// Higher values indicate stronger passwords.
+type PasswordStrength int
+
+const (
+    // PasswordWeak indicates a password that doesn't meet minimum requirements.
+    // This includes passwords shorter than 8 characters or all identical characters.
+    PasswordWeak PasswordStrength = iota
+
+    // PasswordModerate indicates a password that meets basic requirements.
+    // Typically 8+ characters with one character class (e.g., all lowercase).
+    PasswordModerate
+
+    // PasswordStrong indicates a password with good character diversity.
+    // Requires 8+ characters with two or more character classes.
+    PasswordStrong
+)
+```
+
+#### Documentation Quality Checklist
+
+Before committing code, verify:
+
+- [ ] Package comment exists and explains purpose
+- [ ] All exported functions have complete godoc comments
+- [ ] Parameters section documents each parameter
+- [ ] Returns section explains all return values and error conditions
+- [ ] At least one usage example is provided
+- [ ] Security considerations are noted where applicable
+- [ ] Related functions are cross-referenced
+- [ ] Code examples compile and run correctly
+- [ ] Documentation renders correctly with `go doc`
+
+#### Testing Documentation
+
+Run these commands to verify documentation:
+
+```bash
+# View package documentation
+go doc ./wallet
+
+# View specific function documentation
+go doc ./wallet ValidatePassword
+
+# View all documentation for a package
+go doc -all ./wallet
+
+# Check that examples compile
+go test -run Example
+```
+
+#### pkg.go.dev Requirements
+
+The SDK documentation will be published to pkg.go.dev. Ensure:
+
+1. **Examples compile**: Example functions must be valid Go code
+2. **Output comments**: Example tests with `// Output:` comments must match actual output
+3. **Cross-references**: Use proper Go syntax for linking: `See AnalyzePasswordStrength for details.`
+4. **Code blocks**: Use indentation (4 spaces or tabs) for code examples
+5. **Lists**: Use proper markdown-style lists with dashes or numbers
+6. **Links**: Use full URLs for external references
+
+**Documentation Anti-Patterns to Avoid:**
+
+❌ **Minimal documentation**:
+```go
+// ValidatePassword validates a password
+func ValidatePassword(password string) error
+```
+
+❌ **Missing parameters**:
+```go
+// ValidatePassword checks password strength
+func ValidatePassword(password string) error
+```
+
+❌ **No examples**:
+```go
+// ValidatePassword checks if a password meets security requirements.
+// Returns an error if validation fails.
+func ValidatePassword(password string) error
+```
+
+✅ **Complete documentation** (see example above)
+
+### Additional Documentation Files
+
+Beyond godoc comments, include:
+
+- **README.md** - Quick start, installation, basic examples
+- **SECURITY.md** - Security practices, vulnerability reporting
+- **Package-specific guides** - Best practices (e.g., `api/SUBSCRIPTION_BEST_PRACTICES.md`)
+- **Audit documentation** - Security reviews (e.g., `wallet/BIP39_AUDIT.md`)
+
 ## Development Commands
 
 ### Build and Dependencies

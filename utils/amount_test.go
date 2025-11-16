@@ -2,6 +2,7 @@ package utils
 
 import (
 	"math/big"
+	"strings"
 	"testing"
 )
 
@@ -89,6 +90,54 @@ func TestExtractDecimals_Invalid(t *testing.T) {
 			t.Errorf("ExtractDecimals(%s, 8) should return error", tc)
 		}
 	}
+}
+
+func TestExtractDecimals_NegativeAmount_NoDecimal(t *testing.T) {
+	_, err := ExtractDecimals("-100", 8)
+	if err == nil {
+		t.Error("ExtractDecimals(\"-100\", 8) should return error for negative amount")
+	}
+	if err != nil && !contains(err.Error(), "cannot be negative") {
+		t.Errorf("Expected 'cannot be negative' error, got: %v", err)
+	}
+}
+
+func TestExtractDecimals_NegativeAmount_WithDecimal(t *testing.T) {
+	_, err := ExtractDecimals("-1.5", 8)
+	if err == nil {
+		t.Error("ExtractDecimals(\"-1.5\", 8) should return error for negative amount")
+	}
+	if err != nil && !contains(err.Error(), "cannot be negative") {
+		t.Errorf("Expected 'cannot be negative' error, got: %v", err)
+	}
+}
+
+func TestExtractDecimals_NegativeZero(t *testing.T) {
+	// Edge case: "-0" or "-0.0" should be treated as zero (not negative)
+	result, err := ExtractDecimals("-0", 8)
+	if err != nil {
+		// Note: big.Int parses "-0" as 0, so Sign() == 0
+		// This test documents expected behavior
+		t.Logf("ExtractDecimals(\"-0\", 8) error = %v (acceptable)", err)
+	}
+	if result != nil && result.Sign() != 0 {
+		t.Error("ExtractDecimals(\"-0\", 8) should result in zero")
+	}
+}
+
+func TestExtractDecimals_NegativeSmallAmount(t *testing.T) {
+	_, err := ExtractDecimals("-0.00000001", 8)
+	if err == nil {
+		t.Error("ExtractDecimals(\"-0.00000001\", 8) should return error for negative amount")
+	}
+	if err != nil && !contains(err.Error(), "cannot be negative") {
+		t.Errorf("Expected 'cannot be negative' error, got: %v", err)
+	}
+}
+
+// Helper function to check if string contains substring
+func contains(s, substr string) bool {
+	return strings.Contains(s, substr)
 }
 
 // =============================================================================

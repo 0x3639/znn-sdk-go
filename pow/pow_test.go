@@ -275,7 +275,7 @@ func TestCheckPoW_InvalidNonce(t *testing.T) {
 	copy(testHash[:], []byte("test_for_invalid_nonce"))
 
 	// Use a very high difficulty that nonce 0 won't satisfy
-	if CheckPoW(testHash, 0, 999999999) {
+	if CheckPoW(testHash, 0, 100000000) {
 		t.Error("CheckPoW() should return false for invalid nonce with high difficulty")
 	}
 }
@@ -565,7 +565,7 @@ func TestGeneratePowAsync_ZeroDifficulty(t *testing.T) {
 func TestGeneratePowAsync_Cancellation(t *testing.T) {
 	testHash := types.Hash{}
 	copy(testHash[:], []byte("cancel_test"))
-	difficulty := uint64(999999999) // Very high difficulty - will take long
+	difficulty := uint64(100000000) // Very high difficulty - will take long
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -589,7 +589,7 @@ func TestGeneratePowAsync_Cancellation(t *testing.T) {
 func TestGeneratePowAsync_Timeout(t *testing.T) {
 	testHash := types.Hash{}
 	copy(testHash[:], []byte("timeout_test"))
-	difficulty := uint64(999999999) // Very high difficulty
+	difficulty := uint64(100000000) // Very high difficulty
 
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
@@ -703,7 +703,7 @@ func TestGeneratePowBigIntAsync_ZeroDifficulty(t *testing.T) {
 func TestGeneratePowBigIntAsync_Cancellation(t *testing.T) {
 	testHash := types.Hash{}
 	copy(testHash[:], []byte("bigint_cancel"))
-	difficulty := big.NewInt(999999999)
+	difficulty := big.NewInt(100000000)
 
 	ctx, cancel := context.WithCancel(context.Background())
 

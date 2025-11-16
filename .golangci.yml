@@ -40,6 +40,28 @@ linters:
     # Performance
     - prealloc      # Suggest slice preallocation
 
+  exclusions:
+    rules:
+      # Exclude some linters from running on test files
+      - path: '(.+)_test\.go'
+        linters:
+          - dupl       # Tests often have similar setup code
+          - gosec      # Tests may have intentionally insecure code
+          - gocyclo    # Test functions can be complex
+          - gocognit   # Test functions can be complex
+          - errcheck   # Tests often don't check all errors
+
+      # Exclude example files
+      - path: '(.+)example_test\.go'
+        linters:
+          - errcheck   # Examples show usage, not production error handling
+          - gosec      # Examples may use simplified security
+
+      # Exclude vendor files
+      - path: '(^|/)vendor/'
+        linters:
+          - all
+
   settings:
     errcheck:
       check-type-assertions: true
@@ -74,28 +96,6 @@ linters:
       errorf: true
       asserts: true
       comparison: true
-
-  exclusions:
-    rules:
-      # Exclude some linters from running on test files
-      - path: _test\.go
-        linters:
-          - dupl       # Tests often have similar setup code
-          - gosec      # Tests may have intentionally insecure code
-          - gocyclo    # Test functions can be complex
-          - gocognit   # Test functions can be complex
-          - errcheck   # Tests often don't check all errors
-
-      # Exclude example files
-      - path: example_test\.go
-        linters:
-          - errcheck   # Examples show usage, not production error handling
-          - gosec      # Examples may use simplified security
-
-      # Exclude vendor files
-      - path: (^|/)vendor/
-        linters:
-          - all
 
 issues:
   max-same-issues: 0

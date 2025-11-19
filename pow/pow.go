@@ -53,7 +53,6 @@ var (
 // preventing CPU exhaustion when multiple transactions are submitted concurrently.
 type workerPool struct {
 	semaphore chan struct{}
-	mu        sync.RWMutex
 }
 
 var (

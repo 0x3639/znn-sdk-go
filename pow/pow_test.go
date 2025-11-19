@@ -822,31 +822,38 @@ func TestWorkerPool_Cancellation_WhileQueued(t *testing.T) {
 
 	testHash := types.Hash{}
 	copy(testHash[:], []byte("queue_cancel_test"))
-	difficulty := uint64(100000000) // High difficulty to ensure first op is still running
 
-	// Start first operation (will acquire the only worker slot)
-	ctx1 := context.Background()
+	// Use a difficulty high enough to keep first worker busy for ~1-2 seconds
+	// but not so high it causes test timeouts
+	difficulty := uint64(5000000)
+
+	// Start first operation with timeout (will acquire the only worker slot)
+	ctx1, cancel1 := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel1()
 	result1Chan := GeneratePowAsync(ctx1, testHash, difficulty)
 
-	// Give first operation time to start
-	time.Sleep(10 * time.Millisecond)
+	// Give first operation time to acquire the worker slot and start computing
+	time.Sleep(100 * time.Millisecond)
 
-	// Start second operation with cancellable context (will be queued)
+	// Start second operation with cancellable context (will be queued, blocked on semaphore)
 	ctx2, cancel2 := context.WithCancel(context.Background())
 	result2Chan := GeneratePowAsync(ctx2, testHash, difficulty)
 
-	// Cancel second operation while it's queued
-	time.Sleep(10 * time.Millisecond)
+	// Give second operation time to hit the semaphore queue
+	time.Sleep(100 * time.Millisecond)
+
+	// Cancel second operation while it's blocked waiting for semaphore
 	cancel2()
 
-	// Second operation should return cancellation error
+	// Second operation should return cancellation error immediately
+	// (cancelled while waiting for semaphore, not during PoW computation)
 	result2 := <-result2Chan
 	if !errors.Is(result2.Error, ErrCancelled) {
 		t.Errorf("Queued operation cancel error = %v, want %v", result2.Error, ErrCancelled)
 	}
 
-	// Cancel first operation to clean up
-	// Note: ctx1 is Background, so we just wait for result
+	// Cancel first operation to avoid waiting for it to complete
+	cancel1()
 	result1 := <-result1Chan
 	// Don't check error as it may complete or be cancelled
 	_ = result1

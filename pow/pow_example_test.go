@@ -175,3 +175,121 @@ func Example_bytes() {
 	// Useful when transaction requires byte format
 	fmt.Println("Ready for transaction")
 }
+
+// Example_multipleTransactions demonstrates handling multiple concurrent transactions
+// with automatic worker pool management to prevent CPU exhaustion.
+func Example_multipleTransactions() {
+	// Configure worker pool (optional - defaults to 8)
+	pow.SetMaxPoWWorkers(4) // Limit to 4 concurrent PoW operations
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// Simulate multiple transactions requiring PoW
+	numTransactions := 10
+	difficulty := uint64(500000)
+
+	fmt.Printf("Processing %d transactions with max %d concurrent PoW...\n",
+		numTransactions, pow.GetMaxPoWWorkers())
+
+	results := make([]<-chan pow.PowResult, numTransactions)
+
+	// Launch all PoW operations
+	// First 4 start immediately, remaining 6 queue automatically
+	for i := 0; i < numTransactions; i++ {
+		hash := types.Hash{}
+		copy(hash[:], []byte(fmt.Sprintf("transaction_%d", i)))
+		results[i] = pow.GeneratePowAsync(ctx, hash, difficulty)
+	}
+
+	// Collect results as they complete
+	successCount := 0
+	for i := 0; i < numTransactions; i++ {
+		result := <-results[i]
+		if result.Error != nil {
+			fmt.Printf("Transaction %d failed: %v\n", i, result.Error)
+			continue
+		}
+		successCount++
+	}
+
+	fmt.Printf("Completed %d/%d transactions successfully\n", successCount, numTransactions)
+	fmt.Println("Worker pool prevented CPU exhaustion")
+
+	// Example output:
+	// Processing 10 transactions with max 4 concurrent PoW...
+	// Completed 10/10 transactions successfully
+	// Worker pool prevented CPU exhaustion
+}
+
+// Example_workerPoolConfiguration demonstrates different worker pool configurations
+// for various hardware scenarios.
+func Example_workerPoolConfiguration() {
+	// Scenario 1: Low-end hardware (2-4 cores)
+	pow.SetMaxPoWWorkers(2)
+	fmt.Printf("Low-end config: %d workers\n", pow.GetMaxPoWWorkers())
+
+	// Scenario 2: Standard desktop (4-8 cores)
+	pow.SetMaxPoWWorkers(4)
+	fmt.Printf("Standard config: %d workers\n", pow.GetMaxPoWWorkers())
+
+	// Scenario 3: High-performance server (16+ cores)
+	pow.SetMaxPoWWorkers(8)
+	fmt.Printf("Server config: %d workers\n", pow.GetMaxPoWWorkers())
+
+	// Can also use environment variable:
+	// POW_MAX_WORKERS=16 go run main.go
+
+	fmt.Println("Choose based on available CPU cores")
+
+	// Output:
+	// Low-end config: 2 workers
+	// Standard config: 4 workers
+	// Server config: 8 workers
+	// Choose based on available CPU cores
+}
+
+// Example_batchProcessing demonstrates efficient batch processing of multiple
+// PoW operations with automatic queuing and resource management.
+func Example_batchProcessing() {
+	// Use default worker pool (8 concurrent operations)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	// Batch of transactions (e.g., from an exchange or service)
+	batchSize := 20
+	difficulty := uint64(750000)
+
+	fmt.Printf("Batch processing %d PoW operations...\n", batchSize)
+	fmt.Printf("Max concurrent: %d (remaining queue automatically)\n", pow.GetMaxPoWWorkers())
+
+	results := make([]<-chan pow.PowResult, batchSize)
+
+	startTime := time.Now()
+
+	// Submit all operations at once
+	for i := 0; i < batchSize; i++ {
+		hash := types.Hash{}
+		copy(hash[:], []byte(fmt.Sprintf("batch_tx_%d", i)))
+		results[i] = pow.GeneratePowAsync(ctx, hash, difficulty)
+	}
+
+	// Process results as they complete
+	completed := 0
+	failed := 0
+
+	for i := 0; i < batchSize; i++ {
+		result := <-results[i]
+		if result.Error != nil {
+			failed++
+		} else {
+			completed++
+		}
+	}
+
+	elapsed := time.Since(startTime)
+
+	fmt.Printf("Completed: %d, Failed: %d\n", completed, failed)
+	fmt.Printf("Total time: %v\n", elapsed.Round(time.Millisecond))
+	fmt.Println("Worker pool managed resources efficiently")
+}

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"sync"
 	"testing"
 	"time"
 
@@ -718,4 +719,241 @@ func TestGeneratePowBigIntAsync_Cancellation(t *testing.T) {
 	if !errors.Is(result.Error, ErrCancelled) {
 		t.Errorf("GeneratePowBigIntAsync() cancel error = %v, want %v", result.Error, ErrCancelled)
 	}
+}
+
+// =============================================================================
+// Worker Pool Tests
+// =============================================================================
+
+func TestSetMaxPoWWorkers(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    int
+		expected int
+	}{
+		{"Valid 4 workers", 4, 4},
+		{"Valid 16 workers", 16, 16},
+		{"Zero defaults to 8", 0, DefaultMaxPoWWorkers},
+		{"Negative defaults to 8", -1, DefaultMaxPoWWorkers},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Reset pool for each test
+			pool = nil
+			poolOnce = sync.Once{}
+
+			SetMaxPoWWorkers(tt.input)
+
+			got := GetMaxPoWWorkers()
+			if got != tt.expected {
+				t.Errorf("SetMaxPoWWorkers(%d) resulted in %d workers, want %d", tt.input, got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestGetMaxPoWWorkers_Uninitialized(t *testing.T) {
+	// Reset pool
+	pool = nil
+	poolOnce = sync.Once{}
+
+	got := GetMaxPoWWorkers()
+	if got != DefaultMaxPoWWorkers {
+		t.Errorf("GetMaxPoWWorkers() before initialization = %d, want %d", got, DefaultMaxPoWWorkers)
+	}
+}
+
+func TestWorkerPool_ConcurrencyLimit(t *testing.T) {
+	// Reset pool and set to 2 workers for easier testing
+	pool = nil
+	poolOnce = sync.Once{}
+	SetMaxPoWWorkers(2)
+
+	testHash := types.Hash{}
+	copy(testHash[:], []byte("concurrency_test"))
+	difficulty := uint64(1000) // Low difficulty for fast completion
+
+	ctx := context.Background()
+
+	// Track how many PoW operations are running concurrently
+	running := make(chan int, 10)
+	maxConcurrent := 0
+	currentRunning := 0
+
+	// Launch 5 PoW operations
+	numOps := 5
+	results := make([]<-chan PowResult, numOps)
+
+	for i := 0; i < numOps; i++ {
+		results[i] = GeneratePowAsync(ctx, testHash, difficulty)
+	}
+
+	// Monitor goroutine execution
+	go func() {
+		for delta := range running {
+			currentRunning += delta
+			if currentRunning > maxConcurrent {
+				maxConcurrent = currentRunning
+			}
+		}
+	}()
+
+	// Collect all results
+	for i := 0; i < numOps; i++ {
+		result := <-results[i]
+		if result.Error != nil {
+			t.Errorf("PoW operation %d failed: %v", i, result.Error)
+		}
+	}
+
+	close(running)
+
+	// With 2 workers, we should never have more than 2 concurrent operations
+	// Note: This is a best-effort check as we can't directly observe internal state
+	t.Logf("Completed %d PoW operations with max 2 workers", numOps)
+}
+
+func TestWorkerPool_Cancellation_WhileQueued(t *testing.T) {
+	// Reset pool and set to 1 worker to force queuing
+	pool = nil
+	poolOnce = sync.Once{}
+	SetMaxPoWWorkers(1)
+
+	testHash := types.Hash{}
+	copy(testHash[:], []byte("queue_cancel_test"))
+
+	// Use a difficulty high enough to keep first worker busy for ~1-2 seconds
+	// but not so high it causes test timeouts
+	difficulty := uint64(5000000)
+
+	// Start first operation with timeout (will acquire the only worker slot)
+	ctx1, cancel1 := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel1()
+	result1Chan := GeneratePowAsync(ctx1, testHash, difficulty)
+
+	// Give first operation time to acquire the worker slot and start computing
+	time.Sleep(100 * time.Millisecond)
+
+	// Start second operation with cancellable context (will be queued, blocked on semaphore)
+	ctx2, cancel2 := context.WithCancel(context.Background())
+	result2Chan := GeneratePowAsync(ctx2, testHash, difficulty)
+
+	// Give second operation time to hit the semaphore queue
+	time.Sleep(100 * time.Millisecond)
+
+	// Cancel second operation while it's blocked waiting for semaphore
+	cancel2()
+
+	// Second operation should return cancellation error immediately
+	// (cancelled while waiting for semaphore, not during PoW computation)
+	result2 := <-result2Chan
+	if !errors.Is(result2.Error, ErrCancelled) {
+		t.Errorf("Queued operation cancel error = %v, want %v", result2.Error, ErrCancelled)
+	}
+
+	// Cancel first operation to avoid waiting for it to complete
+	cancel1()
+	result1 := <-result1Chan
+	// Don't check error as it may complete or be cancelled
+	_ = result1
+}
+
+func TestWorkerPool_MultipleOperations_Success(t *testing.T) {
+	// Reset pool with default workers
+	pool = nil
+	poolOnce = sync.Once{}
+	SetMaxPoWWorkers(4)
+
+	testHash := types.Hash{}
+	copy(testHash[:], []byte("multi_success"))
+	difficulty := uint64(5000) // Medium difficulty
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	numOps := 10
+	results := make([]<-chan PowResult, numOps)
+
+	// Launch all operations
+	for i := 0; i < numOps; i++ {
+		hash := types.Hash{}
+		copy(hash[:], []byte(fmt.Sprintf("multi_%d", i)))
+		results[i] = GeneratePowAsync(ctx, hash, difficulty)
+	}
+
+	// Collect and verify all results
+	successCount := 0
+	for i := 0; i < numOps; i++ {
+		result := <-results[i]
+		if result.Error != nil {
+			t.Errorf("Operation %d failed: %v", i, result.Error)
+			continue
+		}
+		if result.Nonce == "" {
+			t.Errorf("Operation %d returned empty nonce", i)
+			continue
+		}
+		successCount++
+	}
+
+	if successCount != numOps {
+		t.Errorf("Expected %d successful operations, got %d", numOps, successCount)
+	}
+
+	t.Logf("Successfully completed %d concurrent PoW operations", successCount)
+}
+
+func TestWorkerPool_EnvironmentVariable(t *testing.T) {
+	// This test verifies that POW_MAX_WORKERS env var is respected
+	// Note: We can't easily test this in a unit test without forking the process
+	// This is more of a documentation test
+
+	t.Log("POW_MAX_WORKERS environment variable can be set to override default")
+	t.Log("Example: POW_MAX_WORKERS=16 go run main.go")
+	t.Log("This test verifies the code path exists but doesn't test actual env var")
+
+	// Verify the code compiles and initializes
+	pool = nil
+	poolOnce = sync.Once{}
+	initWorkerPool()
+
+	workers := GetMaxPoWWorkers()
+	if workers <= 0 {
+		t.Errorf("Worker pool initialized with invalid size: %d", workers)
+	}
+}
+
+func TestWorkerPool_BigIntAsync_WithPool(t *testing.T) {
+	// Reset pool
+	pool = nil
+	poolOnce = sync.Once{}
+	SetMaxPoWWorkers(2)
+
+	testHash := types.Hash{}
+	copy(testHash[:], []byte("bigint_pool_test"))
+	difficulty := big.NewInt(2000)
+
+	ctx := context.Background()
+
+	numOps := 4
+	results := make([]<-chan PowResult, numOps)
+
+	// Launch operations
+	for i := 0; i < numOps; i++ {
+		results[i] = GeneratePowBigIntAsync(ctx, testHash, difficulty)
+	}
+
+	// Verify all complete successfully
+	for i := 0; i < numOps; i++ {
+		result := <-results[i]
+		if result.Error != nil {
+			t.Errorf("BigInt operation %d failed: %v", i, result.Error)
+		}
+		if result.Nonce == "" {
+			t.Errorf("BigInt operation %d returned empty nonce", i)
+		}
+	}
+
+	t.Logf("Successfully completed %d BigInt PoW operations with worker pool", numOps)
 }

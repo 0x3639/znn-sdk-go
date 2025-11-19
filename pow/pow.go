@@ -7,6 +7,9 @@ import (
 	"fmt"
 	"log"
 	"math/big"
+	"os"
+	"strconv"
+	"sync"
 
 	"github.com/zenon-network/go-zenon/common/types"
 	"golang.org/x/crypto/sha3"
@@ -26,6 +29,15 @@ const (
 	// MaxReasonableDifficulty is a safety cap with a 50% buffer above the protocol maximum.
 	// Difficulties above this threshold will be rejected as obvious attacks or errors.
 	MaxReasonableDifficulty uint64 = 200_000_000
+
+	// DefaultMaxPoWWorkers is the default maximum number of concurrent PoW computations.
+	// This value of 8 matches the Dart SDK's parallelism level and prevents CPU
+	// exhaustion when multiple transactions are submitted concurrently.
+	//
+	// This can be overridden via:
+	// - SetMaxPoWWorkers() function
+	// - POW_MAX_WORKERS environment variable
+	DefaultMaxPoWWorkers = 8
 )
 
 var (
@@ -35,6 +47,100 @@ var (
 	// ErrDifficultyTooHigh is returned when difficulty exceeds the reasonable maximum
 	ErrDifficultyTooHigh = errors.New("difficulty exceeds reasonable maximum (possible DoS attack)")
 )
+
+// workerPool manages concurrent PoW generation operations.
+// It uses a semaphore pattern to limit the number of simultaneous PoW computations,
+// preventing CPU exhaustion when multiple transactions are submitted concurrently.
+type workerPool struct {
+	semaphore chan struct{}
+}
+
+var (
+	pool     *workerPool
+	poolOnce sync.Once
+)
+
+// initWorkerPool initializes the global worker pool.
+// This is called lazily on first use of GeneratePowAsync or GeneratePowBigIntAsync.
+func initWorkerPool() {
+	poolOnce.Do(func() {
+		maxWorkers := DefaultMaxPoWWorkers
+
+		// Check for environment variable override
+		if envVal := os.Getenv("POW_MAX_WORKERS"); envVal != "" {
+			if val, err := strconv.Atoi(envVal); err == nil && val > 0 {
+				maxWorkers = val
+			}
+		}
+
+		pool = &workerPool{
+			semaphore: make(chan struct{}, maxWorkers),
+		}
+	})
+}
+
+// acquire blocks until a worker slot is available or context is cancelled.
+// Returns an error if the context is cancelled while waiting.
+func (p *workerPool) acquire(ctx context.Context) error {
+	select {
+	case p.semaphore <- struct{}{}:
+		return nil
+	case <-ctx.Done():
+		return ErrCancelled
+	}
+}
+
+// release frees a worker slot, allowing another PoW computation to start.
+func (p *workerPool) release() {
+	<-p.semaphore
+}
+
+// SetMaxPoWWorkers configures the maximum number of concurrent PoW computations.
+// This must be called before any PoW generation operations to take effect.
+//
+// Parameters:
+//   - maxWorkers: Maximum number of concurrent PoW computations (must be > 0)
+//
+// Setting this value affects all subsequent calls to GeneratePowAsync and
+// GeneratePowBigIntAsync. It does not affect already-running PoW operations.
+//
+// Example:
+//
+//	// Limit to 4 concurrent PoW operations (useful on low-end hardware)
+//	pow.SetMaxPoWWorkers(4)
+//
+//	// Allow 16 concurrent operations (for high-performance servers)
+//	pow.SetMaxPoWWorkers(16)
+//
+// Note: This function is NOT thread-safe and should only be called during
+// application initialization, before any PoW generation begins.
+func SetMaxPoWWorkers(maxWorkers int) {
+	if maxWorkers <= 0 {
+		maxWorkers = DefaultMaxPoWWorkers
+	}
+
+	poolOnce.Do(func() {}) // Ensure poolOnce is marked as initialized
+
+	pool = &workerPool{
+		semaphore: make(chan struct{}, maxWorkers),
+	}
+}
+
+// GetMaxPoWWorkers returns the current maximum number of concurrent PoW workers.
+// If the worker pool hasn't been initialized yet, returns the default value.
+//
+// Returns:
+//   - The current worker pool capacity
+//
+// Example:
+//
+//	fmt.Printf("Max concurrent PoW workers: %d\n", pow.GetMaxPoWWorkers())
+func GetMaxPoWWorkers() int {
+	if pool == nil {
+		return DefaultMaxPoWWorkers
+	}
+	return cap(pool.semaphore)
+}
 
 // PowResult contains the result of an asynchronous PoW generation
 type PowResult struct {
@@ -273,6 +379,14 @@ func GeneratePowBigIntWithContext(ctx context.Context, dataHash types.Hash, diff
 // This provides a Dart-like async pattern while maintaining Go's context cancellation.
 // The returned channel will receive exactly one result and then be closed.
 //
+// Worker Pool: This function uses a worker pool to limit concurrent PoW operations.
+// By default, at most 8 PoW computations run simultaneously. Additional requests
+// queue until a worker becomes available. This prevents CPU exhaustion when many
+// transactions are submitted concurrently.
+//
+// Configure the worker pool using SetMaxPoWWorkers() or the POW_MAX_WORKERS
+// environment variable before calling this function.
+//
 // This function immediately returns a read-only channel and spawns a goroutine
 // to generate the PoW. The caller can wait for the result by reading from the channel.
 //
@@ -289,21 +403,32 @@ func GeneratePowBigIntWithContext(ctx context.Context, dataHash types.Hash, diff
 //	}
 //	// Use result.Nonce
 //
-// For concurrent operations:
+// For concurrent operations (automatically queued if >8 simultaneous):
 //
-//	results := make([]<-chan PowResult, 5)
-//	for i := 0; i < 5; i++ {
+//	results := make([]<-chan PowResult, 20)
+//	for i := 0; i < 20; i++ {
 //	    results[i] = pow.GeneratePowAsync(ctx, hashes[i], difficulty)
 //	}
-//	for i := 0; i < 5; i++ {
-//	    result := <-results[i]
+//	for i := 0; i < 20; i++ {
+//	    result := <-results[i]  // First 8 start immediately, rest queue
 //	    // Process result
 //	}
 func GeneratePowAsync(ctx context.Context, dataHash types.Hash, difficulty uint64) <-chan PowResult {
+	initWorkerPool()
 	resultChan := make(chan PowResult, 1)
 
 	go func() {
 		defer close(resultChan)
+
+		// Acquire worker slot (blocks if pool is full)
+		if err := pool.acquire(ctx); err != nil {
+			resultChan <- PowResult{
+				Nonce: "",
+				Error: err,
+			}
+			return
+		}
+		defer pool.release()
 
 		nonce, err := GeneratePowWithContext(ctx, dataHash, difficulty)
 		resultChan <- PowResult{
@@ -318,6 +443,9 @@ func GeneratePowAsync(ctx context.Context, dataHash types.Hash, difficulty uint6
 // GeneratePowBigIntAsync is like GeneratePowAsync but accepts *big.Int difficulty.
 // This is useful when difficulty exceeds uint64 range or comes from contract data.
 //
+// Worker Pool: Like GeneratePowAsync, this function uses the worker pool to limit
+// concurrent PoW operations. At most 8 PoW computations run simultaneously by default.
+//
 // Usage:
 //
 //	difficulty := big.NewInt(100000)
@@ -329,10 +457,21 @@ func GeneratePowAsync(ctx context.Context, dataHash types.Hash, difficulty uint6
 //	}
 //	// Use result.Nonce
 func GeneratePowBigIntAsync(ctx context.Context, dataHash types.Hash, difficulty *big.Int) <-chan PowResult {
+	initWorkerPool()
 	resultChan := make(chan PowResult, 1)
 
 	go func() {
 		defer close(resultChan)
+
+		// Acquire worker slot (blocks if pool is full)
+		if err := pool.acquire(ctx); err != nil {
+			resultChan <- PowResult{
+				Nonce: "",
+				Error: err,
+			}
+			return
+		}
+		defer pool.release()
 
 		nonce, err := GeneratePowBigIntWithContext(ctx, dataHash, difficulty)
 		resultChan <- PowResult{

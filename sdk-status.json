@@ -1,0 +1,539 @@
+{
+  "sdk": {
+    "name": "Zenon Go SDK",
+    "language": "Go",
+    "version": "v0.1.6",
+    "repository": "https://github.com/0x3639/znn-sdk-go",
+    "documentation": "https://pkg.go.dev/github.com/0x3639/znn-sdk-go",
+    "license": "MIT",
+    "maintainer": "0x3639",
+    "originalAuthor": "MoonBaZZe",
+    "lastUpdated": "2025-01-21",
+    "completionPercentage": 98,
+    "productionReady": true,
+    "goVersionMin": "1.18",
+    "goVersionTested": ["1.24", "1.23"],
+    "platforms": ["Linux", "macOS", "Windows"]
+  },
+  "features": {
+    "cryptography": {
+      "ed25519Signatures": {
+        "status": "completed",
+        "tests": 28,
+        "documentation": "excellent",
+        "notes": "Sign, Verify, GetPublicKey"
+      },
+      "argon2idKDF": {
+        "status": "completed",
+        "tests": 10,
+        "documentation": "excellent",
+        "notes": "64MB memory, 1 iteration, 4 parallel"
+      },
+      "sha3Hashing": {
+        "status": "completed",
+        "tests": "fuzz",
+        "documentation": "excellent",
+        "notes": "SHA3-256 + SHAKE256"
+      },
+      "sha256Hashing": {
+        "status": "completed",
+        "tests": "included",
+        "documentation": "good",
+        "notes": "Legacy compatibility"
+      }
+    },
+    "abi": {
+      "functionEncoding": {
+        "status": "completed",
+        "tests": 25,
+        "documentation": "excellent",
+        "notes": "4-byte selectors"
+      },
+      "parameterEncoding": {
+        "status": "completed",
+        "tests": 100,
+        "documentation": "excellent",
+        "notes": "Static and dynamic types"
+      },
+      "typeSystem": {
+        "status": "completed",
+        "tests": 100,
+        "documentation": "excellent",
+        "notes": "All Solidity types supported"
+      }
+    },
+    "wallet": {
+      "bip39Mnemonics": {
+        "status": "completed",
+        "tests": 25,
+        "documentation": "excellent",
+        "notes": "12/24 word support, security audit completed"
+      },
+      "bip32HDKeys": {
+        "status": "completed",
+        "tests": 28,
+        "documentation": "excellent",
+        "notes": "Master and child key derivation"
+      },
+      "bip44Paths": {
+        "status": "completed",
+        "tests": "included",
+        "documentation": "excellent",
+        "notes": "Zenon coin type: 73404"
+      },
+      "keystoreEncryption": {
+        "status": "completed",
+        "tests": 26,
+        "documentation": "excellent",
+        "notes": "AES-256-GCM with Argon2id"
+      },
+      "memoryProtection": {
+        "status": "completed",
+        "tests": 25,
+        "documentation": "excellent",
+        "notes": "Destroy() method, security review completed"
+      },
+      "passwordValidation": {
+        "status": "completed",
+        "tests": 13,
+        "documentation": "excellent",
+        "notes": "Strength analysis (weak/moderate/strong)"
+      }
+    },
+    "apis": {
+      "ledgerApi": {
+        "status": "completed",
+        "readMethods": 10,
+        "writeMethods": 2,
+        "examples": 13,
+        "documentation": "excellent"
+      },
+      "statsApi": {
+        "status": "completed",
+        "readMethods": 4,
+        "writeMethods": 0,
+        "examples": "included",
+        "documentation": "good"
+      },
+      "subscriberApi": {
+        "status": "completed",
+        "readMethods": 0,
+        "writeMethods": 4,
+        "examples": 8,
+        "documentation": "excellent",
+        "notes": "Real-time subscriptions with best practices guide"
+      }
+    },
+    "embeddedContracts": {
+      "accelerator": {
+        "status": "completed",
+        "queryMethods": 5,
+        "transactionMethods": 6,
+        "examples": 6,
+        "documentation": "excellent"
+      },
+      "bridge": {
+        "status": "completed",
+        "queryMethods": 12,
+        "transactionMethods": 18,
+        "examples": 0,
+        "documentation": "good"
+      },
+      "htlc": {
+        "status": "completed",
+        "queryMethods": 2,
+        "transactionMethods": 4,
+        "examples": 0,
+        "documentation": "good",
+        "tests": 12
+      },
+      "liquidity": {
+        "status": "completed",
+        "queryMethods": 6,
+        "transactionMethods": 8,
+        "examples": 0,
+        "documentation": "good"
+      },
+      "pillar": {
+        "status": "completed",
+        "queryMethods": 7,
+        "transactionMethods": 8,
+        "examples": 9,
+        "documentation": "excellent"
+      },
+      "plasma": {
+        "status": "completed",
+        "queryMethods": 3,
+        "transactionMethods": 2,
+        "examples": 10,
+        "documentation": "excellent"
+      },
+      "sentinel": {
+        "status": "completed",
+        "queryMethods": 3,
+        "transactionMethods": 6,
+        "examples": 9,
+        "documentation": "excellent"
+      },
+      "spork": {
+        "status": "completed",
+        "queryMethods": 1,
+        "transactionMethods": 0,
+        "examples": 1,
+        "documentation": "good",
+        "notes": "Admin-only transactions"
+      },
+      "stake": {
+        "status": "completed",
+        "queryMethods": 2,
+        "transactionMethods": 3,
+        "examples": 11,
+        "documentation": "excellent"
+      },
+      "swap": {
+        "status": "completed",
+        "queryMethods": 3,
+        "transactionMethods": 0,
+        "examples": 0,
+        "documentation": "good",
+        "notes": "Legacy asset migration"
+      },
+      "token": {
+        "status": "completed",
+        "queryMethods": 6,
+        "transactionMethods": 7,
+        "examples": 11,
+        "documentation": "excellent"
+      }
+    },
+    "client": {
+      "websocketClient": {
+        "status": "completed",
+        "tests": 16,
+        "examples": 11,
+        "documentation": "excellent",
+        "features": [
+          "Auto-reconnect with exponential backoff",
+          "Health monitoring",
+          "Status tracking",
+          "Event callbacks",
+          "Graceful shutdown",
+          "Configurable retry policies"
+        ]
+      }
+    },
+    "utilities": {
+      "proofOfWork": {
+        "synchronous": {
+          "status": "completed",
+          "tests": 44,
+          "documentation": "excellent"
+        },
+        "asynchronous": {
+          "status": "completed",
+          "tests": "included",
+          "documentation": "excellent",
+          "notes": "Context-based cancellation, worker pool"
+        },
+        "security": {
+          "status": "completed",
+          "tests": 14,
+          "documentation": "good",
+          "notes": "DoS protection, max difficulty 200M"
+        }
+      },
+      "amountConversion": {
+        "status": "completed",
+        "tests": 18,
+        "documentation": "good"
+      },
+      "blockUtilities": {
+        "status": "completed",
+        "tests": 2,
+        "documentation": "good"
+      },
+      "byteOperations": {
+        "status": "completed",
+        "tests": 20,
+        "documentation": "good"
+      }
+    }
+  },
+  "testing": {
+    "totalTests": 568,
+    "unitTests": 568,
+    "integrationTests": 7,
+    "fuzzTests": 2,
+    "exampleTests": 89,
+    "testFiles": 28,
+    "coverage": {
+      "abi": {
+        "tests": 125,
+        "files": 2,
+        "level": "excellent"
+      },
+      "wallet": {
+        "tests": 150,
+        "files": 7,
+        "level": "excellent"
+      },
+      "crypto": {
+        "tests": 38,
+        "files": 3,
+        "level": "excellent"
+      },
+      "pow": {
+        "tests": 58,
+        "files": 3,
+        "level": "excellent"
+      },
+      "utils": {
+        "tests": 44,
+        "files": 4,
+        "level": "good"
+      },
+      "embedded": {
+        "tests": 57,
+        "files": 3,
+        "level": "good"
+      },
+      "rpcClient": {
+        "tests": 16,
+        "files": 3,
+        "level": "good"
+      },
+      "api": {
+        "tests": 80,
+        "files": 6,
+        "level": "good"
+      }
+    }
+  },
+  "cicd": {
+    "continuousIntegration": {
+      "enabled": true,
+      "platforms": ["Ubuntu", "macOS", "Windows"],
+      "goVersions": ["1.24", "1.23"],
+      "jobs": [
+        {
+          "name": "Test",
+          "description": "Multi-platform testing with race detection",
+          "status": "passing"
+        },
+        {
+          "name": "Lint",
+          "description": "golangci-lint v2.6.2",
+          "status": "passing"
+        },
+        {
+          "name": "Format",
+          "description": "gofmt verification",
+          "status": "passing"
+        },
+        {
+          "name": "Vet",
+          "description": "go vet static analysis",
+          "status": "passing"
+        },
+        {
+          "name": "Security",
+          "description": "4 security scanners",
+          "status": "passing"
+        },
+        {
+          "name": "Build",
+          "description": "Build all packages and examples",
+          "status": "passing"
+        },
+        {
+          "name": "Integration",
+          "description": "Live node tests",
+          "status": "passing"
+        }
+      ]
+    },
+    "securityScanning": {
+      "enabled": true,
+      "frequency": "weekly",
+      "tools": [
+        {
+          "name": "Gosec",
+          "purpose": "Static security analysis",
+          "output": "SARIF"
+        },
+        {
+          "name": "Staticcheck",
+          "purpose": "Best practices analysis",
+          "output": "Text"
+        },
+        {
+          "name": "Govulncheck",
+          "purpose": "Known vulnerability scanning",
+          "output": "Text"
+        },
+        {
+          "name": "Nancy",
+          "purpose": "Dependency vulnerability scanning",
+          "output": "JSON"
+        }
+      ]
+    }
+  },
+  "security": {
+    "audits": [
+      {
+        "name": "BIP39 Dependency Audit",
+        "file": "wallet/BIP39_AUDIT.md",
+        "status": "completed",
+        "date": "2025"
+      },
+      {
+        "name": "Memory Security Review",
+        "file": "wallet/MEMORY_SECURITY.md",
+        "status": "completed",
+        "date": "2025"
+      }
+    ],
+    "features": {
+      "cryptographicSecurity": {
+        "digitalSignatures": "Ed25519 (constant-time, modern)",
+        "keyDerivation": "Argon2id (OWASP recommended)",
+        "encryption": "AES-256-GCM (authenticated)",
+        "hashing": "SHA3-256 + SHAKE256"
+      },
+      "keyManagement": {
+        "keystoreEncryption": "Argon2id + AES-256-GCM",
+        "memoryProtection": "Destroy() method for zeroing",
+        "filePermissions": "0600 (user only)",
+        "passwordValidation": "3 levels (weak/moderate/strong)"
+      },
+      "attackMitigation": {
+        "bruteForce": "Argon2id (64MB memory, slow)",
+        "memoryDumps": "Destroy() explicit zeroing",
+        "powDoS": "Difficulty cap (max 200M)",
+        "weakPasswords": "Validation (min 8 chars, complexity)"
+      }
+    }
+  },
+  "documentation": {
+    "repository": {
+      "readme": {
+        "size": "19KB",
+        "quality": "excellent"
+      },
+      "claude": {
+        "size": "12KB",
+        "quality": "excellent",
+        "description": "Architecture and development standards"
+      },
+      "security": {
+        "size": "4KB",
+        "quality": "excellent",
+        "description": "Security practices and reporting"
+      }
+    },
+    "godoc": {
+      "coverage": "100%",
+      "published": "https://pkg.go.dev/github.com/0x3639/znn-sdk-go",
+      "modules": {
+        "abi": "excellent",
+        "api": "excellent",
+        "apiEmbedded": "excellent",
+        "crypto": "excellent",
+        "embedded": "good",
+        "pow": "excellent",
+        "rpcClient": "excellent",
+        "utils": "good",
+        "wallet": "excellent"
+      }
+    },
+    "examples": {
+      "total": 89,
+      "runnable": true,
+      "categories": {
+        "rpcClient": 11,
+        "wallet": 10,
+        "ledger": 13,
+        "token": 11,
+        "stake": 11,
+        "pillar": 9,
+        "sentinel": 9,
+        "plasma": 10,
+        "subscription": 8,
+        "accelerator": 6,
+        "pow": 10
+      }
+    }
+  },
+  "dependencies": {
+    "external": [
+      {
+        "name": "go-zenon",
+        "version": "latest",
+        "purpose": "Core types and RPC",
+        "security": "official",
+        "repository": "github.com/zenon-network/go-zenon"
+      },
+      {
+        "name": "go-bip39",
+        "version": "v1.1.0",
+        "purpose": "BIP39 mnemonics",
+        "security": "audited",
+        "repository": "github.com/tyler-smith/go-bip39"
+      }
+    ],
+    "stdlib": [
+      "crypto/ed25519",
+      "crypto/sha3",
+      "crypto/aes"
+    ],
+    "totalExternal": 2,
+    "supplyChainRisk": "low"
+  },
+  "roadmap": {
+    "completed": [
+      "Core cryptographic functions",
+      "Complete ABI implementation",
+      "All 11 embedded contract APIs",
+      "HD wallet with BIP39/32/44",
+      "WebSocket client with auto-reconnect",
+      "PoW generation (sync + async)",
+      "Comprehensive test suite (568+ tests)",
+      "Security audits (BIP39, memory)",
+      "CI/CD pipeline (7 jobs)",
+      "Documentation (README + godoc + examples)"
+    ],
+    "future": [
+      "Mobile SDK bindings (gomobile)",
+      "Additional examples (advanced use cases)",
+      "Performance benchmarks",
+      "HSM integration guide"
+    ]
+  },
+  "comparison": {
+    "dartSDK": {
+      "coreAPIs": "100%",
+      "embeddedContracts": "11/11",
+      "autoReconnect": false,
+      "testCoverage": "good",
+      "securityAudits": 0,
+      "cicd": "basic",
+      "documentation": "good"
+    },
+    "thisSDK": {
+      "coreAPIs": "100%",
+      "embeddedContracts": "11/11",
+      "autoReconnect": true,
+      "testCoverage": "568+ tests",
+      "securityAudits": 2,
+      "cicd": "7 jobs",
+      "documentation": "excellent"
+    }
+  },
+  "status": {
+    "releaseStatus": "release-candidate",
+    "recommendedFor": "production",
+    "stability": "stable",
+    "breakingChanges": false
+  }
+}

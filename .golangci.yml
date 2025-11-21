@@ -1,0 +1,148 @@
+# golangci-lint configuration for Zenon Go SDK
+# See https://golangci-lint.run/docs/configuration/
+
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+  modules-download-mode: readonly
+
+linters:
+  enable:
+    # Default linters
+    - errcheck      # Check for unchecked errors
+    - govet         # Standard go vet checks
+    - ineffassign   # Detect ineffectual assignments
+    - staticcheck   # Advanced static analysis (includes gosimple checks)
+    - unused        # Find unused code
+
+    # Additional recommended linters
+    - misspell      # Find commonly misspelled words
+    - unconvert     # Remove unnecessary type conversions
+    - unparam       # Find unused function parameters
+
+    # Security linters
+    - gosec         # Security checker for Go code
+
+    # Code quality
+    - gocyclo       # Detect complex functions
+    - gocognit      # Detect complex functions (cognitive complexity)
+    - dupl          # Find duplicate code
+    - whitespace    # Detect trailing whitespace
+
+    # Error handling
+    - errorlint     # Find bad error wrapping
+
+    # Performance
+    - prealloc      # Suggest slice preallocation
+
+  exclusions:
+    rules:
+      # Exclude some linters from running on test files
+      - path: '(.+)_test\.go'
+        linters:
+          - dupl          # Tests often have similar setup code
+          - gosec         # Tests may have intentionally insecure code
+          - gocyclo       # Test functions can be complex
+          - gocognit      # Test functions can be complex
+          - errcheck      # Tests often don't check all errors
+          - fieldalignment # Field alignment is optimization, not correctness
+          - staticcheck   # SA5011 false positives after t.Fatal()
+
+      # Exclude example files
+      - path: '(.+)example_test\.go'
+        linters:
+          - errcheck   # Examples show usage, not production error handling
+          - gosec      # Examples may use simplified security
+
+      # Exclude vendor files
+      - path: '(^|/)vendor/'
+        linters:
+          - all
+
+      # Exclude pre-existing naming convention issues (will fix in v1.0.0)
+      # These are breaking API changes that affect public API
+      - text: "ST1003"
+        linters:
+          - staticcheck
+
+      # Exclude pre-existing misspelling in public API (breaking change)
+      - text: "cancelled.*misspelling.*canceled"
+        linters:
+          - misspell
+
+      # Exclude field alignment warnings (optimization, not correctness)
+      - text: "fieldalignment"
+        linters:
+          - govet
+
+      # Exclude unused write warnings in test setup code
+      - text: "unusedwrite"
+        linters:
+          - govet
+
+      # Exclude duplicate code in abi/types.go (intentional similar implementations)
+      - path: "abi/types.go"
+        linters:
+          - dupl
+
+      # Exclude complexity warnings in ABI parsing (non-trivial but correct)
+      - text: "cognitive complexity.*parseEntries"
+        linters:
+          - gocognit
+
+      - text: "cyclomatic complexity.*EncodeInternal"
+        linters:
+          - gocyclo
+
+      - text: "cyclomatic complexity.*Bytes32Type.*Encode"
+        linters:
+          - gocyclo
+
+  settings:
+    errcheck:
+      check-type-assertions: true
+      check-blank: true
+
+    govet:
+      enable-all: true
+
+    gosec:
+      severity: medium
+      confidence: medium
+      excludes:
+        - G104 # Unhandled errors (covered by errcheck)
+        - G107 # URL provided via variable (unavoidable for RPC client)
+
+    gocyclo:
+      min-complexity: 15
+
+    gocognit:
+      min-complexity: 20
+
+    dupl:
+      threshold: 100
+
+    misspell:
+      locale: US
+
+    staticcheck:
+      checks: ["all"]
+
+    errorlint:
+      errorf: true
+      asserts: true
+      comparison: true
+
+issues:
+  max-same-issues: 0
+  max-issues-per-linter: 0
+  new: true
+  new-from-rev: HEAD~30  # Check issues introduced in last 30 commits
+
+output:
+  formats:
+    text:
+      path: stdout
+      print-linter-name: true

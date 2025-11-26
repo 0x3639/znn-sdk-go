@@ -2,10 +2,28 @@ package wallet
 
 import (
 	"crypto/ed25519"
+	"runtime"
 
 	"github.com/0x3639/znn-sdk-go/crypto"
 	"github.com/zenon-network/go-zenon/common/types"
 )
+
+// zeroBytes securely zeros a byte slice in a way that cannot be optimized away
+// by the compiler. This is critical for clearing sensitive data like private keys
+// from memory.
+//
+// The runtime.KeepAlive call ensures the slice remains reachable until after
+// the zeroing operation completes, preventing the compiler from optimizing
+// away the writes as "dead stores".
+func zeroBytes(b []byte) {
+	for i := range b {
+		b[i] = 0
+	}
+	// Ensure the slice is kept alive until zeroing completes.
+	// This prevents the compiler from optimizing away the zeroing loop
+	// since it sees the slice is "used" after the writes.
+	runtime.KeepAlive(b)
+}
 
 // KeyPair represents an Ed25519 key pair with address
 type KeyPair struct {
@@ -92,19 +110,15 @@ func (kp *KeyPair) Verify(signature []byte, message []byte) (bool, error) {
 //	defer kp.Destroy()  // Ensure cleanup even if function panics
 //	// ... use keypair for signing ...
 func (kp *KeyPair) Destroy() {
-	// Zero out private key bytes
+	// Zero out private key bytes using secure zeroing
 	if kp.privateKey != nil {
-		for i := range kp.privateKey {
-			kp.privateKey[i] = 0
-		}
+		zeroBytes(kp.privateKey)
 		kp.privateKey = nil
 	}
 
 	// Zero out public key bytes (defense in depth)
 	if kp.publicKey != nil {
-		for i := range kp.publicKey {
-			kp.publicKey[i] = 0
-		}
+		zeroBytes(kp.publicKey)
 		kp.publicKey = nil
 	}
 

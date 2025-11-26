@@ -2,13 +2,13 @@
   "sdk": {
     "name": "Zenon Go SDK",
     "language": "Go",
-    "version": "v0.1.6",
+    "version": "v0.1.7",
     "repository": "https://github.com/0x3639/znn-sdk-go",
     "documentation": "https://pkg.go.dev/github.com/0x3639/znn-sdk-go",
     "license": "MIT",
     "maintainer": "0x3639",
     "originalAuthor": "MoonBaZZe",
-    "lastUpdated": "2025-01-21",
+    "lastUpdated": "2025-11-26",
     "completionPercentage": 98,
     "productionReady": true,
     "goVersionMin": "1.18",
@@ -89,9 +89,9 @@
       },
       "memoryProtection": {
         "status": "completed",
-        "tests": 25,
+        "tests": 28,
         "documentation": "excellent",
-        "notes": "Destroy() method, security review completed"
+        "notes": "Destroy() method with compiler-resistant zeroing (runtime.KeepAlive)"
       },
       "passwordValidation": {
         "status": "completed",
@@ -392,6 +392,13 @@
         "file": "wallet/MEMORY_SECURITY.md",
         "status": "completed",
         "date": "2025"
+      },
+      {
+        "name": "Dart SDK Compatibility Audit",
+        "file": "N/A",
+        "status": "completed",
+        "date": "2025-11-26",
+        "notes": "Full audit against reference Dart SDK - all 11 embedded contracts, crypto, wallet compatible"
       }
     ],
     "features": {

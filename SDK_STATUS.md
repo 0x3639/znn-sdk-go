@@ -1,7 +1,7 @@
 # Zenon Go SDK - Implementation Status
 
-**Last Updated:** 2025-01-21
-**SDK Version:** v0.1.6
+**Last Updated:** 2025-11-26
+**SDK Version:** v0.1.7
 **Repository:** https://github.com/0x3639/znn-sdk-go
 **Language:** Go 1.18+
 **License:** MIT

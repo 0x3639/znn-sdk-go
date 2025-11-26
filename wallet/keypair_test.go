@@ -592,6 +592,34 @@ func BenchmarkVerify(b *testing.B) {
 }
 
 // =============================================================================
+// zeroBytes Tests (Security)
+// =============================================================================
+
+func TestZeroBytes(t *testing.T) {
+	// Test that zeroBytes actually zeros the slice
+	data := []byte{1, 2, 3, 4, 5, 6, 7, 8}
+	zeroBytes(data)
+
+	for i, b := range data {
+		if b != 0 {
+			t.Errorf("zeroBytes did not zero byte at index %d: got %d, want 0", i, b)
+		}
+	}
+}
+
+func TestZeroBytes_EmptySlice(t *testing.T) {
+	// Should not panic on empty slice
+	data := []byte{}
+	zeroBytes(data)
+}
+
+func TestZeroBytes_NilSlice(t *testing.T) {
+	// Should not panic on nil slice
+	var data []byte
+	zeroBytes(data)
+}
+
+// =============================================================================
 // Destroy Tests (Security)
 // =============================================================================
 

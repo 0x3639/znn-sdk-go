@@ -27,11 +27,11 @@ func Example_checkUncollectedRewards() {
 	}
 
 	fmt.Printf("Uncollected Rewards:\n")
-	fmt.Printf("  ZNN: %s\n", rewards.Znn)
-	fmt.Printf("  QSR: %s\n", rewards.Qsr)
+	fmt.Printf("  ZNN: %s\n", rewards.ZnnAmount)
+	fmt.Printf("  QSR: %s\n", rewards.QsrAmount)
 
 	// Check if rewards are available to collect
-	if rewards.Znn.Cmp(big.NewInt(0)) > 0 || rewards.Qsr.Cmp(big.NewInt(0)) > 0 {
+	if rewards.ZnnAmount.Cmp(big.NewInt(0)) > 0 || rewards.QsrAmount.Cmp(big.NewInt(0)) > 0 {
 		fmt.Println("\nRewards available for collection!")
 	} else {
 		fmt.Println("\nNo rewards to collect yet")
@@ -61,7 +61,7 @@ func Example_listStakeEntries() {
 		now := time.Now().Unix()
 
 		fmt.Println("\nStake details:")
-		for i, stake := range stakes.Entries {
+		for i, stake := range stakes.List {
 			totalStaked.Add(totalStaked, stake.Amount)
 			expired := stake.ExpirationTimestamp <= now
 
@@ -181,11 +181,11 @@ func Example_collectRewards() {
 	}
 
 	fmt.Println("Reward Collection")
-	fmt.Printf("Uncollected ZNN: %s\n", rewards.Znn)
-	fmt.Printf("Uncollected QSR: %s\n", rewards.Qsr)
+	fmt.Printf("Uncollected ZNN: %s\n", rewards.ZnnAmount)
+	fmt.Printf("Uncollected QSR: %s\n", rewards.QsrAmount)
 
 	// Only collect if rewards are available
-	if rewards.Znn.Cmp(big.NewInt(0)) > 0 || rewards.Qsr.Cmp(big.NewInt(0)) > 0 {
+	if rewards.ZnnAmount.Cmp(big.NewInt(0)) > 0 || rewards.QsrAmount.Cmp(big.NewInt(0)) > 0 {
 		_ = client.StakeApi.CollectReward()
 
 		fmt.Println("\nReward collection transaction created")
@@ -225,7 +225,7 @@ func Example_cancelExpiredStake() {
 	expiredCount := 0
 
 	fmt.Println("Checking for expired stakes...")
-	for _, stake := range stakes.Entries {
+	for _, stake := range stakes.List {
 		if stake.ExpirationTimestamp <= now {
 			expiredCount++
 			_ = client.StakeApi.Cancel(stake.Id)
@@ -270,11 +270,11 @@ func Example_viewRewardHistory() {
 		totalQsr := big.NewInt(0)
 
 		for i, entry := range history.List {
-			totalZnn.Add(totalZnn, entry.Znn)
-			totalQsr.Add(totalQsr, entry.Qsr)
+			totalZnn.Add(totalZnn, entry.ZnnAmount)
+			totalQsr.Add(totalQsr, entry.QsrAmount)
 
 			fmt.Printf("%d. Collected at epoch %d\n", i+1, entry.Epoch)
-			fmt.Printf("   ZNN: %s, QSR: %s\n", entry.Znn, entry.Qsr)
+			fmt.Printf("   ZNN: %s, QSR: %s\n", entry.ZnnAmount, entry.QsrAmount)
 		}
 
 		fmt.Printf("\nTotal rewards collected:\n")
@@ -302,17 +302,17 @@ func Example_compoundRewards() {
 	}
 
 	fmt.Println("Compound Staking Strategy")
-	fmt.Printf("Uncollected ZNN: %s\n", rewards.Znn)
-	fmt.Printf("Uncollected QSR: %s\n", rewards.Qsr)
+	fmt.Printf("Uncollected ZNN: %s\n", rewards.ZnnAmount)
+	fmt.Printf("Uncollected QSR: %s\n", rewards.QsrAmount)
 
 	minStake := big.NewInt(100000000) // 1 ZNN minimum
 
-	if rewards.Znn.Cmp(minStake) >= 0 {
+	if rewards.ZnnAmount.Cmp(minStake) >= 0 {
 		fmt.Println("\nStep 1: Collect rewards")
 		_ = client.StakeApi.CollectReward()
 
 		fmt.Println("Step 2: Restake collected ZNN")
-		_ = client.StakeApi.Stake(31536000, rewards.Znn)
+		_ = client.StakeApi.Stake(31536000, rewards.ZnnAmount)
 
 		fmt.Println("\nCompounding benefits:")
 		fmt.Println("- Rewards earn rewards")

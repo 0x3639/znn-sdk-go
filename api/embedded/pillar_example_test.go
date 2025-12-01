@@ -139,8 +139,8 @@ func Example_checkPillarRewards() {
 	}
 
 	fmt.Println("Pillar Operator Rewards")
-	fmt.Printf("Uncollected ZNN: %s\n", rewards.Znn)
-	fmt.Printf("Uncollected QSR: %s\n", rewards.Qsr)
+	fmt.Printf("Uncollected ZNN: %s\n", rewards.ZnnAmount)
+	fmt.Printf("Uncollected QSR: %s\n", rewards.QsrAmount)
 }
 
 // Example_collectPillarRewards demonstrates collecting Pillar rewards.
@@ -179,9 +179,9 @@ func Example_getPillarByName() {
 	}
 
 	fmt.Printf("Pillar: %s\n", pillar.Name)
-	fmt.Printf("Owner: %s\n", pillar.StakeAddress)
-	fmt.Printf("Producer: %s\n", pillar.BlockProducingAddress)
-	fmt.Printf("Reward: %s\n", pillar.RewardWithdrawAddress)
+	fmt.Printf("Owner: %s\n", pillar.OwnerAddress)
+	fmt.Printf("Producer: %s\n", pillar.ProducerAddress)
+	fmt.Printf("Reward: %s\n", pillar.WithdrawAddress)
 	fmt.Printf("Weight: %s\n", pillar.Weight)
 	fmt.Printf("Give Momentum Reward: %d%%\n", pillar.GiveMomentumRewardPercentage)
 	fmt.Printf("Give Delegation Reward: %d%%\n", pillar.GiveDelegateRewardPercentage)

@@ -1,7 +1,6 @@
 package embedded
 
 import (
-	"github.com/zenon-network/go-zenon/rpc/api/embedded"
 	"github.com/zenon-network/go-zenon/rpc/server"
 )
 
@@ -36,8 +35,8 @@ func NewSporkApi(client *server.Client) *SporkApi {
 //	for _, spork := range sporks.List {
 //	    fmt.Printf("Spork: %s, Active: %t\n", spork.Name, spork.Activated)
 //	}
-func (sa *SporkApi) GetAll(pageIndex, pageSize uint32) (*embedded.SporkList, error) {
-	ans := new(embedded.SporkList)
+func (sa *SporkApi) GetAll(pageIndex, pageSize uint32) (*SporkList, error) {
+	ans := new(SporkList)
 	if err := sa.client.Call(ans, "embedded.spork.getAll", pageIndex, pageSize); err != nil {
 		return nil, err
 	}

@@ -74,7 +74,7 @@ func Example_checkSentinelInfo() {
 
 	if sentinel.Owner.String() != "z1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqsggv2f" {
 		fmt.Printf("Sentinel Owner: %s\n", sentinel.Owner)
-		fmt.Printf("Revocable: %t\n", sentinel.CanBeRevoked)
+		fmt.Printf("Revocable: %t\n", sentinel.IsRevocable)
 		fmt.Printf("Registration: Momentum %d\n", sentinel.RegistrationTimestamp)
 		fmt.Printf("Active: %t\n", sentinel.Active)
 	} else {
@@ -99,10 +99,10 @@ func Example_checkSentinelRewards() {
 	}
 
 	fmt.Println("Sentinel Rewards")
-	fmt.Printf("Uncollected ZNN: %s\n", rewards.Znn)
-	fmt.Printf("Uncollected QSR: %s\n", rewards.Qsr)
+	fmt.Printf("Uncollected ZNN: %s\n", rewards.ZnnAmount)
+	fmt.Printf("Uncollected QSR: %s\n", rewards.QsrAmount)
 
-	if rewards.Znn.Cmp(big.NewInt(0)) > 0 || rewards.Qsr.Cmp(big.NewInt(0)) > 0 {
+	if rewards.ZnnAmount.Cmp(big.NewInt(0)) > 0 || rewards.QsrAmount.Cmp(big.NewInt(0)) > 0 {
 		fmt.Println("\nRewards available for collection!")
 	}
 }
@@ -219,11 +219,11 @@ func Example_viewSentinelRewardHistory() {
 		totalQsr := big.NewInt(0)
 
 		for i, entry := range history.List {
-			totalZnn.Add(totalZnn, entry.Znn)
-			totalQsr.Add(totalQsr, entry.Qsr)
+			totalZnn.Add(totalZnn, entry.ZnnAmount)
+			totalQsr.Add(totalQsr, entry.QsrAmount)
 
 			fmt.Printf("%d. Epoch %d\n", i+1, entry.Epoch)
-			fmt.Printf("   ZNN: %s, QSR: %s\n", entry.Znn, entry.Qsr)
+			fmt.Printf("   ZNN: %s, QSR: %s\n", entry.ZnnAmount, entry.QsrAmount)
 		}
 
 		fmt.Printf("\nTotal collected:\n")

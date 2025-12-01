@@ -6,7 +6,6 @@ import (
 	"github.com/zenon-network/go-zenon/chain/nom"
 	"github.com/zenon-network/go-zenon/common"
 	"github.com/zenon-network/go-zenon/common/types"
-	"github.com/zenon-network/go-zenon/rpc/api/embedded"
 	"github.com/zenon-network/go-zenon/rpc/server"
 	"github.com/zenon-network/go-zenon/vm/constants"
 	"github.com/zenon-network/go-zenon/vm/embedded/definition"
@@ -22,32 +21,32 @@ func NewAcceleratorApi(client *server.Client) *AcceleratorApi {
 	}
 }
 
-func (aa *AcceleratorApi) GetAll(pageIndex, pageSize uint32) (*embedded.ProjectList, error) {
-	ans := new(embedded.ProjectList)
+func (aa *AcceleratorApi) GetAll(pageIndex, pageSize uint32) (*ProjectList, error) {
+	ans := new(ProjectList)
 	if err := aa.client.Call(ans, "embedded.accelerator.getAll", pageIndex, pageSize); err != nil {
 		return nil, err
 	}
 	return ans, nil
 }
 
-func (aa *AcceleratorApi) GetProjectById(id types.Hash) (*embedded.Project, error) {
-	ans := new(embedded.Project)
+func (aa *AcceleratorApi) GetProjectById(id types.Hash) (*Project, error) {
+	ans := new(Project)
 	if err := aa.client.Call(ans, "embedded.accelerator.getProjectById", id.String()); err != nil {
 		return nil, err
 	}
 	return ans, nil
 }
 
-func (aa *AcceleratorApi) GetPhaseById(id types.Hash) (*embedded.Phase, error) {
-	ans := new(embedded.Phase)
+func (aa *AcceleratorApi) GetPhaseById(id types.Hash) (*Phase, error) {
+	ans := new(Phase)
 	if err := aa.client.Call(ans, "embedded.accelerator.getPhaseById", id.String()); err != nil {
 		return nil, err
 	}
 	return ans, nil
 }
 
-func (aa *AcceleratorApi) GetVoteBreakdown(id types.Hash) (*definition.VoteBreakdown, error) {
-	ans := new(definition.VoteBreakdown)
+func (aa *AcceleratorApi) GetVoteBreakdown(id types.Hash) (*VoteBreakdown, error) {
+	ans := new(VoteBreakdown)
 	if err := aa.client.Call(ans, "embedded.accelerator.getVoteBreakdown", id.String()); err != nil {
 		return nil, err
 	}

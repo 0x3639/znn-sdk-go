@@ -132,7 +132,7 @@ func Example_listFusionEntries() {
 
 	if entries.Count > 0 {
 		fmt.Println("Active fusions:")
-		for i, entry := range entries.Fusions {
+		for i, entry := range entries.List {
 			fmt.Printf("%d. Amount: %s QSR, ID: %s...\n",
 				i+1, entry.QsrAmount, entry.Id.String()[:16])
 		}
@@ -163,7 +163,7 @@ func Example_cancelFusion() {
 	}
 
 	// Cancel first entry (in practice, check if lock period expired)
-	entry := entries.Fusions[0]
+	entry := entries.List[0]
 	_ = client.PlasmaApi.Cancel(entry.Id)
 
 	fmt.Println("Fusion cancellation transaction created")

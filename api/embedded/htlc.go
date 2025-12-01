@@ -8,7 +8,6 @@ import (
 	"github.com/zenon-network/go-zenon/common"
 	"github.com/zenon-network/go-zenon/common/types"
 	"github.com/zenon-network/go-zenon/rpc/server"
-	"github.com/zenon-network/go-zenon/vm/embedded/definition"
 )
 
 // HtlcApi provides access to the HTLC (Hashed Timelock Contract) embedded contract
@@ -24,8 +23,8 @@ func NewHtlcApi(client *server.Client) *HtlcApi {
 }
 
 // GetById retrieves HTLC information by ID
-func (h *HtlcApi) GetById(id types.Hash) (*definition.HtlcInfo, error) {
-	ans := new(definition.HtlcInfo)
+func (h *HtlcApi) GetById(id types.Hash) (*HtlcInfo, error) {
+	ans := new(HtlcInfo)
 	if err := h.client.Call(ans, "embedded.htlc.getById", id.String()); err != nil {
 		return nil, err
 	}

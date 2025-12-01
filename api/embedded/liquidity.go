@@ -1,13 +1,13 @@
 package embedded
 
 import (
+	"math/big"
+
 	"github.com/zenon-network/go-zenon/chain/nom"
 	"github.com/zenon-network/go-zenon/common"
 	"github.com/zenon-network/go-zenon/common/types"
-	"github.com/zenon-network/go-zenon/rpc/api/embedded"
 	"github.com/zenon-network/go-zenon/rpc/server"
 	"github.com/zenon-network/go-zenon/vm/embedded/definition"
-	"math/big"
 )
 
 type LiquidityApi struct {
@@ -20,48 +20,48 @@ func NewLiquidityApi(client *server.Client) *LiquidityApi {
 	}
 }
 
-func (sa *LiquidityApi) GetUncollectedReward(address types.Address) (*definition.RewardDeposit, error) {
-	ans := new(definition.RewardDeposit)
+func (sa *LiquidityApi) GetUncollectedReward(address types.Address) (*UncollectedReward, error) {
+	ans := new(UncollectedReward)
 	if err := sa.client.Call(ans, "embedded.liquidity.getUncollectedReward", address.String()); err != nil {
 		return nil, err
 	}
 	return ans, nil
 }
 
-func (sa *LiquidityApi) GetFrontierRewardByPage(address types.Address, pageIndex, pageSize uint32) (*embedded.RewardHistoryList, error) {
-	ans := new(embedded.RewardHistoryList)
+func (sa *LiquidityApi) GetFrontierRewardByPage(address types.Address, pageIndex, pageSize uint32) (*RewardHistoryList, error) {
+	ans := new(RewardHistoryList)
 	if err := sa.client.Call(ans, "embedded.liquidity.getFrontierRewardByPage", address.String(), pageIndex, pageSize); err != nil {
 		return nil, err
 	}
 	return ans, nil
 }
 
-func (sa *LiquidityApi) GetLiquidityInfo() (*definition.LiquidityInfo, error) {
-	ans := new(definition.LiquidityInfo)
+func (sa *LiquidityApi) GetLiquidityInfo() (*LiquidityInfo, error) {
+	ans := new(LiquidityInfo)
 	if err := sa.client.Call(ans, "embedded.liquidity.getLiquidityInfo"); err != nil {
 		return nil, err
 	}
 	return ans, nil
 }
 
-func (sa *LiquidityApi) GetSecurityInfo() (*definition.SecurityInfoVariable, error) {
-	ans := new(definition.SecurityInfoVariable)
+func (sa *LiquidityApi) GetSecurityInfo() (*SecurityInfo, error) {
+	ans := new(SecurityInfo)
 	if err := sa.client.Call(ans, "embedded.liquidity.getSecurityInfo"); err != nil {
 		return nil, err
 	}
 	return ans, nil
 }
 
-func (sa *LiquidityApi) GetLiquidityStakeEntriesByAddress(address types.Address, pageIndex, pageSize uint32) (*embedded.LiquidityStakeList, error) {
-	ans := new(embedded.LiquidityStakeList)
+func (sa *LiquidityApi) GetLiquidityStakeEntriesByAddress(address types.Address, pageIndex, pageSize uint32) (*LiquidityStakeList, error) {
+	ans := new(LiquidityStakeList)
 	if err := sa.client.Call(ans, "embedded.liquidity.getLiquidityStakeEntriesByAddress", address.String(), pageIndex, pageSize); err != nil {
 		return nil, err
 	}
 	return ans, nil
 }
 
-func (sa *LiquidityApi) GetTimeChallengesInfo() (*embedded.TimeChallengesList, error) {
-	ans := new(embedded.TimeChallengesList)
+func (sa *LiquidityApi) GetTimeChallengesInfo() (*TimeChallengesList, error) {
+	ans := new(TimeChallengesList)
 	if err := sa.client.Call(ans, "embedded.liquidity.getTimeChallengesInfo"); err != nil {
 		return nil, err
 	}

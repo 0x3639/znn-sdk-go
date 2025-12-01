@@ -6,7 +6,6 @@ import (
 	"github.com/zenon-network/go-zenon/chain/nom"
 	"github.com/zenon-network/go-zenon/common"
 	"github.com/zenon-network/go-zenon/common/types"
-	"github.com/zenon-network/go-zenon/rpc/api/embedded"
 	"github.com/zenon-network/go-zenon/rpc/server"
 	"github.com/zenon-network/go-zenon/vm/constants"
 	"github.com/zenon-network/go-zenon/vm/embedded/definition"
@@ -22,16 +21,16 @@ func NewSentinelApi(client *server.Client) *SentinelApi {
 	}
 }
 
-func (sa *SentinelApi) GetByOwner(address types.Address) (*embedded.SentinelInfo, error) {
-	ans := new(embedded.SentinelInfo)
+func (sa *SentinelApi) GetByOwner(address types.Address) (*SentinelInfo, error) {
+	ans := new(SentinelInfo)
 	if err := sa.client.Call(ans, "embedded.sentinel.getByOwner", address.String()); err != nil {
 		return nil, err
 	}
 	return ans, nil
 }
 
-func (sa *SentinelApi) GetAllActive(pageIndex, pageSize uint32) (*embedded.SentinelInfoList, error) {
-	ans := new(embedded.SentinelInfoList)
+func (sa *SentinelApi) GetAllActive(pageIndex, pageSize uint32) (*SentinelInfoList, error) {
+	ans := new(SentinelInfoList)
 	if err := sa.client.Call(ans, "embedded.sentinel.getAllActive", pageIndex, pageSize); err != nil {
 		return nil, err
 	}
@@ -46,16 +45,16 @@ func (sa *SentinelApi) GetDepositedQsr(address types.Address) (*big.Int, error) 
 	return common.StringToBigInt(ans), nil
 }
 
-func (sa *SentinelApi) GetUncollectedReward(address types.Address) (*definition.RewardDeposit, error) {
-	ans := new(definition.RewardDeposit)
+func (sa *SentinelApi) GetUncollectedReward(address types.Address) (*UncollectedReward, error) {
+	ans := new(UncollectedReward)
 	if err := sa.client.Call(ans, "embedded.sentinel.getUncollectedReward", address); err != nil {
 		return nil, err
 	}
 	return ans, nil
 }
 
-func (sa *SentinelApi) GetFrontierRewardByPage(address types.Address, pageIndex, pageSize uint32) (*embedded.RewardHistoryList, error) {
-	ans := new(embedded.RewardHistoryList)
+func (sa *SentinelApi) GetFrontierRewardByPage(address types.Address, pageIndex, pageSize uint32) (*RewardHistoryList, error) {
+	ans := new(RewardHistoryList)
 	if err := sa.client.Call(ans, "embedded.sentinel.getFrontierRewardByPage", address, pageIndex, pageSize); err != nil {
 		return nil, err
 	}

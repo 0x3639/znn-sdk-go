@@ -6,8 +6,6 @@ import (
 	"github.com/zenon-network/go-zenon/chain/nom"
 	"github.com/zenon-network/go-zenon/common"
 	"github.com/zenon-network/go-zenon/common/types"
-	"github.com/zenon-network/go-zenon/rpc/api"
-	"github.com/zenon-network/go-zenon/rpc/api/embedded"
 	"github.com/zenon-network/go-zenon/rpc/server"
 	"github.com/zenon-network/go-zenon/vm/constants"
 	"github.com/zenon-network/go-zenon/vm/embedded/definition"
@@ -47,8 +45,8 @@ func NewTokenApi(client *server.Client) *TokenApi {
 //	for _, token := range tokens.List {
 //	    fmt.Printf("%s (%s): %s\n", token.Name, token.Symbol, token.TokenStandard)
 //	}
-func (ta *TokenApi) GetAll(pageIndex, pageSize uint32) (*embedded.TokenList, error) {
-	ans := new(embedded.TokenList)
+func (ta *TokenApi) GetAll(pageIndex, pageSize uint32) (*TokenList, error) {
+	ans := new(TokenList)
 	if err := ta.client.Call(ans, "embedded.token.getAll", pageIndex, pageSize); err != nil {
 		return nil, err
 	}
@@ -86,8 +84,8 @@ func (ta *TokenApi) GetAll(pageIndex, pageSize uint32) (*embedded.TokenList, err
 //	for _, token := range tokens.List {
 //	    fmt.Printf("- %s (%s)\n", token.Name, token.Symbol)
 //	}
-func (ta *TokenApi) GetByOwner(address types.Address, pageIndex, pageSize uint32) (*embedded.TokenList, error) {
-	ans := new(embedded.TokenList)
+func (ta *TokenApi) GetByOwner(address types.Address, pageIndex, pageSize uint32) (*TokenList, error) {
+	ans := new(TokenList)
 	if err := ta.client.Call(ans, "embedded.token.getByOwner", address, pageIndex, pageSize); err != nil {
 		return nil, err
 	}
@@ -126,8 +124,8 @@ func (ta *TokenApi) GetByOwner(address types.Address, pageIndex, pageSize uint32
 //	fmt.Printf("Total Supply: %s\n", token.TotalSupply)
 //	fmt.Printf("Decimals: %d\n", token.Decimals)
 //	fmt.Printf("Mintable: %t, Burnable: %t\n", token.IsMintable, token.IsBurnable)
-func (ta *TokenApi) GetByZts(zts types.ZenonTokenStandard) (*api.Token, error) {
-	ans := new(api.Token)
+func (ta *TokenApi) GetByZts(zts types.ZenonTokenStandard) (*Token, error) {
+	ans := new(Token)
 	if err := ta.client.Call(ans, "embedded.token.getByZts", zts.String()); err != nil {
 		return nil, err
 	}

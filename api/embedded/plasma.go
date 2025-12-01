@@ -6,7 +6,6 @@ import (
 	"github.com/zenon-network/go-zenon/chain/nom"
 	"github.com/zenon-network/go-zenon/common"
 	"github.com/zenon-network/go-zenon/common/types"
-	"github.com/zenon-network/go-zenon/rpc/api/embedded"
 	"github.com/zenon-network/go-zenon/rpc/server"
 	"github.com/zenon-network/go-zenon/vm/embedded/definition"
 )
@@ -47,16 +46,16 @@ func NewPlasmaApi(client *server.Client) *PlasmaApi {
 //	fmt.Printf("QSR Fused: %s\n", plasmaInfo.QsrAmount)
 //
 // Use this to check if an address has sufficient plasma for feeless transactions.
-func (pa *PlasmaApi) Get(address types.Address) (*embedded.PlasmaInfo, error) {
-	ans := new(embedded.PlasmaInfo)
+func (pa *PlasmaApi) Get(address types.Address) (*PlasmaInfo, error) {
+	ans := new(PlasmaInfo)
 	if err := pa.client.Call(ans, "embedded.plasma.get", address.String()); err != nil {
 		return nil, err
 	}
 	return ans, nil
 }
 
-func (pa *PlasmaApi) GetEntriesByAddress(address types.Address, pageIndex, pageSize uint32) (*embedded.FusionEntryList, error) {
-	ans := new(embedded.FusionEntryList)
+func (pa *PlasmaApi) GetEntriesByAddress(address types.Address, pageIndex, pageSize uint32) (*FusionEntryList, error) {
+	ans := new(FusionEntryList)
 	if err := pa.client.Call(ans, "embedded.plasma.getEntriesByAddress", address.String(), pageIndex, pageSize); err != nil {
 		return nil, err
 	}
@@ -100,8 +99,8 @@ func (pa *PlasmaApi) GetEntriesByAddress(address types.Address, pageIndex, pageS
 //	}
 //
 // Call this before publishing a transaction to determine if PoW generation is needed.
-func (pa *PlasmaApi) GetRequiredPoWForAccountBlock(param embedded.GetRequiredParam) (*embedded.GetRequiredResult, error) {
-	ans := new(embedded.GetRequiredResult)
+func (pa *PlasmaApi) GetRequiredPoWForAccountBlock(param GetRequiredParam) (*GetRequiredResult, error) {
+	ans := new(GetRequiredResult)
 	if err := pa.client.Call(ans, "embedded.plasma.getRequiredPoWForAccountBlock", param); err != nil {
 		return nil, err
 	}

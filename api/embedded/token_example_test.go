@@ -23,7 +23,7 @@ func Example_queryToken() {
 		log.Fatal(err)
 	}
 
-	fmt.Printf("Token: %s (%s)\n", token.TokenName, token.TokenSymbol)
+	fmt.Printf("Token: %s (%s)\n", token.Name, token.Symbol)
 	fmt.Printf("Total Supply: %s\n", token.TotalSupply)
 	fmt.Printf("Max Supply: %s\n", token.MaxSupply)
 	fmt.Printf("Decimals: %d\n", token.Decimals)
@@ -48,8 +48,8 @@ func Example_listAllTokens() {
 	fmt.Printf("Total tokens: %d\n", tokens.Count)
 	fmt.Println("\nTokens on network:")
 	for i, token := range tokens.List {
-		fmt.Printf("%d. %s (%s)\n", i+1, token.TokenName, token.TokenSymbol)
-		fmt.Printf("   ZTS: %s\n", token.ZenonTokenStandard)
+		fmt.Printf("%d. %s (%s)\n", i+1, token.Name, token.Symbol)
+		fmt.Printf("   ZTS: %s\n", token.TokenStandard)
 		fmt.Printf("   Supply: %s / %s\n", token.TotalSupply, token.MaxSupply)
 	}
 }
@@ -75,7 +75,7 @@ func Example_listTokensByOwner() {
 	if tokens.Count > 0 {
 		fmt.Println("\nOwned tokens:")
 		for _, token := range tokens.List {
-			fmt.Printf("- %s (%s)\n", token.TokenName, token.TokenSymbol)
+			fmt.Printf("- %s (%s)\n", token.Name, token.Symbol)
 			fmt.Printf("  Can mint: %t, Can burn: %t\n", token.IsMintable, token.IsBurnable)
 		}
 	} else {
@@ -279,7 +279,7 @@ func Example_checkTokenProperties() {
 		log.Fatal(err)
 	}
 
-	fmt.Printf("Token Analysis: %s (%s)\n", token.TokenName, token.TokenSymbol)
+	fmt.Printf("Token Analysis: %s (%s)\n", token.Name, token.Symbol)
 	fmt.Println("----------------------------------------")
 
 	// Supply information
@@ -304,7 +304,7 @@ func Example_checkTokenProperties() {
 	// Ownership
 	fmt.Println("\nOwnership:")
 	fmt.Printf("  Owner: %s\n", token.Owner)
-	fmt.Printf("  Domain: %s\n", token.TokenDomain)
+	fmt.Printf("  Domain: %s\n", token.Domain)
 
 	// Capabilities
 	fmt.Println("\nCapabilities:")

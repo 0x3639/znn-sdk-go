@@ -1,13 +1,13 @@
 package embedded
 
 import (
+	"math/big"
+
 	"github.com/zenon-network/go-zenon/chain/nom"
 	"github.com/zenon-network/go-zenon/common"
 	"github.com/zenon-network/go-zenon/common/types"
-	"github.com/zenon-network/go-zenon/rpc/api/embedded"
 	"github.com/zenon-network/go-zenon/rpc/server"
 	"github.com/zenon-network/go-zenon/vm/embedded/definition"
-	"math/big"
 )
 
 type BridgeApi struct {
@@ -20,112 +20,112 @@ func NewBridgeApi(client *server.Client) *BridgeApi {
 	}
 }
 
-func (ba *BridgeApi) GetBridgeInfo() (*definition.BridgeInfoVariable, error) {
-	ans := new(definition.BridgeInfoVariable)
+func (ba *BridgeApi) GetBridgeInfo() (*BridgeInfo, error) {
+	ans := new(BridgeInfo)
 	if err := ba.client.Call(ans, "embedded.bridge.getBridgeInfo"); err != nil {
 		return nil, err
 	}
 	return ans, nil
 }
 
-func (ba *BridgeApi) GetOrchestratorInfo() (*definition.OrchestratorInfo, error) {
-	ans := new(definition.OrchestratorInfo)
+func (ba *BridgeApi) GetOrchestratorInfo() (*OrchestratorInfo, error) {
+	ans := new(OrchestratorInfo)
 	if err := ba.client.Call(ans, "embedded.bridge.getOrchestratorInfo"); err != nil {
 		return nil, err
 	}
 	return ans, nil
 }
 
-func (ba *BridgeApi) GetTimeChallengesInfo() (*embedded.TimeChallengesList, error) {
-	ans := new(embedded.TimeChallengesList)
+func (ba *BridgeApi) GetTimeChallengesInfo() (*TimeChallengesList, error) {
+	ans := new(TimeChallengesList)
 	if err := ba.client.Call(ans, "embedded.bridge.getTimeChallengesInfo"); err != nil {
 		return nil, err
 	}
 	return ans, nil
 }
 
-func (ba *BridgeApi) GetSecurityInfo() (*definition.SecurityInfoVariable, error) {
-	ans := new(definition.SecurityInfoVariable)
+func (ba *BridgeApi) GetSecurityInfo() (*SecurityInfo, error) {
+	ans := new(SecurityInfo)
 	if err := ba.client.Call(ans, "embedded.bridge.getSecurityInfo"); err != nil {
 		return nil, err
 	}
 	return ans, nil
 }
 
-func (ba *BridgeApi) GetNetworkInfo(networkClass, chainId uint32) (*definition.NetworkInfo, error) {
-	ans := new(definition.NetworkInfo)
+func (ba *BridgeApi) GetNetworkInfo(networkClass, chainId uint32) (*BridgeNetworkInfo, error) {
+	ans := new(BridgeNetworkInfo)
 	if err := ba.client.Call(ans, "embedded.bridge.getNetworkInfo", networkClass, chainId); err != nil {
 		return nil, err
 	}
 	return ans, nil
 }
 
-func (ba *BridgeApi) GetWrapTokenRequestById(id types.Hash) (*definition.WrapTokenRequest, error) {
-	ans := new(definition.WrapTokenRequest)
+func (ba *BridgeApi) GetWrapTokenRequestById(id types.Hash) (*WrapTokenRequest, error) {
+	ans := new(WrapTokenRequest)
 	if err := ba.client.Call(ans, "embedded.bridge.getWrapTokenRequestById", id.String()); err != nil {
 		return nil, err
 	}
 	return ans, nil
 }
 
-func (ba *BridgeApi) GetAllWrapTokenRequests(pageIndex, pageSize uint32) (*embedded.WrapTokenRequestList, error) {
-	ans := new(embedded.WrapTokenRequestList)
+func (ba *BridgeApi) GetAllWrapTokenRequests(pageIndex, pageSize uint32) (*WrapTokenRequestList, error) {
+	ans := new(WrapTokenRequestList)
 	if err := ba.client.Call(ans, "embedded.bridge.getAllWrapTokenRequests", pageIndex, pageSize); err != nil {
 		return nil, err
 	}
 	return ans, nil
 }
 
-func (ba *BridgeApi) GetAllWrapTokenRequestsByToAddress(toAddress string, pageIndex, pageSize uint32) (*embedded.WrapTokenRequestList, error) {
-	ans := new(embedded.WrapTokenRequestList)
+func (ba *BridgeApi) GetAllWrapTokenRequestsByToAddress(toAddress string, pageIndex, pageSize uint32) (*WrapTokenRequestList, error) {
+	ans := new(WrapTokenRequestList)
 	if err := ba.client.Call(ans, "embedded.bridge.getAllWrapTokenRequestsByToAddress", toAddress, pageIndex, pageSize); err != nil {
 		return nil, err
 	}
 	return ans, nil
 }
 
-func (ba *BridgeApi) GetAllWrapTokenRequestsByToAddressNetworkClassAndChainId(toAddress string, networkClass, pageIndex, pageSize uint32) (*embedded.WrapTokenRequestList, error) {
-	ans := new(embedded.WrapTokenRequestList)
+func (ba *BridgeApi) GetAllWrapTokenRequestsByToAddressNetworkClassAndChainId(toAddress string, networkClass, pageIndex, pageSize uint32) (*WrapTokenRequestList, error) {
+	ans := new(WrapTokenRequestList)
 	if err := ba.client.Call(ans, "embedded.bridge.getAllWrapTokenRequestsByToAddressNetworkClassAndChainId", toAddress, networkClass, pageIndex, pageSize); err != nil {
 		return nil, err
 	}
 	return ans, nil
 }
 
-func (ba *BridgeApi) GetAllNetworks(pageIndex, pageSize uint32) (*embedded.NetworkInfoList, error) {
-	ans := new(embedded.NetworkInfoList)
+func (ba *BridgeApi) GetAllNetworks(pageIndex, pageSize uint32) (*BridgeNetworkInfoList, error) {
+	ans := new(BridgeNetworkInfoList)
 	if err := ba.client.Call(ans, "embedded.bridge.getAllNetworks", pageIndex, pageSize); err != nil {
 		return nil, err
 	}
 	return ans, nil
 }
 
-func (ba *BridgeApi) GetAllUnsignedWrapTokenRequests(pageIndex, pageSize uint32) (*embedded.WrapTokenRequestList, error) {
-	ans := new(embedded.WrapTokenRequestList)
+func (ba *BridgeApi) GetAllUnsignedWrapTokenRequests(pageIndex, pageSize uint32) (*WrapTokenRequestList, error) {
+	ans := new(WrapTokenRequestList)
 	if err := ba.client.Call(ans, "embedded.bridge.getAllUnsignedWrapTokenRequests", pageIndex, pageSize); err != nil {
 		return nil, err
 	}
 	return ans, nil
 }
 
-func (ba *BridgeApi) GetUnwrapTokenRequestByHashAndLog(txHash types.Hash, logIndex uint32) (*definition.UnwrapTokenRequest, error) {
-	ans := new(definition.UnwrapTokenRequest)
+func (ba *BridgeApi) GetUnwrapTokenRequestByHashAndLog(txHash types.Hash, logIndex uint32) (*UnwrapTokenRequest, error) {
+	ans := new(UnwrapTokenRequest)
 	if err := ba.client.Call(ans, "embedded.bridge.getUnwrapTokenRequestByHashAndLog", txHash, logIndex); err != nil {
 		return nil, err
 	}
 	return ans, nil
 }
 
-func (ba *BridgeApi) GetAllUnwrapTokenRequests(pageIndex, pageSize uint32) (*embedded.UnwrapTokenRequestList, error) {
-	ans := new(embedded.UnwrapTokenRequestList)
+func (ba *BridgeApi) GetAllUnwrapTokenRequests(pageIndex, pageSize uint32) (*UnwrapTokenRequestList, error) {
+	ans := new(UnwrapTokenRequestList)
 	if err := ba.client.Call(ans, "embedded.bridge.getAllUnwrapTokenRequests", pageIndex, pageSize); err != nil {
 		return nil, err
 	}
 	return ans, nil
 }
 
-func (ba *BridgeApi) GetAllUnwrapTokenRequestsByToAddress(toAddress string, pageIndex, pageSize uint32) (*embedded.UnwrapTokenRequestList, error) {
-	ans := new(embedded.UnwrapTokenRequestList)
+func (ba *BridgeApi) GetAllUnwrapTokenRequestsByToAddress(toAddress string, pageIndex, pageSize uint32) (*UnwrapTokenRequestList, error) {
+	ans := new(UnwrapTokenRequestList)
 	if err := ba.client.Call(ans, "embedded.bridge.getAllUnwrapTokenRequestsByToAddress", toAddress, pageIndex, pageSize); err != nil {
 		return nil, err
 	}

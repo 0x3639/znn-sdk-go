@@ -6,7 +6,6 @@ import (
 	"github.com/zenon-network/go-zenon/chain/nom"
 	"github.com/zenon-network/go-zenon/common"
 	"github.com/zenon-network/go-zenon/common/types"
-	"github.com/zenon-network/go-zenon/rpc/api/embedded"
 	"github.com/zenon-network/go-zenon/rpc/server"
 	"github.com/zenon-network/go-zenon/vm/constants"
 	"github.com/zenon-network/go-zenon/vm/embedded/definition"
@@ -69,40 +68,40 @@ func (pa *PillarApi) GetQsrRegistrationCost() (*big.Int, error) {
 	return common.StringToBigInt(ans), nil
 }
 
-func (pa *PillarApi) GetUncollectedReward(address types.Address) (*definition.RewardDeposit, error) {
-	ans := new(definition.RewardDeposit)
+func (pa *PillarApi) GetUncollectedReward(address types.Address) (*UncollectedReward, error) {
+	ans := new(UncollectedReward)
 	if err := pa.client.Call(ans, "embedded.pillar.getUncollectedReward", address.String()); err != nil {
 		return nil, err
 	}
 	return ans, nil
 }
 
-func (pa *PillarApi) GetFrontierRewardByPage(address types.Address, pageIndex, pageSize uint32) (*embedded.RewardHistoryList, error) {
-	ans := new(embedded.RewardHistoryList)
+func (pa *PillarApi) GetFrontierRewardByPage(address types.Address, pageIndex, pageSize uint32) (*RewardHistoryList, error) {
+	ans := new(RewardHistoryList)
 	if err := pa.client.Call(ans, "embedded.pillar.getFrontierRewardByPage", address.String(), pageIndex, pageSize); err != nil {
 		return nil, err
 	}
 	return ans, nil
 }
 
-func (pa *PillarApi) GetAll(pageIndex, pageSize uint32) (*embedded.PillarInfoList, error) {
-	ans := new(embedded.PillarInfoList)
+func (pa *PillarApi) GetAll(pageIndex, pageSize uint32) (*PillarInfoList, error) {
+	ans := new(PillarInfoList)
 	if err := pa.client.Call(ans, "embedded.pillar.getAll", pageIndex, pageSize); err != nil {
 		return nil, err
 	}
 	return ans, nil
 }
 
-func (pa *PillarApi) GetByOwner(address types.Address) ([]*embedded.PillarInfo, error) {
-	var ans []*embedded.PillarInfo
+func (pa *PillarApi) GetByOwner(address types.Address) ([]*PillarInfo, error) {
+	var ans []*PillarInfo
 	if err := pa.client.Call(&ans, "embedded.pillar.getByOwner", address.String()); err != nil {
 		return nil, err
 	}
 	return ans, nil
 }
 
-func (pa *PillarApi) GetByName(name string) (*embedded.PillarInfo, error) {
-	ans := new(embedded.PillarInfo)
+func (pa *PillarApi) GetByName(name string) (*PillarInfo, error) {
+	ans := new(PillarInfo)
 	if err := pa.client.Call(ans, "embedded.pillar.getByName", name); err != nil {
 		return nil, err
 	}
@@ -117,24 +116,24 @@ func (pa *PillarApi) CheckNameAvailability(name string) (*bool, error) {
 	return ans, nil
 }
 
-func (pa *PillarApi) GetDelegatedPillar(address types.Address) (*embedded.GetDelegatedPillarResponse, error) {
-	ans := new(embedded.GetDelegatedPillarResponse)
+func (pa *PillarApi) GetDelegatedPillar(address types.Address) (*DelegationInfo, error) {
+	ans := new(DelegationInfo)
 	if err := pa.client.Call(ans, "embedded.pillar.getDelegatedPillar", address); err != nil {
 		return nil, err
 	}
 	return ans, nil
 }
 
-func (pa *PillarApi) GetPillarEpochHistory(pillarName string, pageIndex, pageSize uint32) (*embedded.PillarEpochHistoryList, error) {
-	ans := new(embedded.PillarEpochHistoryList)
+func (pa *PillarApi) GetPillarEpochHistory(pillarName string, pageIndex, pageSize uint32) (*PillarEpochHistoryList, error) {
+	ans := new(PillarEpochHistoryList)
 	if err := pa.client.Call(ans, "embedded.pillar.getPillarEpochHistory", pillarName, pageIndex, pageSize); err != nil {
 		return nil, err
 	}
 	return ans, nil
 }
 
-func (pa *PillarApi) GetPillarsHistoryByEpoch(epoch uint64, pageIndex, pageSize uint32) (*embedded.PillarEpochHistoryList, error) {
-	ans := new(embedded.PillarEpochHistoryList)
+func (pa *PillarApi) GetPillarsHistoryByEpoch(epoch uint64, pageIndex, pageSize uint32) (*PillarEpochHistoryList, error) {
+	ans := new(PillarEpochHistoryList)
 	if err := pa.client.Call(ans, "embedded.pillar.getPillarsHistoryByEpoch", epoch, pageIndex, pageSize); err != nil {
 		return nil, err
 	}

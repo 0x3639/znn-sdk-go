@@ -6,7 +6,6 @@ import (
 	"github.com/zenon-network/go-zenon/chain/nom"
 	"github.com/zenon-network/go-zenon/common"
 	"github.com/zenon-network/go-zenon/common/types"
-	"github.com/zenon-network/go-zenon/rpc/api/embedded"
 	"github.com/zenon-network/go-zenon/rpc/server"
 	"github.com/zenon-network/go-zenon/vm/embedded/definition"
 )
@@ -51,8 +50,8 @@ func NewStakeApi(client *server.Client) *StakeApi {
 //	    template := client.StakeApi.CollectReward()
 //	    // Sign and publish transaction
 //	}
-func (sa *StakeApi) GetUncollectedReward(address types.Address) (*definition.RewardDeposit, error) {
-	ans := new(definition.RewardDeposit)
+func (sa *StakeApi) GetUncollectedReward(address types.Address) (*UncollectedReward, error) {
+	ans := new(UncollectedReward)
 	if err := sa.client.Call(ans, "embedded.stake.getUncollectedReward", address.String()); err != nil {
 		return nil, err
 	}
@@ -91,8 +90,8 @@ func (sa *StakeApi) GetUncollectedReward(address types.Address) (*definition.Rew
 //	    fmt.Printf("Collected: %s ZNN, %s QSR at momentum %d\n",
 //	        entry.Znn, entry.Qsr, entry.Height)
 //	}
-func (sa *StakeApi) GetFrontierRewardByPage(address types.Address, pageIndex, pageSize uint32) (*embedded.RewardHistoryList, error) {
-	ans := new(embedded.RewardHistoryList)
+func (sa *StakeApi) GetFrontierRewardByPage(address types.Address, pageIndex, pageSize uint32) (*RewardHistoryList, error) {
+	ans := new(RewardHistoryList)
 	if err := sa.client.Call(ans, "embedded.stake.getFrontierRewardByPage", address.String(), pageIndex, pageSize); err != nil {
 		return nil, err
 	}
@@ -136,8 +135,8 @@ func (sa *StakeApi) GetFrontierRewardByPage(address types.Address, pageIndex, pa
 //	        stake.Amount, stake.ExpirationTimestamp)
 //	}
 //	fmt.Printf("Total staked: %s ZNN\n", totalStaked)
-func (sa *StakeApi) GetEntriesByAddress(address types.Address, pageIndex, pageSize uint32) (*embedded.StakeList, error) {
-	ans := new(embedded.StakeList)
+func (sa *StakeApi) GetEntriesByAddress(address types.Address, pageIndex, pageSize uint32) (*StakeList, error) {
+	ans := new(StakeList)
 	if err := sa.client.Call(ans, "embedded.stake.getEntriesByAddress", address.String(), pageIndex, pageSize); err != nil {
 		return nil, err
 	}

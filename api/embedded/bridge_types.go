@@ -161,31 +161,34 @@ type BridgeNetworkInfoList struct {
 //   - Fee: Fee charged for the wrap operation (in base units)
 //   - Signature: TSS signature for the wrap (added by orchestrators)
 //   - CreationMomentumHeight: Momentum height when request was created
+//   - ConfirmationsToFinality: Number of confirmations remaining until finality
 type WrapTokenRequest struct {
-	NetworkClass           uint32                   `json:"networkClass"`
-	ChainId                uint32                   `json:"chainId"`
-	Id                     types.Hash               `json:"id"`
-	ToAddress              string                   `json:"toAddress"`
-	TokenStandard          types.ZenonTokenStandard `json:"tokenStandard"`
-	TokenAddress           string                   `json:"tokenAddress"`
-	Amount                 *big.Int                 `json:"amount"`
-	Fee                    *big.Int                 `json:"fee"`
-	Signature              string                   `json:"signature"`
-	CreationMomentumHeight uint64                   `json:"creationMomentumHeight"`
+	NetworkClass            uint32                   `json:"networkClass"`
+	ChainId                 uint32                   `json:"chainId"`
+	Id                      types.Hash               `json:"id"`
+	ToAddress               string                   `json:"toAddress"`
+	TokenStandard           types.ZenonTokenStandard `json:"tokenStandard"`
+	TokenAddress            string                   `json:"tokenAddress"`
+	Amount                  *big.Int                 `json:"amount"`
+	Fee                     *big.Int                 `json:"fee"`
+	Signature               string                   `json:"signature"`
+	CreationMomentumHeight  uint64                   `json:"creationMomentumHeight"`
+	ConfirmationsToFinality uint32                   `json:"confirmationsToFinality"`
 }
 
 // wrapTokenRequestJSON is used for JSON unmarshaling with string amounts
 type wrapTokenRequestJSON struct {
-	NetworkClass           uint32                   `json:"networkClass"`
-	ChainId                uint32                   `json:"chainId"`
-	Id                     types.Hash               `json:"id"`
-	ToAddress              string                   `json:"toAddress"`
-	TokenStandard          types.ZenonTokenStandard `json:"tokenStandard"`
-	TokenAddress           string                   `json:"tokenAddress"`
-	Amount                 string                   `json:"amount"`
-	Fee                    string                   `json:"fee"`
-	Signature              string                   `json:"signature"`
-	CreationMomentumHeight uint64                   `json:"creationMomentumHeight"`
+	NetworkClass            uint32                   `json:"networkClass"`
+	ChainId                 uint32                   `json:"chainId"`
+	Id                      types.Hash               `json:"id"`
+	ToAddress               string                   `json:"toAddress"`
+	TokenStandard           types.ZenonTokenStandard `json:"tokenStandard"`
+	TokenAddress            string                   `json:"tokenAddress"`
+	Amount                  string                   `json:"amount"`
+	Fee                     string                   `json:"fee"`
+	Signature               string                   `json:"signature"`
+	CreationMomentumHeight  uint64                   `json:"creationMomentumHeight"`
+	ConfirmationsToFinality uint32                   `json:"confirmationsToFinality"`
 }
 
 func (w *WrapTokenRequest) UnmarshalJSON(data []byte) error {
@@ -203,6 +206,7 @@ func (w *WrapTokenRequest) UnmarshalJSON(data []byte) error {
 	w.Fee = common.StringToBigInt(aux.Fee)
 	w.Signature = aux.Signature
 	w.CreationMomentumHeight = aux.CreationMomentumHeight
+	w.ConfirmationsToFinality = aux.ConfirmationsToFinality
 	return nil
 }
 
@@ -235,6 +239,7 @@ type WrapTokenRequestList struct {
 //   - Signature: TSS signature for the unwrap (added by orchestrators)
 //   - Redeemed: Whether tokens have been claimed (1 = yes, 0 = no)
 //   - Revoked: Whether request was revoked (1 = yes, 0 = no)
+//   - RedeemableIn: Number of momentums until the request can be redeemed
 type UnwrapTokenRequest struct {
 	RegistrationMomentumHeight uint64                   `json:"registrationMomentumHeight"`
 	NetworkClass               uint32                   `json:"networkClass"`
@@ -248,6 +253,7 @@ type UnwrapTokenRequest struct {
 	Signature                  string                   `json:"signature"`
 	Redeemed                   uint32                   `json:"redeemed"`
 	Revoked                    uint32                   `json:"revoked"`
+	RedeemableIn               uint64                   `json:"redeemableIn"`
 }
 
 // unwrapTokenRequestJSON is used for JSON unmarshaling with string amounts
@@ -264,6 +270,7 @@ type unwrapTokenRequestJSON struct {
 	Signature                  string                   `json:"signature"`
 	Redeemed                   uint32                   `json:"redeemed"`
 	Revoked                    uint32                   `json:"revoked"`
+	RedeemableIn               uint64                   `json:"redeemableIn"`
 }
 
 func (u *UnwrapTokenRequest) UnmarshalJSON(data []byte) error {
@@ -283,6 +290,7 @@ func (u *UnwrapTokenRequest) UnmarshalJSON(data []byte) error {
 	u.Signature = aux.Signature
 	u.Redeemed = aux.Redeemed
 	u.Revoked = aux.Revoked
+	u.RedeemableIn = aux.RedeemableIn
 	return nil
 }
 

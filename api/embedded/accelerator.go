@@ -24,7 +24,7 @@ func NewAcceleratorApi(client *server.Client) *AcceleratorApi {
 
 func (aa *AcceleratorApi) GetAll(pageIndex, pageSize uint32) (*embedded.ProjectList, error) {
 	ans := new(embedded.ProjectList)
-	if err := aa.client.Call(ans, "embedded.accelerator.GetAll", pageIndex, pageSize); err != nil {
+	if err := aa.client.Call(ans, "embedded.accelerator.getAll", pageIndex, pageSize); err != nil {
 		return nil, err
 	}
 	return ans, nil

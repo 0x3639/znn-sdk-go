@@ -6,6 +6,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is the Zenon Go SDK implementation, a client library for interacting with Zenon Network nodes. It follows the official Dart SDK structure and is compatible with go-zenon nodes running on the Zenon Network.
 
+### Reference Implementation
+
+The official Dart SDK is included in `reference/znn_sdk_dart-master/` as a reference implementation. When implementing new features or fixing bugs, consult the Dart SDK to ensure API compatibility and consistent behavior. Key reference files:
+
+- `reference/znn_sdk_dart-master/lib/src/api/` - API implementations
+- `reference/znn_sdk_dart-master/lib/src/model/` - Type definitions with `fromJson` factories
+- `reference/znn_sdk_dart-master/lib/src/embedded/` - Embedded contract definitions
+
 ## Key Architecture
 
 ### Core Components
@@ -420,6 +428,64 @@ fmt.Println("Address:", keypair.GetAddress())
 - Template methods package ABI-encoded data for smart contracts
 - `LedgerApi.PublishRawTransaction()` submits to node
 - Error handling: RPC calls return errors, transaction submission may succeed but fail on-chain
+
+### SDK-Specific Types (api/embedded/*_types.go)
+
+The embedded API package defines SDK-specific types for deserializing JSON-RPC responses. This is necessary because:
+
+1. **go-zenon types are server-side**: The `github.com/zenon-network/go-zenon` package provides types designed for the node's internal use, not for client-side JSON deserialization.
+
+2. **Big integers are sent as strings**: The JSON-RPC protocol sends `*big.Int` values as strings (e.g., `"123456789"`), but Go's `*big.Int` cannot automatically unmarshal from JSON strings.
+
+3. **Dart SDK pattern**: This follows the same approach as the official Dart SDK (see `reference/znn_sdk_dart-master/lib/src/model/`), which defines dedicated client-side types with `fromJson` factories.
+
+**Type file structure:**
+- `common_types.go` - Shared types (UncollectedReward, RewardHistoryEntry, etc.)
+- `pillar_types.go` - PillarInfo, DelegationInfo, etc.
+- `sentinel_types.go` - SentinelInfo, etc.
+- `stake_types.go` - StakeEntry, StakeList
+- `plasma_types.go` - PlasmaInfo, FusionEntry, etc.
+- `token_types.go` - Token, TokenList
+- `liquidity_types.go` - LiquidityInfo, LiquidityStakeEntry, etc.
+- `bridge_types.go` - BridgeInfo, WrapTokenRequest, etc.
+- `swap_types.go` - SwapAssetEntry, etc.
+- `htlc_types.go` - HtlcInfo
+- `spork_types.go` - Spork, SporkList
+- `accelerator_types.go` - Project, Phase, VoteBreakdown, etc.
+
+**Implementation pattern:**
+```go
+// Public type with *big.Int fields
+type Token struct {
+    Name        string   `json:"name"`
+    TotalSupply *big.Int `json:"totalSupply"`
+    // ...
+}
+
+// Private helper type with string fields for unmarshaling
+type tokenJSON struct {
+    Name        string `json:"name"`
+    TotalSupply string `json:"totalSupply"`
+    // ...
+}
+
+// Custom UnmarshalJSON converts strings to *big.Int
+func (t *Token) UnmarshalJSON(data []byte) error {
+    var aux tokenJSON
+    if err := json.Unmarshal(data, &aux); err != nil {
+        return err
+    }
+    t.Name = aux.Name
+    t.TotalSupply = common.StringToBigInt(aux.TotalSupply)
+    return nil
+}
+```
+
+**When adding new embedded API types:**
+1. Create the type in the appropriate `*_types.go` file
+2. Add a private `*JSON` helper struct with string fields for big integers
+3. Implement `UnmarshalJSON` using `common.StringToBigInt()` for conversion
+4. Add comprehensive godoc comments following the documentation standards
 
 ### Type Conversions
 Common helper functions:

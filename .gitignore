@@ -36,3 +36,6 @@ go.work
 
 # Claude Code working directory (audit notes, temp files, etc.)
 .claude/
+
+# Reference implementation (Dart SDK) - local only, not committed
+reference/

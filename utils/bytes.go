@@ -157,6 +157,16 @@ func LongToBytes(longValue int64) []byte {
 	return bytes
 }
 
+// Uint64ToBytes converts uint64 to 8 bytes (big-endian)
+//
+// This is the safe alternative to LongToBytes for unsigned values,
+// avoiding the need for uint64->int64 conversion which can overflow.
+func Uint64ToBytes(value uint64) []byte {
+	bytes := make([]byte, 8)
+	binary.BigEndian.PutUint64(bytes, value)
+	return bytes
+}
+
 // =============================================================================
 // Base64 Encoding/Decoding
 // =============================================================================

@@ -67,7 +67,7 @@ func NewHashHeight(hash types.Hash, height uint64) HashHeight {
 func (hh HashHeight) GetBytes() []byte {
 	return Merge([][]byte{
 		hh.Hash.Bytes(),
-		LongToBytes(int64(hh.Height)),
+		Uint64ToBytes(hh.Height),
 	})
 }
 

@@ -30,7 +30,13 @@ import (
 // See also: HashDigestEmpty for hashing empty data.
 func HashDigest(data []byte) types.Hash {
 	digest := crypto.DigestDefault(data)
-	hash, _ := types.BytesToHash(digest)
+	// DigestDefault always returns exactly 32 bytes, and BytesToHash only
+	// fails if input length != 32, so error is impossible here
+	hash, err := types.BytesToHash(digest)
+	if err != nil {
+		// This should never happen with SHA3-256 output
+		panic("HashDigest: unexpected error from BytesToHash: " + err.Error())
+	}
 	return hash
 }
 

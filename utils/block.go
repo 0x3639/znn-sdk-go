@@ -90,16 +90,16 @@ func IsReceiveBlock(blockType int) bool {
 //
 // Reference: znn_sdk_dart/lib/src/utils/block.dart:31-70
 func GetTransactionBytes(block *nom.AccountBlock) []byte {
-	versionBytes := LongToBytes(int64(block.Version))
-	chainIdentifierBytes := LongToBytes(int64(block.ChainIdentifier))
-	blockTypeBytes := LongToBytes(int64(block.BlockType))
+	versionBytes := Uint64ToBytes(block.Version)
+	chainIdentifierBytes := Uint64ToBytes(block.ChainIdentifier)
+	blockTypeBytes := Uint64ToBytes(block.BlockType)
 	previousHashBytes := block.PreviousHash.Bytes()
-	heightBytes := LongToBytes(int64(block.Height))
+	heightBytes := Uint64ToBytes(block.Height)
 
 	// MomentumAcknowledged serialization: hash (32 bytes) + height (8 bytes)
 	momentumAcknowledgedBytes := Merge([][]byte{
 		block.MomentumAcknowledged.Hash.Bytes(),
-		LongToBytes(int64(block.MomentumAcknowledged.Height)),
+		Uint64ToBytes(block.MomentumAcknowledged.Height),
 	})
 
 	addressBytes := block.Address.Bytes()
@@ -121,8 +121,8 @@ func GetTransactionBytes(block *nom.AccountBlock) []byte {
 	// Data: hash of the data field
 	dataBytes := HashDigest(block.Data).Bytes()
 
-	fusedPlasmaBytes := LongToBytes(int64(block.FusedPlasma))
-	difficultyBytes := LongToBytes(int64(block.Difficulty))
+	fusedPlasmaBytes := Uint64ToBytes(block.FusedPlasma)
+	difficultyBytes := Uint64ToBytes(block.Difficulty)
 
 	// Nonce: already 8 bytes in the Nonce struct
 	nonceBytes := block.Nonce.Data[:]

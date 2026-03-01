@@ -85,7 +85,11 @@ func DecodeList(params []Param, encoded []byte) ([]interface{}, error) {
 		}
 
 		result = append(result, decoded)
-		offset += param.Type.GetFixedSize()
+		if param.Type.IsDynamicType() {
+			offset += Int32Size // Dynamic types use 32 bytes for offset pointer in head
+		} else {
+			offset += param.Type.GetFixedSize()
+		}
 	}
 
 	return result, nil

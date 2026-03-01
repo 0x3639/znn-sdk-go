@@ -757,6 +757,117 @@ func TestAbi_RoundTrip(t *testing.T) {
 	}
 }
 
+// ==================== DecodeList Dynamic/Static Mix Tests ====================
+
+func TestDecodeList_DynamicBeforeStatic(t *testing.T) {
+	// Reproduces the VoteByName bug: VoteByName(hash id, string name, uint8 vote)
+	// When a dynamic type (string) precedes a static type (uint8), the old code
+	// would read the string's offset pointer (96) as the vote value instead of
+	// advancing past it to read the actual vote at offset 64.
+	params := []Param{
+		{Name: "id", Type: mustGetType("hash")},
+		{Name: "name", Type: mustGetType("string")},
+		{Name: "vote", Type: mustGetType("uint8")},
+	}
+
+	// Build ABI-encoded data for VoteByName
+	// Head layout (3 * 32 = 96 bytes):
+	//   offset 0:  hash (32 bytes, static)
+	//   offset 32: string offset pointer (32 bytes, value = 96 = 0x60)
+	//   offset 64: uint8 vote (32 bytes, value = 1 = "No")
+	// Tail (starting at byte 96):
+	//   offset 96:  string length (32 bytes, value = 4)
+	//   offset 128: string data "test" padded to 32 bytes
+
+	fn := NewAbiFunction("VoteByName", params)
+	testHash := types.HexToHashPanic("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+	args := []interface{}{testHash, "test", 1}
+
+	encoded, err := fn.Encode(args)
+	if err != nil {
+		t.Fatalf("Encode() error = %v", err)
+	}
+
+	// Decode and verify
+	decoded, err := fn.Decode(encoded)
+	if err != nil {
+		t.Fatalf("Decode() error = %v", err)
+	}
+
+	if len(decoded) != 3 {
+		t.Fatalf("len(decoded) = %d, want 3", len(decoded))
+	}
+
+	// Check hash
+	decodedHash, ok := decoded[0].(types.Hash)
+	if !ok {
+		t.Fatalf("decoded[0] type = %T, want types.Hash", decoded[0])
+	}
+	if decodedHash != testHash {
+		t.Errorf("decoded[0] = %s, want %s", decodedHash, testHash)
+	}
+
+	// Check string
+	decodedStr, ok := decoded[1].(string)
+	if !ok {
+		t.Fatalf("decoded[1] type = %T, want string", decoded[1])
+	}
+	if decodedStr != "test" {
+		t.Errorf("decoded[1] = %s, want test", decodedStr)
+	}
+
+	// Check vote value - this is the critical assertion.
+	// Before the fix, this would be 96 (the string offset pointer) instead of 1.
+	decodedVote, ok := decoded[2].(*big.Int)
+	if !ok {
+		t.Fatalf("decoded[2] type = %T, want *big.Int", decoded[2])
+	}
+	if decodedVote.Int64() != 1 {
+		t.Errorf("decoded[2] (vote) = %d, want 1 (bug returns 96 if offset not advanced past dynamic type)", decodedVote.Int64())
+	}
+}
+
+func TestDecodeList_MultipleDynamicBeforeStatic(t *testing.T) {
+	// Test with multiple dynamic types before a static type
+	params := []Param{
+		{Name: "a", Type: mustGetType("string")},
+		{Name: "b", Type: mustGetType("string")},
+		{Name: "c", Type: mustGetType("uint256")},
+	}
+
+	fn := NewAbiFunction("multiDynamic", params)
+	args := []interface{}{"hello", "world", 42}
+
+	encoded, err := fn.Encode(args)
+	if err != nil {
+		t.Fatalf("Encode() error = %v", err)
+	}
+
+	decoded, err := fn.Decode(encoded)
+	if err != nil {
+		t.Fatalf("Decode() error = %v", err)
+	}
+
+	if len(decoded) != 3 {
+		t.Fatalf("len(decoded) = %d, want 3", len(decoded))
+	}
+
+	if decoded[0].(string) != "hello" {
+		t.Errorf("decoded[0] = %v, want hello", decoded[0])
+	}
+	if decoded[1].(string) != "world" {
+		t.Errorf("decoded[1] = %v, want world", decoded[1])
+	}
+
+	val, ok := decoded[2].(*big.Int)
+	if !ok {
+		t.Fatalf("decoded[2] type = %T, want *big.Int", decoded[2])
+	}
+	if val.Int64() != 42 {
+		t.Errorf("decoded[2] = %d, want 42", val.Int64())
+	}
+}
+
 // ==================== Helper Functions ====================
 
 func mustGetType(typeName string) AbiType {

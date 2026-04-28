@@ -204,13 +204,20 @@ func (pa *PillarApi) UpdatePillar(name string, producerAddress, rewardAddress ty
 	}
 }
 
-func (pa *PillarApi) Revoke() *nom.AccountBlock {
+// Revoke creates a transaction template that revokes the named Pillar.
+//
+// Parameters:
+//   - name: Name of the Pillar to revoke. Must match the registered name; the
+//     embedded contract uses it to look up and authorize the revocation.
+//
+// Reference: znn_sdk_dart/lib/src/api/embedded/pillar.dart:143-146
+func (pa *PillarApi) Revoke(name string) *nom.AccountBlock {
 	return &nom.AccountBlock{
 		BlockType:     nom.BlockTypeUserSend,
 		ToAddress:     types.PillarContract,
 		TokenStandard: types.ZnnTokenStandard,
 		Amount:        common.Big0,
-		Data:          definition.ABIPillars.PackMethodPanic(definition.RevokeMethodName),
+		Data:          definition.ABIPillars.PackMethodPanic(definition.RevokeMethodName, name),
 	}
 }
 

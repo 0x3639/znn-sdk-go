@@ -62,6 +62,34 @@ func (pa *PlasmaApi) GetEntriesByAddress(address types.Address, pageIndex, pageS
 	return ans, nil
 }
 
+// GetRequiredFusionAmount queries the QSR amount that must be fused to obtain
+// the requested amount of plasma.
+//
+// This is a node-side calculation that accounts for the current plasma:QSR
+// ratio. Use it before calling Fuse to size the fusion correctly.
+//
+// Reference: znn_sdk_dart/lib/src/api/embedded/plasma.dart:30-33
+func (pa *PlasmaApi) GetRequiredFusionAmount(requiredPlasma uint64) (uint64, error) {
+	var ans uint64
+	if err := pa.client.Call(&ans, "embedded.plasma.getRequiredFusionAmount", requiredPlasma); err != nil {
+		return 0, err
+	}
+	return ans, nil
+}
+
+// GetPlasmaByQsr returns the plasma units obtained by fusing the given QSR
+// amount, using the protocol's fixed 1 QSR = 2100 plasma ratio.
+//
+// Pure local helper — no RPC call.
+//
+// Reference: znn_sdk_dart/lib/src/api/embedded/plasma.dart:35-37
+func (pa *PlasmaApi) GetPlasmaByQsr(qsrAmount *big.Int) *big.Int {
+	if qsrAmount == nil {
+		return big.NewInt(0)
+	}
+	return new(big.Int).Mul(qsrAmount, big.NewInt(2100))
+}
+
 // GetRequiredPoWForAccountBlock calculates the PoW difficulty required for a transaction
 // based on available plasma.
 //

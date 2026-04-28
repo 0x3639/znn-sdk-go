@@ -399,3 +399,50 @@ func (ba *BridgeApi) SetBridgeMetadata(metadata string) *nom.AccountBlock {
 		),
 	}
 }
+
+// GetFeeTokenPair queries accumulated bridge fees for the given token.
+//
+// Reference: znn_sdk_dart/lib/src/api/embedded/bridge.dart:151-155
+func (ba *BridgeApi) GetFeeTokenPair(zts types.ZenonTokenStandard) (*ZtsFeesInfo, error) {
+	ans := new(ZtsFeesInfo)
+	if err := ba.client.Call(ans, "embedded.bridge.getFeeTokenPair", zts.String()); err != nil {
+		return nil, err
+	}
+	return ans, nil
+}
+
+// ProposeAdministrator creates a transaction template that proposes a new
+// administrator for the bridge contract. Used by guardians during recovery
+// when the prior administrator is unreachable.
+//
+// Reference: znn_sdk_dart/lib/src/api/embedded/bridge.dart:242-249
+func (ba *BridgeApi) ProposeAdministrator(address types.Address) *nom.AccountBlock {
+	return &nom.AccountBlock{
+		BlockType:     nom.BlockTypeUserSend,
+		ToAddress:     types.BridgeContract,
+		TokenStandard: types.ZnnTokenStandard,
+		Amount:        common.Big0,
+		Data: definition.ABIBridge.PackMethodPanic(
+			definition.ProposeAdministratorMethodName,
+			address,
+		),
+	}
+}
+
+// RevokeUnwrapRequest creates a transaction template that revokes an unwrap
+// request identified by the foreign-chain transaction hash and log index.
+//
+// Reference: znn_sdk_dart/lib/src/api/embedded/bridge.dart:376-383
+func (ba *BridgeApi) RevokeUnwrapRequest(transactionHash types.Hash, logIndex uint32) *nom.AccountBlock {
+	return &nom.AccountBlock{
+		BlockType:     nom.BlockTypeUserSend,
+		ToAddress:     types.BridgeContract,
+		TokenStandard: types.ZnnTokenStandard,
+		Amount:        common.Big0,
+		Data: definition.ABIBridge.PackMethodPanic(
+			definition.RevokeUnwrapRequestMethodName,
+			transactionHash,
+			logIndex,
+		),
+	}
+}

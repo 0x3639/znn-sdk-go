@@ -87,7 +87,7 @@ func (sa *SwapApi) RetrieveAssets(publicKey, signature string) *nom.AccountBlock
 //
 // Reference: znn_sdk_dart/lib/src/api/embedded/swap.dart:44-61
 func (sa *SwapApi) GetSwapDecayPercentage(currentTimestamp int64) int {
-	percentageToGive := 100
+	var percentageToGive int
 	currentEpoch := (currentTimestamp - sdkembedded.GenesisTimestamp) / SecondsPerDay
 	if currentTimestamp < sdkembedded.SwapAssetDecayTimestampStart {
 		percentageToGive = 100

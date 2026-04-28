@@ -136,7 +136,7 @@ func (aa *AcceleratorApi) UpdatePhase(id types.Hash, name, description, url stri
 		TokenStandard: types.ZnnTokenStandard,
 		Amount:        common.Big0,
 		Data: definition.ABIAccelerator.PackMethodPanic(
-			definition.UpdateMethodName,
+			definition.UpdatePhaseMethodName,
 			id,
 			name,
 			description,

@@ -3,6 +3,7 @@
 [![SDK Status](https://img.shields.io/badge/SDK%20Status-98%25%20Complete-brightgreen)](SDK_STATUS.md)
 [![Go Report Card](https://goreportcard.com/badge/github.com/0x3639/znn-sdk-go)](https://goreportcard.com/report/github.com/0x3639/znn-sdk-go)
 [![GoDoc](https://godoc.org/github.com/0x3639/znn-sdk-go?status.svg)](https://godoc.org/github.com/0x3639/znn-sdk-go)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/0x3639/znn-sdk-go)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](#contributing)
 [![GitHub license](https://img.shields.io/github/license/0x3639/znn-sdk-go)](LICENSE)
 
@@ -611,7 +612,8 @@ fmt.Printf("Current plasma: %d\n", plasma.CurrentPlasma)
 
 ## Documentation
 
-- **[pkg.go.dev](https://pkg.go.dev/github.com/0x3639/znn-sdk-go)** - Complete API reference with 96+ examples
+- **[pkg.go.dev](https://pkg.go.dev/github.com/0x3639/znn-sdk-go)** - Complete API reference with 89+ examples
+- **[DeepWiki](https://deepwiki.com/0x3639/znn-sdk-go)** - AI-generated walkthrough of the codebase: architecture, modules, transaction lifecycle, embedded contracts
 - **[CLAUDE.md](CLAUDE.md)** - Detailed architecture and development guide
 
 ### Running Example Functions

@@ -1,0 +1,300 @@
+{
+    "repo_notes": [
+      {
+        "content": ""
+      }
+    ],
+    "pages": [
+      {
+        "title": "Overview",
+        "purpose": "High-level introduction to the Zenon Go SDK: its purpose, architecture layers, key capabilities, and how to navigate the wiki. Links to child pages for setup and project status.",
+        "page_notes": [
+          {
+            "content": ""
+          }
+        ]
+      },
+      {
+        "title": "Getting Started",
+        "purpose": "Step-by-step guide for installing the SDK, connecting to a Zenon node, creating a wallet, and sending a first transaction. Covers prerequisites, default connection URL, and the basic transaction lifecycle.",
+        "parent": "Overview",
+        "page_notes": [
+          {
+            "content": ""
+          }
+        ]
+      },
+      {
+        "title": "Project Status and Roadmap",
+        "purpose": "Documents the current implementation status of all SDK modules (100% feature parity with Dart SDK), test coverage (568 tests), CI/CD pipeline, and planned future work from ROADMAP.md.",
+        "parent": "Overview",
+        "page_notes": [
+          {
+            "content": ""
+          }
+        ]
+      },
+      {
+        "title": "Core Architecture",
+        "purpose": "Overview of the SDK's layered architecture: transport, API, embedded contracts, and utilities. Describes how the layers interact and links to child pages for each major subsystem.",
+        "page_notes": [
+          {
+            "content": ""
+          }
+        ]
+      },
+      {
+        "title": "RPC Client and Connection Management",
+        "purpose": "Deep dive into rpc_client/client.go: the RpcClient struct, ClientOptions, WebsocketStatus state machine (Uninitialized/Connecting/Running/Stopped), auto-reconnect with exponential backoff, health monitoring, connection callbacks, and URL validation utilities.",
+        "parent": "Core Architecture",
+        "page_notes": [
+          {
+            "content": ""
+          }
+        ]
+      },
+      {
+        "title": "Transaction Lifecycle",
+        "purpose": "Explains the five-step pipeline for all state-changing operations: template creation, autofill (height/previousHash/momentumAcknowledged), Plasma/PoW resolution, signing, and broadcasting via PublishRawTransaction. References utils/block.go serialization and rpc_client internals.",
+        "parent": "Core Architecture",
+        "page_notes": [
+          {
+            "content": ""
+          }
+        ]
+      },
+      {
+        "title": "Ledger, Stats, and Subscription APIs",
+        "purpose": "Covers the api/ package: LedgerApi (GetFrontierMomentum, GetAccountInfoByAddress, PublishRawTransaction, PublishRawTransactionWithRetry), StatsApi, SubscriberApi (ToMomentums, ToAllAccountBlocks), and the SubscriptionManager for lifecycle management.",
+        "parent": "Core Architecture",
+        "page_notes": [
+          {
+            "content": ""
+          }
+        ]
+      },
+      {
+        "title": "Cryptographic Primitives",
+        "purpose": "Overview of the crypto/ package and its role as the foundation for all cryptographic operations in the SDK. Links to child pages for hashing/signing and key derivation.",
+        "page_notes": [
+          {
+            "content": ""
+          }
+        ]
+      },
+      {
+        "title": "Hashing and Digital Signatures",
+        "purpose": "Documents crypto/crypto.go: Ed25519 Sign/Verify/GetPublicKey, SHA3-256 via DigestDefault, SHAKE256 for custom output sizes, and SHA-256 for legacy compatibility. Covers utils/hash.go HashDigest and HashDigestEmpty wrappers.",
+        "parent": "Cryptographic Primitives",
+        "page_notes": [
+          {
+            "content": ""
+          }
+        ]
+      },
+      {
+        "title": "Key Derivation and Argon2id",
+        "purpose": "Documents crypto/argon2.go: Argon2Parameters struct, DefaultArgon2Parameters (64MB memory, 1 iteration, 4 threads), DeriveKey and DeriveKeyDefault. Explains how these parameters are used for keystore encryption and why they were chosen for security.",
+        "parent": "Cryptographic Primitives",
+        "page_notes": [
+          {
+            "content": ""
+          }
+        ]
+      },
+      {
+        "title": "Wallet and Key Management",
+        "purpose": "Overview of the wallet/ package: HD wallet architecture, keystore file format, and secure memory handling. Links to child pages for key derivation and encrypted storage.",
+        "page_notes": [
+          {
+            "content": ""
+          }
+        ]
+      },
+      {
+        "title": "HD Wallet: BIP39, BIP32, and KeyPair",
+        "purpose": "Covers wallet/mnemonic.go (BIP39 mnemonic generation/validation), wallet/bip32.go (master and child key derivation), wallet/derivation.go (BIP44 path m/44'/73404'/account'/0'/0'), and wallet/keypair.go (lazy public key derivation, address generation, Ed25519 signing, and the Destroy() secure zeroing pattern).",
+        "parent": "Wallet and Key Management",
+        "page_notes": [
+          {
+            "content": ""
+          }
+        ]
+      },
+      {
+        "title": "KeyStore and Encrypted File Storage",
+        "purpose": "Documents wallet/keystore.go (KeyStore struct, NewKeyStoreRandom, NewKeyStoreFromMnemonic, GetKeyPair), wallet/encryptedfile.go (EncryptedFile/CryptoParams, AES-256-GCM encryption with Argon2id KDF, 0600 file permissions), wallet/manager.go (KeyStoreManager, CreateNew, SaveKeyStore, ReadKeyStore), and wallet/password.go validation.",
+        "parent": "Wallet and Key Management",
+        "page_notes": [
+          {
+            "content": ""
+          }
+        ]
+      },
+      {
+        "title": "ABI Encoding and Embedded Contract Definitions",
+        "purpose": "Overview of the ABI system and the embedded/ package that defines contract ABIs. Links to child pages for the ABI engine and the contract definition layer.",
+        "page_notes": [
+          {
+            "content": ""
+          }
+        ]
+      },
+      {
+        "title": "ABI Engine",
+        "purpose": "Deep dive into abi/abi.go: the Abi container, AbiFunction, Param, head/tail encoding pattern, EncodeArguments two-pass algorithm, DecodeList offset management, signature fingerprinting (FormatSignature, FingerprintSignature, 4-byte method selector), JSON parsing, and round-trip test patterns.",
+        "parent": "ABI Encoding and Embedded Contract Definitions",
+        "page_notes": [
+          {
+            "content": ""
+          }
+        ]
+      },
+      {
+        "title": "Contract ABI Definitions and Constants",
+        "purpose": "Documents the embedded/ package: embedded/definitions.go (JSON ABI strings for all 11 contracts: Plasma, Pillar, Token, Sentinel, Swap, Stake, Accelerator, Bridge, Liquidity, HTLC, Spork), embedded/constants.go (GenesisTimestamp, CoinDecimals, OneZnn/OneQsr, minimum amounts for registration), and embedded/validations.go.",
+        "parent": "ABI Encoding and Embedded Contract Definitions",
+        "page_notes": [
+          {
+            "content": ""
+          }
+        ]
+      },
+      {
+        "title": "Embedded Contract APIs",
+        "purpose": "Overview of the api/embedded/ package: how each embedded contract API wraps RPC calls and generates AccountBlock templates. Links to child pages grouped by contract category.",
+        "page_notes": [
+          {
+            "content": ""
+          }
+        ]
+      },
+      {
+        "title": "Network Infrastructure Contracts: Pillar, Sentinel, and Spork",
+        "purpose": "Documents PillarApi (Register, RegisterLegacy, Revoke, UpdatePillar, Delegate, Undelegate, reward queries), SentinelApi (Register, Revoke, reward queries), and SporkApi (GetAll, admin-only activation). Covers pillar_types.go, sentinel_types.go, spork_types.go data structures.",
+        "parent": "Embedded Contract APIs",
+        "page_notes": [
+          {
+            "content": ""
+          }
+        ]
+      },
+      {
+        "title": "Token and Plasma Contracts",
+        "purpose": "Documents TokenApi (IssueToken, Mint, Burn, UpdateToken, GetByOwner, GetAll) and PlasmaApi (Fuse, CancelFuse, GetPlasmaByAddress, GetEntriesByAddress, GetRequiredPoWForAccountBlock). Covers token_types.go and plasma_types.go, including the JSON big.Int deserialization pattern.",
+        "parent": "Embedded Contract APIs",
+        "page_notes": [
+          {
+            "content": ""
+          }
+        ]
+      },
+      {
+        "title": "Staking, Accelerator, and HTLC Contracts",
+        "purpose": "Documents StakeApi (Stake, Cancel, CollectReward, GetEntriesByAddress), AcceleratorApi (CreateProject, AddPhase, UpdatePhase, Vote, Donate, GetAll), and HtlcApi (Create, Reclaim, Unlock, GetById). Covers stake_types.go, accelerator_types.go, htlc_types.go.",
+        "parent": "Embedded Contract APIs",
+        "page_notes": [
+          {
+            "content": ""
+          }
+        ]
+      },
+      {
+        "title": "Bridge, Liquidity, and Swap Contracts",
+        "purpose": "Documents BridgeApi (WrapToken, UnwrapToken, Redeem, Halt/Unhalt, SetTokenPair, NominateGuardians, TSS key management, time challenges), LiquidityApi, and SwapApi (legacy asset migration, GetSwapDecayPercentage, RetrieveAssets). Covers bridge_types.go, liquidity_types.go, swap_types.go.",
+        "parent": "Embedded Contract APIs",
+        "page_notes": [
+          {
+            "content": ""
+          }
+        ]
+      },
+      {
+        "title": "Proof-of-Work Generation",
+        "purpose": "Overview of the pow/ package and its role in the transaction lifecycle. Links to child pages for the PoW algorithm and worker pool.",
+        "page_notes": [
+          {
+            "content": ""
+          }
+        ]
+      },
+      {
+        "title": "PoW Algorithm and Difficulty",
+        "purpose": "Documents pow/pow.go: GeneratePoW (synchronous), GeneratePowAsync (context-aware with cancellation), GeneratePowBigIntAsync, the SHA3-256 nonce search loop, MaxProtocolDifficulty (141,750,000) and MaxReasonableDifficulty (200,000,000) safety caps, and ErrDifficultyTooHigh DoS protection.",
+        "parent": "Proof-of-Work Generation",
+        "page_notes": [
+          {
+            "content": ""
+          }
+        ]
+      },
+      {
+        "title": "Worker Pool and Concurrency",
+        "purpose": "Documents the workerPool semaphore pattern in pow/pow.go: DefaultMaxPoWWorkers (8), SetMaxPoWWorkers, POW_MAX_WORKERS environment variable override, acquire/release lifecycle, and how the pool prevents CPU exhaustion during concurrent transaction submission.",
+        "parent": "Proof-of-Work Generation",
+        "page_notes": [
+          {
+            "content": ""
+          }
+        ]
+      },
+      {
+        "title": "Utilities",
+        "purpose": "Overview of the utils/ package: serialization helpers, hashing wrappers, and byte manipulation. Links to child pages for block utilities and general helpers.",
+        "page_notes": [
+          {
+            "content": ""
+          }
+        ]
+      },
+      {
+        "title": "Block Serialization and Transaction Hashing",
+        "purpose": "Documents utils/block.go: GetTransactionBytes (306-byte deterministic serialization format), GetTransactionHash (SHA3-256 of serialized block, used for ID prediction of stakes/fusions/HTLCs), GetPoWData (SHA3-256 of address||previousHash), IsSendBlock/IsReceiveBlock type checkers, and block type constants.",
+        "parent": "Utilities",
+        "page_notes": [
+          {
+            "content": ""
+          }
+        ]
+      },
+      {
+        "title": "Hash and HashHeight Utilities",
+        "purpose": "Documents utils/hash.go (HashDigest, HashDigestEmpty wrappers around crypto.DigestDefault), utils/hash_height.go (HashHeight struct, NewHashHeight, GetBytes 40-byte serialization, IsEmpty, EmptyHashHeight), and utils/bytes.go (Merge, Uint64ToBytes, big.Int to 32-byte conversion).",
+        "parent": "Utilities",
+        "page_notes": [
+          {
+            "content": ""
+          }
+        ]
+      },
+      {
+        "title": "Testing and CI/CD",
+        "purpose": "Overview of the SDK's testing strategy (568 unit tests, golden tests, fuzz tests, example tests) and CI/CD pipeline. Links to child pages for test patterns and security tooling.",
+        "page_notes": [
+          {
+            "content": ""
+          }
+        ]
+      },
+      {
+        "title": "Test Patterns and Golden Tests",
+        "purpose": "Documents the testing approach: round-trip encode/decode tests in abi_test.go, golden file tests (utils/block_golden_test.go, wallet/encryptedfile_golden_test.go) for protocol compatibility, fuzz tests (crypto_fuzz_test.go, wallet_fuzz_test.go), example tests for documentation, and integration tests in rpc_client/integration_test.go.",
+        "parent": "Testing and CI/CD",
+        "page_notes": [
+          {
+            "content": ""
+          }
+        ]
+      },
+      {
+        "title": "CI/CD Pipeline and Security Scanning",
+        "purpose": "Documents .github/workflows/ci.yml (multi-platform builds: Linux/macOS/Windows, race detection, Go 1.18+ compatibility) and .github/workflows/security.yml (Gosec, Staticcheck, Govulncheck, Nancy dependency scanning). Explains how to run tests locally and interpret security scan results.",
+        "parent": "Testing and CI/CD",
+        "page_notes": [
+          {
+            "content": ""
+          }
+        ]
+      }
+    ]
+  }

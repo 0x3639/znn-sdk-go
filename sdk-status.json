@@ -2,13 +2,13 @@
   "sdk": {
     "name": "Zenon Go SDK",
     "language": "Go",
-    "version": "v0.1.7",
+    "version": "v0.1.14",
     "repository": "https://github.com/0x3639/znn-sdk-go",
     "documentation": "https://pkg.go.dev/github.com/0x3639/znn-sdk-go",
     "license": "MIT",
     "maintainer": "0x3639",
     "originalAuthor": "MoonBaZZe",
-    "lastUpdated": "2025-11-26",
+    "lastUpdated": "2026-04-28",
     "completionPercentage": 98,
     "productionReady": true,
     "goVersionMin": "1.18",
@@ -134,8 +134,8 @@
       },
       "bridge": {
         "status": "completed",
-        "queryMethods": 12,
-        "transactionMethods": 18,
+        "queryMethods": 13,
+        "transactionMethods": 21,
         "examples": 0,
         "documentation": "good"
       },
@@ -150,7 +150,7 @@
       "liquidity": {
         "status": "completed",
         "queryMethods": 6,
-        "transactionMethods": 8,
+        "transactionMethods": 11,
         "examples": 0,
         "documentation": "good"
       },
@@ -163,8 +163,9 @@
       },
       "plasma": {
         "status": "completed",
-        "queryMethods": 3,
+        "queryMethods": 4,
         "transactionMethods": 2,
+        "helperMethods": 1,
         "examples": 10,
         "documentation": "excellent"
       },
@@ -178,10 +179,10 @@
       "spork": {
         "status": "completed",
         "queryMethods": 1,
-        "transactionMethods": 0,
+        "transactionMethods": 2,
         "examples": 1,
         "documentation": "good",
-        "notes": "Admin-only transactions"
+        "notes": "CreateSpork and ActivateSpork are admin-only"
       },
       "stake": {
         "status": "completed",
@@ -193,10 +194,11 @@
       "swap": {
         "status": "completed",
         "queryMethods": 3,
-        "transactionMethods": 0,
+        "transactionMethods": 1,
+        "helperMethods": 1,
         "examples": 0,
         "documentation": "good",
-        "notes": "Legacy asset migration"
+        "notes": "Legacy asset migration; RetrieveAssets transaction + GetSwapDecayPercentage helper"
       },
       "token": {
         "status": "completed",
@@ -260,12 +262,13 @@
     }
   },
   "testing": {
-    "totalTests": 568,
-    "unitTests": 568,
+    "totalTests": 611,
+    "unitTests": 611,
     "integrationTests": 7,
     "fuzzTests": 2,
     "exampleTests": 89,
-    "testFiles": 28,
+    "goldenParityTests": 5,
+    "testFiles": 51,
     "coverage": {
       "abi": {
         "tests": 125,
@@ -397,8 +400,8 @@
         "name": "Dart SDK Compatibility Audit",
         "file": "N/A",
         "status": "completed",
-        "date": "2025-11-26",
-        "notes": "Full audit against reference Dart SDK - all 11 embedded contracts, crypto, wallet compatible"
+        "date": "2026-04-27",
+        "notes": "Re-audit found and fixed 12 contract method gaps (spork ×2, liquidity ×3, bridge ×3, swap ×2, plasma ×2) plus a critical Pillar.Revoke ABI bug. Golden-vector tests added in utils/block_golden_test.go and wallet/encryptedfile_golden_test.go pin Go output to Dart fixture hashes (3835082b... and 158a0a5a...) byte-for-byte."
       }
     ],
     "features": {
@@ -505,7 +508,8 @@
       "HD wallet with BIP39/32/44",
       "WebSocket client with auto-reconnect",
       "PoW generation (sync + async)",
-      "Comprehensive test suite (568+ tests)",
+      "Comprehensive test suite (611+ tests)",
+      "Dart-reference parity audit with golden-vector tests (v0.1.13)",
       "Security audits (BIP39, memory)",
       "CI/CD pipeline (7 jobs)",
       "Documentation (README + godoc + examples)"
@@ -531,8 +535,8 @@
       "coreAPIs": "100%",
       "embeddedContracts": "11/11",
       "autoReconnect": true,
-      "testCoverage": "568+ tests",
-      "securityAudits": 2,
+      "testCoverage": "611+ tests",
+      "securityAudits": 3,
       "cicd": "7 jobs",
       "documentation": "excellent"
     }

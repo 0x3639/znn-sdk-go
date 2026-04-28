@@ -17,7 +17,7 @@ Follows the [official Dart SDK](https://github.com/zenon-network/znn_sdk_dart) s
 - **Wallet Management** - BIP39/BIP44 HD wallets with keystore encryption
 - **PoW Generation** - Pure Go implementation of Zenon's proof-of-work algorithm
 - **Enhanced WebSocket Client** - Auto-reconnect, health monitoring, event callbacks
-- **Comprehensive Documentation** - 96+ Example functions demonstrating all SDK capabilities
+- **Comprehensive Documentation** - 89+ Example functions demonstrating all SDK capabilities
 - **Type Safety** - Leverages Go's type system for compile-time safety
 
 ## SDK Status
@@ -27,8 +27,9 @@ Follows the [official Dart SDK](https://github.com/zenon-network/znn_sdk_dart) s
 This SDK is production-ready with comprehensive test coverage, security audits, and CI/CD pipeline. See [SDK_STATUS.md](SDK_STATUS.md) for detailed feature-by-feature implementation status including:
 
 - ✅ All 11 embedded contract APIs (100% coverage)
-- ✅ 568+ unit tests with excellent coverage
+- ✅ 611+ unit tests with excellent coverage
 - ✅ 89+ runnable example functions
+- ✅ Dart-reference parity audit with golden-vector tests
 - ✅ Security audits (BIP39, memory protection)
 - ✅ Production CI/CD with 7 automated jobs
 - ✅ Multi-platform support (Linux, macOS, Windows)
@@ -127,7 +128,7 @@ client.SporkApi        // Protocol activation mechanism
 
 ## Examples
 
-The SDK includes 96+ runnable Example functions demonstrating all APIs. View examples:
+The SDK includes 89+ runnable Example functions demonstrating all APIs. View examples:
 - **[On pkg.go.dev](https://pkg.go.dev/github.com/0x3639/znn-sdk-go)** - Browse all examples with documentation
 - **Run locally**: `go test -run Example` in any package directory
 
@@ -533,10 +534,10 @@ Zenon's protocol is powered by 11 embedded smart contracts:
 | **Stake** | Staking rewards | Stake, Cancel, Collect |
 | **Accelerator** | Ecosystem funding | Create project, Vote, Add phase |
 | **Bridge** | Cross-chain | Wrap, Unwrap, Set metadata |
-| **Liquidity** | Liquidity pools | Add liquidity, Withdraw, Swap |
+| **Liquidity** | Liquidity pools | LiquidityStake, CancelLiquidity, CollectReward |
 | **HTLC** | Atomic swaps | Create, Unlock, Reclaim |
-| **Swap** | Legacy migration | Query swap assets |
-| **Spork** | Protocol upgrades | Query active sporks |
+| **Swap** | Legacy migration | Query assets, RetrieveAssets |
+| **Spork** | Protocol upgrades | GetAll, CreateSpork, ActivateSpork |
 
 ## Token Standards (ZTS)
 
@@ -753,7 +754,7 @@ This SDK was developed using AI-assisted development with rigorous quality assur
 2. **Port from Official SDK** - Systematically ported from the [official Dart SDK](https://github.com/zenon-network/znn_sdk_dart) to maintain API compatibility
 3. **Security Audit** - Comprehensive security review performed by Grok 4.1 (xAI)
 4. **Iterative Refinement** - Issues identified by audit addressed through multiple Claude iterations
-5. **Comprehensive Testing** - 568+ unit tests, integration tests, and fuzz tests to verify correctness
+5. **Comprehensive Testing** - 611+ unit tests, integration tests, and fuzz tests to verify correctness
 6. **Manual Verification** - Real-world testing against live Zenon nodes to ensure full functionality
 
 ### Quality Assurance

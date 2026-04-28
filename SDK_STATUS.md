@@ -1,7 +1,7 @@
 # Zenon Go SDK - Implementation Status
 
-**Last Updated:** 2025-11-26
-**SDK Version:** v0.1.7
+**Last Updated:** 2026-04-28
+**SDK Version:** v0.1.14
 **Repository:** https://github.com/0x3639/znn-sdk-go
 **Language:** Go 1.18+
 **License:** MIT
@@ -94,20 +94,20 @@ This SDK is production-ready with comprehensive test coverage, security audits, 
 | Contract | Status | Query Methods | Transaction Methods | Examples | Notes |
 |----------|--------|---------------|---------------------|----------|-------|
 | AcceleratorApi | ✅ | 5 queries | 6 transactions | 6 examples | Project funding |
-| BridgeApi | ✅ | 12 queries | 18 transactions | N/A | Cross-chain bridge |
+| BridgeApi | ✅ | 13 queries | 21 transactions | N/A | Cross-chain bridge |
 | HtlcApi | ✅ | 2 queries | 4 transactions | 12 tests | Atomic swaps |
-| LiquidityApi | ✅ | 6 queries | 8 transactions | N/A | Liquidity pools |
+| LiquidityApi | ✅ | 6 queries | 11 transactions | N/A | Liquidity pools |
 | PillarApi | ✅ | 7 queries | 8 transactions | 9 examples | Consensus nodes |
-| PlasmaApi | ✅ | 3 queries | 2 transactions | 10 examples | Feeless txs |
+| PlasmaApi | ✅ | 4 queries | 2 transactions + 1 helper | 10 examples | Feeless txs |
 | SentinelApi | ✅ | 3 queries | 6 transactions | 9 examples | Infrastructure |
-| SporkApi | ✅ | 1 query | N/A (admin) | 1 example | Protocol activation |
+| SporkApi | ✅ | 1 query | 2 transactions | 1 example | Protocol activation |
 | StakeApi | ✅ | 2 queries | 3 transactions | 11 examples | ZNN staking |
-| SwapApi | ✅ | 3 queries | N/A (legacy) | N/A | Asset migration |
+| SwapApi | ✅ | 3 queries | 1 transaction + 1 helper | N/A | Asset migration |
 | TokenApi | ✅ | 6 queries | 7 transactions | 11 examples | ZTS tokens |
 
 **Module:** `api/embedded/`
 **Coverage:** 11/11 embedded contracts (100%)
-**Total Methods:** 50+ query methods, 62+ transaction methods
+**Total Methods:** 53+ query methods, 76+ transaction methods (includes pure helpers)
 **Total Examples:** 69+ example functions
 
 ---
@@ -184,12 +184,13 @@ This SDK is production-ready with comprehensive test coverage, security audits, 
 
 | Test Type | Count | Coverage | Status |
 |-----------|-------|----------|--------|
-| Unit tests | 568+ | High | ✅ |
+| Unit tests | 611+ | High | ✅ |
 | Integration tests | 7+ | Good | ✅ |
 | Fuzz tests | 2 files | Targeted | ✅ |
 | Example tests | 89+ | Comprehensive | ✅ |
+| Dart-parity golden tests | 5 | Reference vectors | ✅ |
 
-**Total Test Files:** 28
+**Total Test Files:** 51
 **Execution:** `go test ./...` (all passing)
 
 ### Test Breakdown by Module
@@ -443,6 +444,6 @@ This SDK is production-ready with comprehensive test coverage, security audits, 
 
 ---
 
-**Generated:** 2025-01-21
+**Generated:** 2026-04-28
 **Repository:** https://github.com/0x3639/znn-sdk-go
 **Documentation:** https://pkg.go.dev/github.com/0x3639/znn-sdk-go

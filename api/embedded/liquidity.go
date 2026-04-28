@@ -158,3 +158,52 @@ func (sa *LiquidityApi) NominateGuardians(guardians []types.Address) *nom.Accoun
 		),
 	}
 }
+
+// ProposeAdministrator creates a transaction template that proposes a new
+// administrator for the liquidity contract. Used by guardians during recovery
+// when the prior administrator is unreachable.
+//
+// Reference: znn_sdk_dart/lib/src/api/embedded/liquidity.dart:108-115
+func (sa *LiquidityApi) ProposeAdministrator(address types.Address) *nom.AccountBlock {
+	return &nom.AccountBlock{
+		BlockType:     nom.BlockTypeUserSend,
+		ToAddress:     types.LiquidityContract,
+		TokenStandard: types.ZnnTokenStandard,
+		Amount:        common.Big0,
+		Data: definition.ABILiquidity.PackMethodPanic(
+			definition.ProposeAdministratorMethodName,
+			address,
+		),
+	}
+}
+
+// ChangeAdministrator creates a transaction template that transfers
+// administrator rights of the liquidity contract to a new address.
+//
+// Reference: znn_sdk_dart/lib/src/api/embedded/liquidity.dart:134-141
+func (sa *LiquidityApi) ChangeAdministrator(administrator types.Address) *nom.AccountBlock {
+	return &nom.AccountBlock{
+		BlockType:     nom.BlockTypeUserSend,
+		ToAddress:     types.LiquidityContract,
+		TokenStandard: types.ZnnTokenStandard,
+		Amount:        common.Big0,
+		Data: definition.ABILiquidity.PackMethodPanic(
+			definition.ChangeAdministratorMethodName,
+			administrator,
+		),
+	}
+}
+
+// Emergency creates a transaction template that triggers an emergency halt of
+// the liquidity contract. Callable by the administrator.
+//
+// Reference: znn_sdk_dart/lib/src/api/embedded/liquidity.dart:150-153
+func (sa *LiquidityApi) Emergency() *nom.AccountBlock {
+	return &nom.AccountBlock{
+		BlockType:     nom.BlockTypeUserSend,
+		ToAddress:     types.LiquidityContract,
+		TokenStandard: types.ZnnTokenStandard,
+		Amount:        common.Big0,
+		Data:          definition.ABILiquidity.PackMethodPanic(definition.EmergencyMethodName),
+	}
+}

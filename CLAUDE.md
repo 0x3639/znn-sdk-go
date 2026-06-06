@@ -18,7 +18,7 @@ The official Dart SDK is included in `reference/znn_sdk_dart-master/` as a refer
 
 ### Core Components
 
-1. **Zenon Client (`zenon/zenon.go`)** - Main SDK entry point. Manages wallet lifecycle, keypairs, and coordinates with the RPC client. Provides the `Send()` method which handles transaction signing, PoW generation, and submission.
+1. **Zenon Send Flow (`zenon/zenon.go`, `zenon/utils.go`)** - High-level transaction helper. `zenon.NewZenon(client)` wraps an `*rpc_client.RpcClient`; its `Send(template, keyPair)` method runs the full flow (autofill height/previousHash/momentum → query required PoW → generate nonce → sign → publish), and `PrepareBlock` does everything except publish. `RequiresPoW` reports whether a transaction needs PoW. The Zenon type holds no keys — a `*wallet.KeyPair` is passed per call. Ports `znn_sdk_dart/lib/src/utils/block.dart`.
 
 2. **RPC Client (`rpc_client/client.go`)** - Manages WebSocket connection to Zenon nodes and instantiates all API endpoints. All API objects share the same underlying WebSocket client.
 
@@ -415,13 +415,14 @@ fmt.Println("Address:", keypair.GetAddress())
 - Keyfiles named by base address unless custom name provided
 
 ### Transaction Mechanics
-- `zenon/utils.go` contains transaction preparation logic:
-  - `autofillTransactionParameters()` - Sets height, previous hash, momentum acknowledgment
-  - `checkAndSetFields()` - Validates transaction fields
-  - `SetDifficulty()` - Queries required PoW and generates nonce
-  - `setHashAndSignature()` - Finalizes transaction
-- PoW generation happens synchronously and can take time for high difficulty
+- `zenon/utils.go` contains the transaction preparation logic used by `Zenon.Send`/`Zenon.PrepareBlock`:
+  - `autofillTransactionParameters()` - Sets height, previous hash, momentum acknowledgment from node state
+  - `checkAndSetFields()` - Sets address/public key and validates receive blocks
+  - `setDifficulty()` - Queries required PoW and generates the nonce (uses fused plasma when sufficient)
+  - `setHashAndSignature()` - Computes the transaction hash and ed25519-signs it
+- PoW generation happens synchronously and can take time for high difficulty; set `Zenon.PowCallback` to observe progress
 - Fused plasma reduces/eliminates PoW requirement
+- **PoW algorithm**: The `pow` package matches go-zenon's canonical `pow.CheckPoWNonce` exactly — `hash = SHA3-256(nonce ‖ dataHash)[:8]` with an 8-byte **little-endian** nonce, accepted when that value (little-endian) ≥ `2^64 - 2^64/difficulty`, where `dataHash = SHA3-256(address ‖ previousHash)`. The golden test `TestPoWAcceptedByNode` verifies generated nonces against the node's own checker.
 
 ### API Structure
 - All embedded APIs return `*nom.AccountBlock` for contract calls

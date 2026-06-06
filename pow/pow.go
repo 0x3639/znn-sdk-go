@@ -219,15 +219,19 @@ func validateAndCapDifficultyBigInt(difficulty *big.Int) (*big.Int, error) {
 	return new(big.Int).SetUint64(cappedUint64), nil
 }
 
-// GeneratePoW generates a valid proof-of-work nonce for the given hash and difficulty
-// Returns the nonce as a hex string (without 0x prefix)
+// GeneratePoW generates a valid proof-of-work nonce for the given hash and difficulty.
+// Returns the nonce as a 16-character hex string (without 0x prefix), encoding the
+// 8 little-endian bytes that must be stored in AccountBlock.Nonce.
 //
-// The algorithm:
-// 1. Iterate through nonce values starting from 0
-// 2. For each nonce, compute: hash = SHA3-256(dataHash + nonce)
-// 3. Interpret hash as big-endian uint256
-// 4. Check if: hash * difficulty < 2^256
-// 5. Return nonce when condition is met
+// The algorithm matches go-zenon's pow.CheckPoWNonce exactly:
+//  1. Iterate nonce values starting from 0
+//  2. Encode the nonce as 8 little-endian bytes
+//  3. Compute hash = SHA3-256(nonceBytes || dataHash) and take the first 8 bytes
+//  4. Interpret those 8 bytes as a little-endian uint64
+//  5. Accept the nonce when that value is >= the difficulty threshold
+//     (threshold = 2^64 - 2^64/difficulty)
+//
+// Here dataHash is SHA3-256(address || previousHash) for the account block.
 //
 // Note: This function panics if difficulty exceeds MaxReasonableDifficulty.
 // For error handling, use GeneratePowWithContext instead.
@@ -247,10 +251,7 @@ func GeneratePoW(dataHash types.Hash, difficulty uint64) string {
 	nonce := uint64(0)
 
 	for {
-		hash := computeHash(dataHash, nonce)
-		hashValue := hashToUint64(hash)
-
-		if hashValue <= threshold {
+		if meetsDifficulty(dataHash, nonce, threshold) {
 			return uint64ToHex(nonce)
 		}
 
@@ -277,10 +278,7 @@ func GeneratePowBigInt(dataHash types.Hash, difficulty *big.Int) string {
 	nonce := uint64(0)
 
 	for {
-		hash := computeHash(dataHash, nonce)
-		hashValue := hashToUint64(hash)
-
-		if hashValue <= threshold {
+		if meetsDifficulty(dataHash, nonce, threshold) {
 			return uint64ToHex(nonce)
 		}
 
@@ -288,7 +286,8 @@ func GeneratePowBigInt(dataHash types.Hash, difficulty *big.Int) string {
 	}
 }
 
-// GeneratePowBytes is like GeneratePoW but returns nonce as bytes
+// GeneratePowBytes is like GeneratePoW but returns the nonce as the 8-byte
+// little-endian slice ready to copy into AccountBlock.Nonce.
 func GeneratePowBytes(dataHash types.Hash, difficulty uint64) []byte {
 	hexStr := GeneratePoW(dataHash, difficulty)
 	return hexToBytes(hexStr)
@@ -325,10 +324,7 @@ func GeneratePowWithContext(ctx context.Context, dataHash types.Hash, difficulty
 			}
 		}
 
-		hash := computeHash(dataHash, nonce)
-		hashValue := hashToUint64(hash)
-
-		if hashValue <= threshold {
+		if meetsDifficulty(dataHash, nonce, threshold) {
 			return uint64ToHex(nonce), nil
 		}
 
@@ -364,10 +360,7 @@ func GeneratePowBigIntWithContext(ctx context.Context, dataHash types.Hash, diff
 			}
 		}
 
-		hash := computeHash(dataHash, nonce)
-		hashValue := hashToUint64(hash)
-
-		if hashValue <= threshold {
+		if meetsDifficulty(dataHash, nonce, threshold) {
 			return uint64ToHex(nonce), nil
 		}
 
@@ -483,44 +476,43 @@ func GeneratePowBigIntAsync(ctx context.Context, dataHash types.Hash, difficulty
 	return resultChan
 }
 
-// GetThresholdByDifficulty calculates the threshold value for a given difficulty
-// threshold = 2^64 / difficulty
+// GetThresholdByDifficulty calculates the difficulty threshold (target) for a
+// given difficulty, matching go-zenon's pow.GetThresholdByDifficulty:
+//
+//	threshold = 2^64 - (2^64 / difficulty)
+//
+// A nonce is valid when its canonical hash value (see meetsDifficulty) is greater
+// than or equal to this threshold. Higher difficulty yields a higher threshold
+// (closer to 2^64), making valid nonces rarer. Difficulty 0 returns 0, meaning
+// any nonce is accepted.
 func GetThresholdByDifficulty(difficulty *big.Int) uint64 {
-	if difficulty.Cmp(big.NewInt(0)) == 0 {
-		return ^uint64(0) // Return max uint64 for zero difficulty
+	if difficulty == nil || difficulty.Sign() <= 0 {
+		return 0
 	}
 
-	// Calculate 2^64 / difficulty
-	maxUint64 := new(big.Int).SetUint64(^uint64(0))
-	maxUint64.Add(maxUint64, big.NewInt(1)) // 2^64
+	// 2^64
+	x := new(big.Int).Lsh(big.NewInt(1), 64)
+	// 2^64 / difficulty
+	y := new(big.Int).Quo(x, difficulty)
+	// 2^64 - 2^64/difficulty (always < 2^64, so it fits in uint64)
+	x.Sub(x, y)
 
-	threshold := new(big.Int).Div(maxUint64, difficulty)
-
-	// If threshold exceeds uint64, return max
-	if !threshold.IsUint64() {
-		return ^uint64(0)
-	}
-
-	return threshold.Uint64()
+	return x.Uint64()
 }
 
-// CheckPoW verifies that a nonce is valid for the given hash and difficulty
+// CheckPoW verifies that a nonce is valid for the given hash and difficulty.
+// The nonce is the uint64 whose little-endian encoding is stored in the block.
 func CheckPoW(dataHash types.Hash, nonce uint64, difficulty uint64) bool {
 	if difficulty == 0 {
 		return true
 	}
 
-	difficultyBig := new(big.Int).SetUint64(difficulty)
-	threshold := GetThresholdByDifficulty(difficultyBig)
-
-	hash := computeHash(dataHash, nonce)
-	hashValue := hashToUint64(hash)
-
-	return hashValue <= threshold
+	threshold := GetThresholdByDifficulty(new(big.Int).SetUint64(difficulty))
+	return meetsDifficulty(dataHash, nonce, threshold)
 }
 
 // BenchmarkPoW performs a quick PoW generation benchmark
-// Returns the time taken and the nonce found
+// Returns the nonce found (hex) and the number of iterations performed
 func BenchmarkPoW(difficulty uint64) (nonce string, iterations uint64) {
 	// Use a fixed test hash for consistent benchmarking
 	testHash := types.Hash{}
@@ -531,10 +523,7 @@ func BenchmarkPoW(difficulty uint64) (nonce string, iterations uint64) {
 	nonceVal := uint64(0)
 
 	for {
-		hash := computeHash(testHash, nonceVal)
-		hashValue := hashToUint64(hash)
-
-		if hashValue <= threshold {
+		if meetsDifficulty(testHash, nonceVal, threshold) {
 			return uint64ToHex(nonceVal), nonceVal
 		}
 
@@ -542,39 +531,42 @@ func BenchmarkPoW(difficulty uint64) (nonce string, iterations uint64) {
 	}
 }
 
-// computeHash computes SHA3-256(dataHash || nonce)
-func computeHash(dataHash types.Hash, nonce uint64) []byte {
-	hasher := sha3.New256()
-	hasher.Write(dataHash.Bytes())
-	hasher.Write(uint64ToBytes(nonce))
-	return hasher.Sum(nil)
+// nonceToBytes encodes a nonce as the 8-byte little-endian representation stored
+// in AccountBlock.Nonce and serialized for the node's PoW verification.
+func nonceToBytes(nonce uint64) [8]byte {
+	var b [8]byte
+	binary.LittleEndian.PutUint64(b[:], nonce)
+	return b
 }
 
-// hashToUint64 converts the first 8 bytes of a hash to uint64 (big-endian)
-func hashToUint64(hash []byte) uint64 {
-	if len(hash) < 8 {
-		return 0
-	}
-	return binary.BigEndian.Uint64(hash[:8])
+// hashWithNonce computes the canonical PoW value: the first 8 bytes of
+// SHA3-256(nonce || dataHash) interpreted as a little-endian uint64. This mirrors
+// go-zenon's pow.hashWithNonce, where the nonce precedes the data hash.
+func hashWithNonce(dataHash types.Hash, nonce [8]byte) uint64 {
+	calc := make([]byte, 40)
+	l := copy(calc, nonce[:])
+	copy(calc[l:], dataHash.Bytes())
+	sum := sha3.Sum256(calc)
+	return binary.LittleEndian.Uint64(sum[:8])
 }
 
-// uint64ToBytes converts a uint64 to 8-byte array (big-endian)
-func uint64ToBytes(n uint64) []byte {
-	buf := make([]byte, 8)
-	binary.BigEndian.PutUint64(buf, n)
-	return buf
+// meetsDifficulty reports whether nonce satisfies the PoW target for dataHash.
+// A nonce is valid when its canonical hash value is >= the difficulty threshold,
+// matching go-zenon's greaterDifficulty comparison.
+func meetsDifficulty(dataHash types.Hash, nonce, threshold uint64) bool {
+	return hashWithNonce(dataHash, nonceToBytes(nonce)) >= threshold
 }
 
-// uint64ToHex converts a uint64 to a 16-character hex string
+// uint64ToHex converts a nonce to a 16-character hex string encoding its 8
+// little-endian bytes (the exact bytes stored in AccountBlock.Nonce).
 func uint64ToHex(n uint64) string {
-	buf := make([]byte, 8)
-	binary.BigEndian.PutUint64(buf, n)
+	b := nonceToBytes(n)
 
 	const hexChars = "0123456789abcdef"
 	result := make([]byte, 16)
 	for i := 0; i < 8; i++ {
-		result[i*2] = hexChars[buf[i]>>4]
-		result[i*2+1] = hexChars[buf[i]&0x0f]
+		result[i*2] = hexChars[b[i]>>4]
+		result[i*2+1] = hexChars[b[i]&0x0f]
 	}
 	return string(result)
 }

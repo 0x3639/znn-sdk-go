@@ -2,6 +2,7 @@ package pow
 
 import (
 	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"math/big"
@@ -9,8 +10,16 @@ import (
 	"testing"
 	"time"
 
+	"github.com/zenon-network/go-zenon/chain/nom"
 	"github.com/zenon-network/go-zenon/common/types"
+	gzpow "github.com/zenon-network/go-zenon/pow"
 )
+
+// nonceFromHex recovers the uint64 nonce from the little-endian hex string
+// produced by GeneratePoW.
+func nonceFromHex(hexNonce string) uint64 {
+	return binary.LittleEndian.Uint64(hexToBytes(hexNonce))
+}
 
 // =============================================================================
 // PowStatus Tests
@@ -37,119 +46,53 @@ func TestPowStatus_String(t *testing.T) {
 // GetThresholdByDifficulty Tests
 // =============================================================================
 
-func TestGetThresholdByDifficulty_Zero(t *testing.T) {
-	threshold := GetThresholdByDifficulty(big.NewInt(0))
-	expected := ^uint64(0) // Max uint64
+// GetThresholdByDifficulty now matches go-zenon: threshold = 2^64 - 2^64/difficulty.
+// Higher difficulty yields a HIGHER threshold (closer to 2^64); difficulty 0 -> 0.
 
-	if threshold != expected {
-		t.Errorf("GetThresholdByDifficulty(0) = %d, want %d", threshold, expected)
+func TestGetThresholdByDifficulty_Zero(t *testing.T) {
+	if threshold := GetThresholdByDifficulty(big.NewInt(0)); threshold != 0 {
+		t.Errorf("GetThresholdByDifficulty(0) = %d, want 0", threshold)
 	}
 }
 
 func TestGetThresholdByDifficulty_One(t *testing.T) {
-	threshold := GetThresholdByDifficulty(big.NewInt(1))
-
-	// For difficulty 1, threshold should be close to max uint64
-	if threshold == 0 {
-		t.Error("GetThresholdByDifficulty(1) should not be 0")
+	// 2^64 - 2^64/1 = 0, meaning every nonce is accepted at difficulty 1.
+	if threshold := GetThresholdByDifficulty(big.NewInt(1)); threshold != 0 {
+		t.Errorf("GetThresholdByDifficulty(1) = %d, want 0", threshold)
 	}
 }
 
 func TestGetThresholdByDifficulty_Large(t *testing.T) {
-	// High difficulty should give low threshold
-	difficulty := big.NewInt(1000000)
-	threshold := GetThresholdByDifficulty(difficulty)
+	// High difficulty should give a threshold close to max uint64.
+	threshold := GetThresholdByDifficulty(big.NewInt(1000000))
 
-	// Threshold should be much smaller than max
-	if threshold > ^uint64(0)/2 {
-		t.Error("GetThresholdByDifficulty(1000000) should be much less than max uint64")
+	if threshold < ^uint64(0)/2 {
+		t.Error("GetThresholdByDifficulty(1000000) should be large (close to max uint64)")
 	}
 }
 
-func TestGetThresholdByDifficulty_Inverse(t *testing.T) {
-	// Test that higher difficulty gives lower threshold
+func TestGetThresholdByDifficulty_Monotonic(t *testing.T) {
+	// Higher difficulty gives a higher threshold (rarer valid nonces).
 	threshold1 := GetThresholdByDifficulty(big.NewInt(100))
 	threshold2 := GetThresholdByDifficulty(big.NewInt(1000))
 
-	if threshold1 <= threshold2 {
-		t.Error("Higher difficulty should give lower threshold")
+	if threshold1 >= threshold2 {
+		t.Error("Higher difficulty should give higher threshold")
 	}
 }
 
-// =============================================================================
-// computeHash Tests
-// =============================================================================
-
-func TestComputeHash_Deterministic(t *testing.T) {
-	testHash := types.Hash{}
-	copy(testHash[:], []byte("test_hash_123"))
-
-	hash1 := computeHash(testHash, 12345)
-	hash2 := computeHash(testHash, 12345)
-
-	if len(hash1) != 32 {
-		t.Errorf("computeHash() length = %d, want 32", len(hash1))
-	}
-
-	for i := range hash1 {
-		if hash1[i] != hash2[i] {
-			t.Error("computeHash() should be deterministic")
-			break
-		}
-	}
-}
-
-func TestComputeHash_DifferentNonces(t *testing.T) {
-	testHash := types.Hash{}
-	copy(testHash[:], []byte("test_hash_123"))
-
-	hash1 := computeHash(testHash, 1)
-	hash2 := computeHash(testHash, 2)
-
-	same := true
-	for i := range hash1 {
-		if hash1[i] != hash2[i] {
-			same = false
-			break
-		}
-	}
-
-	if same {
-		t.Error("Different nonces should produce different hashes")
-	}
-}
-
-// =============================================================================
-// uint64ToBytes Tests
-// =============================================================================
-
-func TestUint64ToBytes(t *testing.T) {
-	tests := []struct {
-		input    uint64
-		expected []byte
-	}{
-		{0, []byte{0, 0, 0, 0, 0, 0, 0, 0}},
-		{1, []byte{0, 0, 0, 0, 0, 0, 0, 1}},
-		{256, []byte{0, 0, 0, 0, 0, 0, 1, 0}},
-		{0x0102030405060708, []byte{1, 2, 3, 4, 5, 6, 7, 8}},
-	}
-
-	for _, tt := range tests {
-		result := uint64ToBytes(tt.input)
-		if len(result) != 8 {
-			t.Errorf("uint64ToBytes(%d) length = %d, want 8", tt.input, len(result))
-		}
-
-		for i := range result {
-			if result[i] != tt.expected[i] {
-				t.Errorf("uint64ToBytes(%d)[%d] = %d, want %d", tt.input, i, result[i], tt.expected[i])
-			}
+func TestGetThresholdByDifficulty_MatchesGoZenon(t *testing.T) {
+	for _, d := range []uint64{1, 2, 10, 1000, 1_500_000} {
+		got := GetThresholdByDifficulty(new(big.Int).SetUint64(d))
+		want := gzpow.GetThresholdByDifficulty(new(big.Int).SetUint64(d))
+		if got != want {
+			t.Errorf("GetThresholdByDifficulty(%d) = %d, want %d (go-zenon)", d, got, want)
 		}
 	}
 }
 
 // =============================================================================
-// uint64ToHex Tests
+// uint64ToHex Tests (little-endian nonce encoding)
 // =============================================================================
 
 func TestUint64ToHex(t *testing.T) {
@@ -158,20 +101,20 @@ func TestUint64ToHex(t *testing.T) {
 		expected string
 	}{
 		{0, "0000000000000000"},
-		{1, "0000000000000001"},
-		{255, "00000000000000ff"},
-		{256, "0000000000000100"},
-		{0x123456789abcdef0, "123456789abcdef0"},
+		{1, "0100000000000000"},
+		{255, "ff00000000000000"},
+		{256, "0001000000000000"},
+		{0xf0debc9a78563412, "123456789abcdef0"},
 	}
 
 	for _, tt := range tests {
 		result := uint64ToHex(tt.input)
 		if result != tt.expected {
-			t.Errorf("uint64ToHex(%d) = %s, want %s", tt.input, result, tt.expected)
+			t.Errorf("uint64ToHex(%#x) = %s, want %s", tt.input, result, tt.expected)
 		}
 
 		if len(result) != 16 {
-			t.Errorf("uint64ToHex(%d) length = %d, want 16", tt.input, len(result))
+			t.Errorf("uint64ToHex(%#x) length = %d, want 16", tt.input, len(result))
 		}
 	}
 }
@@ -216,33 +159,31 @@ func TestHexToBytes_OddLength(t *testing.T) {
 }
 
 // =============================================================================
-// hashToUint64 Tests
+// go-zenon compatibility (golden) Tests
 // =============================================================================
 
-func TestHashToUint64(t *testing.T) {
-	tests := []struct {
-		input    []byte
-		expected uint64
-	}{
-		{[]byte{0, 0, 0, 0, 0, 0, 0, 0}, 0},
-		{[]byte{0, 0, 0, 0, 0, 0, 0, 1}, 1},
-		{[]byte{1, 0, 0, 0, 0, 0, 0, 0}, 0x0100000000000000},
-		{[]byte{1, 2, 3, 4, 5, 6, 7, 8}, 0x0102030405060708},
-	}
-
-	for _, tt := range tests {
-		result := hashToUint64(tt.input)
-		if result != tt.expected {
-			t.Errorf("hashToUint64(%v) = %d, want %d", tt.input, result, tt.expected)
+// TestPoWAcceptedByNode is the critical golden test: a nonce produced by this
+// package MUST be accepted by go-zenon's own pow.CheckPoWNonce, otherwise any
+// PoW-requiring transaction would be rejected on-chain.
+func TestPoWAcceptedByNode(t *testing.T) {
+	addr := types.ParseAddressPanic("z1qzal6c5s9rjnnxd2z7dvdhjxpmmj4fmw56a0mz")
+	for _, difficulty := range []uint64{1, 100, 1000, 50000} {
+		block := &nom.AccountBlock{
+			Address:      addr,
+			PreviousHash: types.ZeroHash,
+			Difficulty:   difficulty,
 		}
-	}
-}
+		dataHash := gzpow.GetAccountBlockHash(block)
 
-func TestHashToUint64_Short(t *testing.T) {
-	// Hash shorter than 8 bytes should return 0
-	result := hashToUint64([]byte{1, 2, 3})
-	if result != 0 {
-		t.Errorf("hashToUint64(short) = %d, want 0", result)
+		nonceBytes := GeneratePowBytes(dataHash, difficulty)
+		if len(nonceBytes) != 8 {
+			t.Fatalf("GeneratePowBytes length = %d, want 8", len(nonceBytes))
+		}
+		copy(block.Nonce.Data[:], nonceBytes)
+
+		if !gzpow.CheckPoWNonce(block) {
+			t.Errorf("difficulty %d: SDK nonce %x rejected by go-zenon CheckPoWNonce", difficulty, nonceBytes)
+		}
 	}
 }
 
@@ -262,9 +203,7 @@ func TestCheckPoW_ValidNonce(t *testing.T) {
 	copy(testHash[:], []byte("test_for_valid_nonce"))
 
 	// Generate a valid nonce
-	nonceHex := GeneratePoW(testHash, 1000)
-	nonceBytes := hexToBytes(nonceHex)
-	nonce := hashToUint64(nonceBytes)
+	nonce := nonceFromHex(GeneratePoW(testHash, 1000))
 
 	// Check that it's valid
 	if !CheckPoW(testHash, nonce, 1000) {
@@ -307,9 +246,7 @@ func TestGeneratePoW_LowDifficulty(t *testing.T) {
 	}
 
 	// Verify it's valid
-	nonceBytes := hexToBytes(nonce)
-	nonceVal := hashToUint64(nonceBytes)
-	if !CheckPoW(testHash, nonceVal, 10) {
+	if !CheckPoW(testHash, nonceFromHex(nonce), 10) {
 		t.Error("GeneratePoW() should return valid nonce")
 	}
 }
@@ -321,9 +258,7 @@ func TestGeneratePoW_MediumDifficulty(t *testing.T) {
 	nonce := GeneratePoW(testHash, 1000)
 
 	// Verify it's valid
-	nonceBytes := hexToBytes(nonce)
-	nonceVal := hashToUint64(nonceBytes)
-	if !CheckPoW(testHash, nonceVal, 1000) {
+	if !CheckPoW(testHash, nonceFromHex(nonce), 1000) {
 		t.Error("GeneratePoW() should return valid nonce for medium difficulty")
 	}
 }
@@ -376,9 +311,7 @@ func TestGeneratePowBigInt_Valid(t *testing.T) {
 	nonce := GeneratePowBigInt(testHash, big.NewInt(500))
 
 	// Verify it's valid
-	nonceBytes := hexToBytes(nonce)
-	nonceVal := hashToUint64(nonceBytes)
-	if !CheckPoW(testHash, nonceVal, 500) {
+	if !CheckPoW(testHash, nonceFromHex(nonce), 500) {
 		t.Error("GeneratePowBigInt() should return valid nonce")
 	}
 }
@@ -411,7 +344,7 @@ func TestGeneratePowBytes_ReturnsBytes(t *testing.T) {
 	}
 
 	// Verify it's valid
-	nonceVal := hashToUint64(nonceBytes)
+	nonceVal := binary.LittleEndian.Uint64(nonceBytes)
 	if !CheckPoW(testHash, nonceVal, 50) {
 		t.Error("GeneratePowBytes() should return valid nonce")
 	}
@@ -507,13 +440,14 @@ func BenchmarkCheckPoW(b *testing.B) {
 	}
 }
 
-func BenchmarkComputeHash(b *testing.B) {
+func BenchmarkMeetsDifficulty(b *testing.B) {
 	testHash := types.Hash{}
 	copy(testHash[:], []byte("benchmark_test"))
+	threshold := GetThresholdByDifficulty(big.NewInt(1000))
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		computeHash(testHash, uint64(i))
+		meetsDifficulty(testHash, uint64(i), threshold)
 	}
 }
 

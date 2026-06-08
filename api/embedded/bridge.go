@@ -84,9 +84,9 @@ func (ba *BridgeApi) GetAllWrapTokenRequestsByToAddress(toAddress string, pageIn
 	return ans, nil
 }
 
-func (ba *BridgeApi) GetAllWrapTokenRequestsByToAddressNetworkClassAndChainId(toAddress string, networkClass, pageIndex, pageSize uint32) (*WrapTokenRequestList, error) {
+func (ba *BridgeApi) GetAllWrapTokenRequestsByToAddressNetworkClassAndChainId(toAddress string, networkClass, chainId, pageIndex, pageSize uint32) (*WrapTokenRequestList, error) {
 	ans := new(WrapTokenRequestList)
-	if err := ba.client.Call(ans, "embedded.bridge.getAllWrapTokenRequestsByToAddressNetworkClassAndChainId", toAddress, networkClass, pageIndex, pageSize); err != nil {
+	if err := ba.client.Call(ans, "embedded.bridge.getAllWrapTokenRequestsByToAddressNetworkClassAndChainId", toAddress, networkClass, chainId, pageIndex, pageSize); err != nil {
 		return nil, err
 	}
 	return ans, nil

@@ -79,6 +79,74 @@ func TestSetHashAndSignature(t *testing.T) {
 	}
 }
 
+// TestNormalizeBlockDefaultsSend verifies that a send template gets a default
+// protocol version and a non-nil amount while its routing fields are preserved.
+func TestNormalizeBlockDefaultsSend(t *testing.T) {
+	to := types.ParseAddressPanic("z1qzal6c5s9rjnnxd2z7dvdhjxpmmj4fmw56a0mz")
+	block := &nom.AccountBlock{
+		BlockType:     nom.BlockTypeUserSend,
+		ToAddress:     to,
+		TokenStandard: types.ZnnTokenStandard,
+		Amount:        big.NewInt(42),
+		// Version intentionally left at 0 to exercise the default.
+	}
+
+	normalizeBlockDefaults(block)
+
+	if block.Version != 1 {
+		t.Errorf("Version = %d, want 1", block.Version)
+	}
+	if block.Amount == nil || block.Amount.Cmp(big.NewInt(42)) != 0 {
+		t.Errorf("Amount = %v, want 42", block.Amount)
+	}
+	if block.ToAddress != to {
+		t.Errorf("ToAddress = %s, want %s (send routing must be preserved)", block.ToAddress, to)
+	}
+	if block.TokenStandard != types.ZnnTokenStandard {
+		t.Errorf("TokenStandard = %s, want ZNN (send routing must be preserved)", block.TokenStandard)
+	}
+}
+
+// TestNormalizeBlockDefaultsReceive verifies that a receive template gets a
+// non-nil zero amount and that any stray routing fields are zeroed, matching the
+// node's receive-block verification (ErrABAmountMustBeZero/ZtsMustBeZero/
+// ToAddressMustBeZero) and the TypeScript SDK defaults.
+func TestNormalizeBlockDefaultsReceive(t *testing.T) {
+	block := &nom.AccountBlock{
+		BlockType:     nom.BlockTypeUserReceive,
+		FromBlockHash: types.HexToHashPanic("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"),
+		// Stray routing fields that a dirty template might carry.
+		ToAddress:     types.ParseAddressPanic("z1qzal6c5s9rjnnxd2z7dvdhjxpmmj4fmw56a0mz"),
+		TokenStandard: types.ZnnTokenStandard,
+		// Amount left nil to exercise normalization.
+	}
+
+	normalizeBlockDefaults(block)
+
+	if block.Version != 1 {
+		t.Errorf("Version = %d, want 1", block.Version)
+	}
+	if block.Amount == nil || block.Amount.Sign() != 0 {
+		t.Errorf("Amount = %v, want non-nil zero", block.Amount)
+	}
+	if block.ToAddress != types.ZeroAddress {
+		t.Errorf("ToAddress = %s, want zero for receive block", block.ToAddress)
+	}
+	if block.TokenStandard != types.ZeroTokenStandard {
+		t.Errorf("TokenStandard = %s, want zero for receive block", block.TokenStandard)
+	}
+}
+
+// TestNormalizeBlockDefaultsPreservesVersion confirms a caller-supplied version
+// is not overwritten.
+func TestNormalizeBlockDefaultsPreservesVersion(t *testing.T) {
+	block := &nom.AccountBlock{BlockType: nom.BlockTypeUserSend, Version: 2}
+	normalizeBlockDefaults(block)
+	if block.Version != 2 {
+		t.Errorf("Version = %d, want 2 (caller value must be preserved)", block.Version)
+	}
+}
+
 // TestSendFlowNonceAcceptedByNode confirms the nonce that the send flow would
 // generate for a block satisfies go-zenon's pow.CheckPoWNonce. This guards the
 // integration between setDifficulty's data hash and the pow package.

@@ -2,6 +2,7 @@ package zenon
 
 import (
 	"fmt"
+	"math/big"
 
 	"github.com/0x3639/znn-sdk-go/api/embedded"
 	"github.com/0x3639/znn-sdk-go/pow"
@@ -11,6 +12,38 @@ import (
 	"github.com/zenon-network/go-zenon/common/types"
 	gozenonpow "github.com/zenon-network/go-zenon/pow"
 )
+
+// defaultBlockVersion is the only account-block version go-zenon accepts. The
+// node rejects blocks with version 0 (ErrABVersionMissing) or any version other
+// than 1 (ErrABVersionInvalid), so templates must carry it before hashing.
+const defaultBlockVersion = 1
+
+// normalizeBlockDefaults fills in the protocol defaults that a raw template may
+// leave unset, so that the hashed-and-signed block matches what go-zenon expects.
+//
+// It mirrors the TypeScript SDK's AccountBlockTemplate defaults
+// (reference/znn-typescript-sdk-main/src/model/nom/accountBlock.ts):
+//   - Version defaults to 1 when unset (caller-supplied versions are preserved).
+//   - A nil Amount becomes a non-nil zero, so serialization never emits "<nil>".
+//   - Receive blocks have their routing fields (ToAddress, TokenStandard) zeroed,
+//     matching the node's receive-block verification, which requires a zero
+//     amount, zero token standard, and zero to-address.
+//
+// ChainIdentifier is not set here because it depends on node state; it is filled
+// in by autofillTransactionParameters from the frontier momentum.
+func normalizeBlockDefaults(transaction *nom.AccountBlock) {
+	if transaction.Version == 0 {
+		transaction.Version = defaultBlockVersion
+	}
+	if transaction.Amount == nil {
+		transaction.Amount = big.NewInt(0)
+	}
+	if !utils.IsSendBlock(int(transaction.BlockType)) {
+		transaction.ToAddress = types.ZeroAddress
+		transaction.TokenStandard = types.ZeroTokenStandard
+		transaction.Amount = big.NewInt(0)
+	}
+}
 
 // checkAndSetFields populates the signing identity and chain-position fields of a
 // transaction and validates receive blocks.
@@ -32,6 +65,8 @@ func (z *Zenon) checkAndSetFields(transaction *nom.AccountBlock, keyPair *wallet
 
 	transaction.Address = *address
 	transaction.PublicKey = publicKey
+
+	normalizeBlockDefaults(transaction)
 
 	if err := z.autofillTransactionParameters(transaction); err != nil {
 		return err
@@ -69,8 +104,11 @@ func (z *Zenon) checkAndSetFields(transaction *nom.AccountBlock, keyPair *wallet
 // transaction from current node state.
 //
 // Height and PreviousHash come from the sender's frontier account block (height 1
-// and the zero hash for a brand-new account). MomentumAcknowledged comes from the
-// node's frontier momentum.
+// and the zero hash for a brand-new account). MomentumAcknowledged and
+// ChainIdentifier come from the node's frontier momentum. ChainIdentifier is only
+// set when the caller left it unset (zero), so an explicit chain ID is preserved;
+// go-zenon rejects blocks whose chain identifier is zero or does not match the
+// node, so it must be populated before hashing.
 //
 // Reference: znn_sdk_dart/lib/src/utils/block.dart:_autofillTransactionParameters
 func (z *Zenon) autofillTransactionParameters(transaction *nom.AccountBlock) error {
@@ -98,6 +136,10 @@ func (z *Zenon) autofillTransactionParameters(transaction *nom.AccountBlock) err
 	transaction.MomentumAcknowledged = types.HashHeight{
 		Hash:   momentum.Hash,
 		Height: momentum.Height,
+	}
+
+	if transaction.ChainIdentifier == 0 {
+		transaction.ChainIdentifier = momentum.ChainIdentifier
 	}
 
 	return nil
@@ -130,6 +172,14 @@ func (z *Zenon) setDifficulty(transaction *nom.AccountBlock) error {
 	}
 
 	if resp.RequiredDifficulty != 0 {
+		// Guard against a malformed or hostile node response: pow.GeneratePowBytes
+		// panics when the difficulty exceeds the safety cap. Surface it as an error
+		// so Send/PrepareBlock fail cleanly instead of crashing the process.
+		if resp.RequiredDifficulty > pow.MaxReasonableDifficulty {
+			return fmt.Errorf("node requested PoW difficulty %d above the maximum supported %d",
+				resp.RequiredDifficulty, pow.MaxReasonableDifficulty)
+		}
+
 		transaction.FusedPlasma = resp.AvailablePlasma
 		transaction.Difficulty = resp.RequiredDifficulty
 

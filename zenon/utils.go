@@ -38,7 +38,7 @@ func normalizeBlockDefaults(transaction *nom.AccountBlock) {
 	if transaction.Amount == nil {
 		transaction.Amount = big.NewInt(0)
 	}
-	if !utils.IsSendBlock(int(transaction.BlockType)) {
+	if !transaction.IsSendBlock() {
 		transaction.ToAddress = types.ZeroAddress
 		transaction.TokenStandard = types.ZeroTokenStandard
 		transaction.Amount = big.NewInt(0)
@@ -72,7 +72,7 @@ func (z *Zenon) checkAndSetFields(transaction *nom.AccountBlock, keyPair *wallet
 		return err
 	}
 
-	if !utils.IsSendBlock(int(transaction.BlockType)) {
+	if !transaction.IsSendBlock() {
 		if transaction.FromBlockHash == types.ZeroHash {
 			return fmt.Errorf("receive block requires a non-empty fromBlockHash")
 		}

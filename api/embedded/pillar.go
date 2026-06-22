@@ -40,7 +40,7 @@ func NewPillarApi(client *server.Client) *PillarApi {
 //	fmt.Printf("Deposited QSR: %s\n", deposited)
 func (pa *PillarApi) GetDepositedQsr(address types.Address) (*big.Int, error) {
 	var ans string
-	if err := pa.client.Call(ans, "embedded.pillar.getDepositedQsr", address.String()); err != nil {
+	if err := pa.client.Call(&ans, "embedded.pillar.getDepositedQsr", address.String()); err != nil {
 		return nil, err
 	}
 	return common.StringToBigInt(ans), nil
@@ -62,7 +62,7 @@ func (pa *PillarApi) GetDepositedQsr(address types.Address) (*big.Int, error) {
 //	fmt.Printf("Registration cost: %s QSR\n", cost)
 func (pa *PillarApi) GetQsrRegistrationCost() (*big.Int, error) {
 	var ans string
-	if err := pa.client.Call(ans, "embedded.pillar.getQsrRegistrationCost"); err != nil {
+	if err := pa.client.Call(&ans, "embedded.pillar.getQsrRegistrationCost"); err != nil {
 		return nil, err
 	}
 	return common.StringToBigInt(ans), nil

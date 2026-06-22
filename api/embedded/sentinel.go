@@ -39,7 +39,7 @@ func (sa *SentinelApi) GetAllActive(pageIndex, pageSize uint32) (*SentinelInfoLi
 
 func (sa *SentinelApi) GetDepositedQsr(address types.Address) (*big.Int, error) {
 	var ans string
-	if err := sa.client.Call(ans, "embedded.sentinel.getDepositedQsr", address); err != nil {
+	if err := sa.client.Call(&ans, "embedded.sentinel.getDepositedQsr", address); err != nil {
 		return nil, err
 	}
 	return common.StringToBigInt(ans), nil

@@ -157,27 +157,38 @@ func (aa *AcceleratorApi) Donate(amount *big.Int, tokenStandard types.ZenonToken
 	}
 }
 
+// Accelerator-Z vote choices. These alias go-zenon's on-chain definitions
+// (github.com/zenon-network/go-zenon/vm/embedded/definition) so callers never
+// have to hardcode the magic numbers: the contract tallies a vote of 0 as
+// "yes", 1 as "no", and 2 as "abstain". Pass one of these as the vote argument
+// to VoteByName / VoteByProducerAddress.
+const (
+	VoteYes     uint8 = definition.VoteYes     // 0 — approve
+	VoteNo      uint8 = definition.VoteNo      // 1 — reject
+	VoteAbstain uint8 = definition.VoteAbstain // 2 — abstain
+)
+
 // VoteByName creates a transaction template for a Pillar to vote on a project/phase.
 //
 // Only Pillar operators can vote on Accelerator proposals. Votes determine whether
 // projects receive funding and whether phases are approved for payment.
 //
-// Vote options:
-//   - 0: Abstain
-//   - 1: Yes (approve)
-//   - 2: No (reject)
+// Vote options (see the VoteYes/VoteNo/VoteAbstain constants):
+//   - 0: Yes (approve)
+//   - 1: No (reject)
+//   - 2: Abstain
 //
 // Parameters:
 //   - id: Project or phase ID to vote on
 //   - pillarName: Name of the voting Pillar
-//   - vote: Vote choice (0=abstain, 1=yes, 2=no)
+//   - vote: Vote choice (0=yes, 1=no, 2=abstain)
 //
 // Returns an unsigned AccountBlock template ready for processing.
 //
 // Example:
 //
 //	projectId := types.HexToHashPanic("0x123...")
-//	template := client.AcceleratorApi.VoteByName(projectId, "MyPillar", 1) // Vote yes
+//	template := client.AcceleratorApi.VoteByName(projectId, "MyPillar", embedded.VoteYes)
 //
 // Note: Only Pillar owners can call this. Voting period has time limits.
 func (aa *AcceleratorApi) VoteByName(id types.Hash, pillarName string, vote uint8) *nom.AccountBlock {
@@ -195,6 +206,12 @@ func (aa *AcceleratorApi) VoteByName(id types.Hash, pillarName string, vote uint
 	}
 }
 
+// VoteByProducerAddress creates a transaction template for a Pillar to vote on a
+// project/phase using the calling account's producer address (rather than the
+// Pillar name). Only Pillar operators can vote.
+//
+// vote takes the same values as VoteByName: 0=yes, 1=no, 2=abstain (see the
+// VoteYes/VoteNo/VoteAbstain constants).
 func (aa *AcceleratorApi) VoteByProducerAddress(id types.Hash, vote uint8) *nom.AccountBlock {
 	return &nom.AccountBlock{
 		BlockType:     nom.BlockTypeUserSend,

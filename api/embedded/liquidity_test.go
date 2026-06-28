@@ -2,12 +2,57 @@ package embedded
 
 import (
 	"bytes"
+	"math/big"
 	"testing"
 
 	"github.com/zenon-network/go-zenon/chain/nom"
 	"github.com/zenon-network/go-zenon/common/types"
 	"github.com/zenon-network/go-zenon/vm/embedded/definition"
 )
+
+func TestLiquidityApi_Fund(t *testing.T) {
+	api := NewLiquidityApi(nil)
+	znn := big.NewInt(500)
+	qsr := big.NewInt(600)
+
+	block := api.Fund(znn, qsr)
+	if block == nil {
+		t.Fatal("Fund returned nil")
+	}
+	if block.ToAddress != types.LiquidityContract {
+		t.Errorf("ToAddress = %s, want LiquidityContract", block.ToAddress.String())
+	}
+	if block.TokenStandard != types.ZnnTokenStandard {
+		t.Errorf("TokenStandard = %s, want ZNN", block.TokenStandard.String())
+	}
+	if block.Amount == nil || block.Amount.Sign() != 0 {
+		t.Errorf("Amount = %v, want 0", block.Amount)
+	}
+	expected := definition.ABILiquidity.PackMethodPanic(definition.FundMethodName, znn, qsr)
+	if !bytes.Equal(block.Data, expected) {
+		t.Errorf("Data mismatch\n  got:  %x\n  want: %x", block.Data, expected)
+	}
+}
+
+func TestLiquidityApi_BurnZnn(t *testing.T) {
+	api := NewLiquidityApi(nil)
+	burn := big.NewInt(700)
+
+	block := api.BurnZnn(burn)
+	if block == nil {
+		t.Fatal("BurnZnn returned nil")
+	}
+	if block.ToAddress != types.LiquidityContract {
+		t.Errorf("ToAddress = %s, want LiquidityContract", block.ToAddress.String())
+	}
+	if block.Amount == nil || block.Amount.Sign() != 0 {
+		t.Errorf("Amount = %v, want 0", block.Amount)
+	}
+	expected := definition.ABILiquidity.PackMethodPanic(definition.BurnZnnMethodName, burn)
+	if !bytes.Equal(block.Data, expected) {
+		t.Errorf("Data mismatch\n  got:  %x\n  want: %x", block.Data, expected)
+	}
+}
 
 func TestLiquidityApi_ProposeAdministrator(t *testing.T) {
 	api := NewLiquidityApi(nil)

@@ -63,6 +63,7 @@ type RpcClient struct {
 	BridgeApi      *embedded.BridgeApi
 	LiquidityApi   *embedded.LiquidityApi
 	HtlcApi        *embedded.HtlcApi
+	GovernanceApi  *embedded.GovernanceApi
 
 	// Ledger & Stats APIs
 	LedgerApi     *api.LedgerApi
@@ -240,6 +241,7 @@ func (c *RpcClient) initializeAPIs() {
 	c.TokenApi = embedded.NewTokenApi(c.client)
 	c.LiquidityApi = embedded.NewLiquidityApi(c.client)
 	c.HtlcApi = embedded.NewHtlcApi(c.client)
+	c.GovernanceApi = embedded.NewGovernanceApi(c.client)
 	c.LedgerApi = api.NewLedgerApi(c.client)
 	c.StatsApi = api.NewStatsApi(c.client)
 	c.SubscriberApi = api.NewSubscriberApi(c.client)

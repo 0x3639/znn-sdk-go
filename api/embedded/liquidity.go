@@ -70,6 +70,44 @@ func (sa *LiquidityApi) GetTimeChallengesInfo() (*TimeChallengesList, error) {
 
 // Contract calls
 
+// Fund creates a transaction template that funds the liquidity program's
+// reward pool from the contract's ZNN and QSR reserves.
+//
+// This is a privileged operation: on-chain it is restricted to the liquidity
+// administrator (and is the typical target of a governance action). The call
+// carries no token amount; znnReward and qsrReward specify the amounts moved
+// into the reward pool, in base units (8 decimals).
+//
+// Reference: znn_sdk_dart/lib/src/api/embedded/liquidity.dart Fund
+func (sa *LiquidityApi) Fund(znnReward *big.Int, qsrReward *big.Int) *nom.AccountBlock {
+	return &nom.AccountBlock{
+		BlockType:     nom.BlockTypeUserSend,
+		ToAddress:     types.LiquidityContract,
+		TokenStandard: types.ZnnTokenStandard,
+		Amount:        common.Big0,
+		Data: definition.ABILiquidity.PackMethodPanic(definition.FundMethodName,
+			znnReward, qsrReward),
+	}
+}
+
+// BurnZnn creates a transaction template that burns ZNN held by the liquidity
+// contract.
+//
+// This is a privileged operation restricted to the liquidity administrator (and
+// a typical governance action target). The call carries no token amount;
+// burnAmount specifies the quantity of ZNN to burn, in base units (8 decimals).
+//
+// Reference: znn_sdk_dart/lib/src/api/embedded/liquidity.dart BurnZnn
+func (sa *LiquidityApi) BurnZnn(burnAmount *big.Int) *nom.AccountBlock {
+	return &nom.AccountBlock{
+		BlockType:     nom.BlockTypeUserSend,
+		ToAddress:     types.LiquidityContract,
+		TokenStandard: types.ZnnTokenStandard,
+		Amount:        common.Big0,
+		Data:          definition.ABILiquidity.PackMethodPanic(definition.BurnZnnMethodName, burnAmount),
+	}
+}
+
 func (sa *LiquidityApi) SetTokenTupleMethod(tokenStandards []string, znnPercentages []uint32, qsrPercentages []uint32, minAmounts []*big.Int) *nom.AccountBlock {
 	return &nom.AccountBlock{
 		BlockType:     nom.BlockTypeUserSend,

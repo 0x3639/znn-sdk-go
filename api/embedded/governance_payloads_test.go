@@ -56,6 +56,13 @@ func TestPayloadBridgeRemoveNetwork(t *testing.T) {
 	assertPayloadDecodes(t, p, types.BridgeContract, want)
 }
 
+func TestPayloadBridgeChangeTssECDSAPubKey(t *testing.T) {
+	g := NewGovernanceApi(nil)
+	p := g.PayloadBridgeChangeTssECDSAPubKey("pub", "sig", "newsig")
+	want := definition.ABIBridge.PackMethodPanic(definition.ChangeTssECDSAPubKeyMethodName, "pub", "sig", "newsig")
+	assertPayloadDecodes(t, p, types.BridgeContract, want)
+}
+
 func TestPayloadLiquidityFund(t *testing.T) {
 	g := NewGovernanceApi(nil)
 	znn := big.NewInt(500)

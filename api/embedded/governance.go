@@ -39,9 +39,12 @@ func NewGovernanceApi(client *server.Client) *GovernanceApi {
 
 // GetAllActions returns a paginated list of governance actions.
 //
-// Actions are returned newest-to-oldest as stored by the node. Each Action
-// includes its current voting round, status, the per-round thresholds and
-// voting period derived from the action's type, and the current VoteBreakdown.
+// The node returns actions in raw storage-iterator order (it pages
+// definition.GetActions directly without sorting), so do not rely on any
+// particular ordering such as newest-first — sort client-side if you need a
+// guaranteed order, e.g. by Action.CreationTimestamp. Each Action includes its
+// current voting round, status, the per-round thresholds and voting period
+// derived from the action's type, and the current VoteBreakdown.
 //
 // Parameters:
 //   - pageIndex: Page number (0-indexed)

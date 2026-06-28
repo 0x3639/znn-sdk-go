@@ -45,6 +45,26 @@ go get github.com/0x3639/znn-sdk-go
 - Go 1.18 or higher
 - Access to a Zenon node (local or remote)
 
+> ### ⚠️ Governance module requires a `go-zenon` fork replace
+>
+> This branch wires up the on-chain **governance** contract, which only exists in
+> the unmerged [`0x3639/go-zenon@codex/governance-ratchet`](https://github.com/0x3639/go-zenon/tree/codex/governance-ratchet)
+> fork. The SDK pulls it in via a `replace` directive in [`go.mod`](go.mod):
+>
+> ```
+> replace github.com/zenon-network/go-zenon => github.com/0x3639/go-zenon v0.0.0-20260615011802-81c247408859
+> ```
+>
+> **Go does not apply a dependency's `replace` directives to the importing module.**
+> So any project that depends on this SDK (e.g. a wallet) must add the **same**
+> `replace` line to its own `go.mod`, otherwise it resolves the official
+> `go-zenon`, which lacks the governance symbols (`types.GovernanceContract`,
+> `definition.ABIGovernance`, the governance constants, …) and fails to build.
+>
+> This is a temporary requirement for testnet testing. Once go-zenon governance
+> is merged upstream and tagged, this SDK will point at the official module and
+> the extra `replace` will no longer be needed.
+
 ## Quick Start
 
 ### Connect to Node (Read-Only)

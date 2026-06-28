@@ -108,6 +108,12 @@ func (g *GovernanceApi) PayloadBridgeChangeAdministrator(administrator types.Add
 	return EncodeProposalPayload(NewBridgeApi(g.client).ChangeAdministrator(administrator))
 }
 
+// PayloadBridgeChangeTssECDSAPubKey builds the payload for a governance action
+// that changes the bridge's TSS ECDSA public key.
+func (g *GovernanceApi) PayloadBridgeChangeTssECDSAPubKey(pubKey, signature, newSignature string) ProposalPayload {
+	return EncodeProposalPayload(NewBridgeApi(g.client).ChangeTssECDSAPubKey(pubKey, signature, newSignature))
+}
+
 // PayloadBridgeSetAllowKeygen builds the payload for a governance action that
 // toggles the bridge allow-keygen flag.
 func (g *GovernanceApi) PayloadBridgeSetAllowKeygen(allowKeygen bool) ProposalPayload {

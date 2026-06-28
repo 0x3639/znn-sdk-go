@@ -76,7 +76,7 @@ func TestGovernanceApi_VoteByName(t *testing.T) {
 	if block.Amount == nil || block.Amount.Sign() != 0 {
 		t.Errorf("Amount = %v, want 0", block.Amount)
 	}
-	expected := definition.ABIGovernance.PackMethodPanic(definition.VoteByNameMethodName, id, pillar, uint8(VoteYes))
+	expected := definition.ABIGovernance.PackMethodPanic(definition.VoteByNameMethodName, id, pillar, VoteYes)
 	if !bytes.Equal(block.Data, expected) {
 		t.Errorf("Data mismatch\n  got:  %x\n  want: %x", block.Data, expected)
 	}
@@ -90,7 +90,7 @@ func TestGovernanceApi_VoteByProducerAddress(t *testing.T) {
 	if block.ToAddress != types.GovernanceContract {
 		t.Errorf("ToAddress = %s, want GovernanceContract", block.ToAddress.String())
 	}
-	expected := definition.ABIGovernance.PackMethodPanic(definition.VoteByProdAddressMethodName, id, uint8(VoteNo))
+	expected := definition.ABIGovernance.PackMethodPanic(definition.VoteByProdAddressMethodName, id, VoteNo)
 	if !bytes.Equal(block.Data, expected) {
 		t.Errorf("Data mismatch\n  got:  %x\n  want: %x", block.Data, expected)
 	}

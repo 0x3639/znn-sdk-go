@@ -343,7 +343,7 @@ func FromEncryptedFile(ef *EncryptedFile, password string) (*KeyStore, error) {
 		store, err = keyStoreFromLegacyPlaintext(plaintext)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrInvalidKeyStore, err)
+		return nil, fmt.Errorf("%w: %w", ErrInvalidKeyStore, err)
 	}
 
 	baseAddress, ok := ef.Metadata[BaseAddressKey].(string)
@@ -352,7 +352,7 @@ func FromEncryptedFile(ef *EncryptedFile, password string) (*KeyStore, error) {
 	}
 	derived, err := store.GetBaseAddress()
 	if err != nil {
-		return nil, fmt.Errorf("%w: failed to derive account zero: %v", ErrInvalidKeyStore, err)
+		return nil, fmt.Errorf("%w: failed to derive account zero: %w", ErrInvalidKeyStore, err)
 	}
 	if derived.String() != baseAddress {
 		return nil, fmt.Errorf("%w: metadata.%s mismatch: got %s, derived %s", ErrInvalidKeyStore, BaseAddressKey, baseAddress, derived)

@@ -20,7 +20,7 @@ func TestNewIntType(t *testing.T) {
 	tests := []struct {
 		name      string
 		typeName  string
-		wantSize  int
+		wantSize  uint
 		wantError bool
 	}{
 		{"int defaults to int256", "int", 256, false},
@@ -433,7 +433,7 @@ func TestNewUnsignedIntType(t *testing.T) {
 	tests := []struct {
 		name      string
 		typeName  string
-		wantSize  int
+		wantSize  uint
 		wantError bool
 	}{
 		{"uint defaults to uint256", "uint", 256, false},

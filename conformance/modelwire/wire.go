@@ -168,68 +168,92 @@ func decodeJSON(data []byte) (interface{}, error) {
 func conformShape(template, actual interface{}, path string) (interface{}, error) {
 	switch expected := template.(type) {
 	case map[string]interface{}:
-		observed, ok := actual.(map[string]interface{})
-		if !ok {
-			return nil, fmt.Errorf("%s encoded as %T, want object", path, actual)
-		}
-		result := make(map[string]interface{}, len(expected))
-		for key, childTemplate := range expected {
-			child, exists := observed[key]
-			if !exists {
-				return nil, fmt.Errorf("%s is missing wire field %q", path, key)
-			}
-			normalized, err := conformShape(childTemplate, child, path+"."+key)
-			if err != nil {
-				return nil, err
-			}
-			result[key] = normalized
-		}
-		return result, nil
+		return conformObject(expected, actual, path)
 	case []interface{}:
-		observed, ok := actual.([]interface{})
-		if !ok {
-			return nil, fmt.Errorf("%s encoded as %T, want array", path, actual)
-		}
-		if len(expected) == 0 {
-			return observed, nil
-		}
-		if len(observed) != len(expected) {
-			return nil, fmt.Errorf("%s encoded %d items, want %d", path, len(observed), len(expected))
-		}
-		result := make([]interface{}, len(expected))
-		for index := range expected {
-			value, err := conformShape(expected[index], observed[index], fmt.Sprintf("%s[%d]", path, index))
-			if err != nil {
-				return nil, err
-			}
-			result[index] = value
-		}
-		return result, nil
+		return conformArray(expected, actual, path)
 	case string:
-		switch value := actual.(type) {
-		case string:
-			return value, nil
-		case json.Number:
-			return value.String(), nil
-		default:
-			return nil, fmt.Errorf("%s encoded as %T, want string", path, actual)
-		}
+		return conformString(actual, path)
 	case json.Number:
-		if value, ok := actual.(json.Number); ok {
-			return value, nil
-		}
-		return nil, fmt.Errorf("%s encoded as %T, want number", path, actual)
+		return conformNumber(actual, path)
 	case bool:
-		if value, ok := actual.(bool); ok {
-			return value, nil
-		}
-		return nil, fmt.Errorf("%s encoded as %T, want boolean", path, actual)
+		return conformBoolean(actual, path)
 	case nil:
-		if actual == nil {
-			return nil, nil
-		}
-		return nil, fmt.Errorf("%s encoded as %T, want null", path, actual)
+		return conformNull(actual, path)
 	default:
 		return nil, fmt.Errorf("%s has unsupported fixture type %T", path, template)
 	}
+}
+
+func conformObject(expected map[string]interface{}, actual interface{}, path string) (interface{}, error) {
+	observed, ok := actual.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("%s encoded as %T, want object", path, actual)
+	}
+	result := make(map[string]interface{}, len(expected))
+	for key, childTemplate := range expected {
+		child, exists := observed[key]
+		if !exists {
+			return nil, fmt.Errorf("%s is missing wire field %q", path, key)
+		}
+		normalized, err := conformShape(childTemplate, child, path+"."+key)
+		if err != nil {
+			return nil, err
+		}
+		result[key] = normalized
+	}
+	return result, nil
+}
+
+func conformArray(expected []interface{}, actual interface{}, path string) (interface{}, error) {
+	observed, ok := actual.([]interface{})
+	if !ok {
+		return nil, fmt.Errorf("%s encoded as %T, want array", path, actual)
+	}
+	if len(expected) == 0 {
+		return observed, nil
+	}
+	if len(observed) != len(expected) {
+		return nil, fmt.Errorf("%s encoded %d items, want %d", path, len(observed), len(expected))
+	}
+	result := make([]interface{}, len(expected))
+	for index := range expected {
+		value, err := conformShape(expected[index], observed[index], fmt.Sprintf("%s[%d]", path, index))
+		if err != nil {
+			return nil, err
+		}
+		result[index] = value
+	}
+	return result, nil
+}
+
+func conformString(actual interface{}, path string) (interface{}, error) {
+	switch value := actual.(type) {
+	case string:
+		return value, nil
+	case json.Number:
+		return value.String(), nil
+	default:
+		return nil, fmt.Errorf("%s encoded as %T, want string", path, actual)
+	}
+}
+
+func conformNumber(actual interface{}, path string) (interface{}, error) {
+	if value, ok := actual.(json.Number); ok {
+		return value, nil
+	}
+	return nil, fmt.Errorf("%s encoded as %T, want number", path, actual)
+}
+
+func conformBoolean(actual interface{}, path string) (interface{}, error) {
+	if value, ok := actual.(bool); ok {
+		return value, nil
+	}
+	return nil, fmt.Errorf("%s encoded as %T, want boolean", path, actual)
+}
+
+func conformNull(actual interface{}, path string) (interface{}, error) {
+	if actual == nil {
+		return nil, nil
+	}
+	return nil, fmt.Errorf("%s encoded as %T, want null", path, actual)
 }

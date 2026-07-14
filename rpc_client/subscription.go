@@ -138,7 +138,7 @@ func (s *NormalizedSubscription) Unsubscribe() {
 		s.cancel()
 		s.mu.Lock()
 		if s.connection != nil {
-			_ = s.connection.Close()
+			closeWebSocket(s.connection)
 			s.connection = nil
 		}
 		s.mu.Unlock()
@@ -169,16 +169,16 @@ func (s *NormalizedSubscription) open() (*websocket.Conn, string, error) {
 	}
 	request := transport.NewRequest(1, "ledger.subscribe", transport.SubscriptionParams(s.topic, s.args...)...)
 	if err := connection.WriteJSON(request); err != nil {
-		_ = connection.Close()
+		closeWebSocket(connection)
 		return nil, "", fmt.Errorf("failed to send subscription request: %w", err)
 	}
 	var response websocketResponse
 	if err := connection.ReadJSON(&response); err != nil {
-		_ = connection.Close()
+		closeWebSocket(connection)
 		return nil, "", fmt.Errorf("failed to read subscription response: %w", err)
 	}
 	if response.Error != nil {
-		_ = connection.Close()
+		closeWebSocket(connection)
 		message := response.Error.Message
 		if message == "" {
 			message = "Unknown error occurred"
@@ -189,7 +189,7 @@ func (s *NormalizedSubscription) open() (*websocket.Conn, string, error) {
 		}
 	}
 	if response.Result == "" {
-		_ = connection.Close()
+		closeWebSocket(connection)
 		return nil, "", fmt.Errorf("subscription response is missing an ID")
 	}
 	return connection, response.Result, nil
@@ -199,7 +199,7 @@ func (s *NormalizedSubscription) run(connection *websocket.Conn) {
 	defer func() {
 		s.mu.Lock()
 		if s.connection != nil {
-			_ = s.connection.Close()
+			closeWebSocket(s.connection)
 			s.connection = nil
 		}
 		s.mu.Unlock()
@@ -236,7 +236,7 @@ func (s *NormalizedSubscription) run(connection *websocket.Conn) {
 			return
 		}
 
-		_ = current.Close()
+		closeWebSocket(current)
 		reconnected, ok := s.reconnect()
 		if !ok {
 			return
@@ -250,10 +250,23 @@ func (s *NormalizedSubscription) watchContext() {
 	case <-s.ctx.Done():
 		s.mu.Lock()
 		if s.connection != nil {
-			_ = s.connection.Close()
+			closeWebSocket(s.connection)
 		}
 		s.mu.Unlock()
 	case <-s.done:
+	}
+}
+
+// closeWebSocket performs a best-effort close during subscription cleanup.
+// A close error cannot be acted on once the connection is already being
+// discarded, but calling Close directly here ensures the error is observed
+// rather than silently ignored at each cleanup site.
+func closeWebSocket(connection *websocket.Conn) {
+	if connection == nil {
+		return
+	}
+	if err := connection.Close(); err != nil {
+		return
 	}
 }
 

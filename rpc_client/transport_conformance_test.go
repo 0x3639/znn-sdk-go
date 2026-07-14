@@ -47,8 +47,8 @@ func TestHTTPTransportLifecycleAndNormalizedError(t *testing.T) {
 	defer client.Stop()
 
 	var result map[string]interface{}
-	if err := client.caller.Call(&result, "test.read", "address", 0, 25); err != nil {
-		t.Fatalf("Call(test.read) error = %v", err)
+	if callErr := client.caller.Call(&result, "test.read", "address", 0, 25); callErr != nil {
+		t.Fatalf("Call(test.read) error = %v", callErr)
 	}
 	if result["ok"] != true {
 		t.Fatalf("result = %#v", result)

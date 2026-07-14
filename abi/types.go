@@ -130,34 +130,16 @@ func (nt *NumericType) EncodeInternal(value interface{}) (*big.Int, error) {
 // IntType represents signed integer types (int8 to int256)
 type IntType struct {
 	NumericType
-	size int // Size in bits
+	size uint // Size in bits
 }
 
 // NewIntType creates a new signed integer type
 func NewIntType(name string) (*IntType, error) {
-	it := &IntType{}
-	it.name = name
-
-	// Parse size from name (e.g., "int256" -> 256)
-	if name == "int" {
-		it.size = 256
-	} else if strings.HasPrefix(name, "int") {
-		sizeStr := strings.TrimPrefix(name, "int")
-		size, err := strconv.Atoi(sizeStr)
-		if err != nil {
-			return nil, fmt.Errorf("invalid int type name: %s", name)
-		}
-
-		// Validate size (must be 8-256 in increments of 8)
-		if size < 8 || size > 256 || size%8 != 0 {
-			return nil, fmt.Errorf("invalid int size: %d (must be 8-256 in increments of 8)", size)
-		}
-		it.size = size
-	} else {
-		return nil, fmt.Errorf("invalid int type name: %s", name)
+	size, err := parseIntegerWidth(name, "int")
+	if err != nil {
+		return nil, err
 	}
-
-	return it, nil
+	return &IntType{NumericType: NumericType{baseType: baseType{name: name}}, size: size}, nil
 }
 
 // GetCanonicalName returns the canonical name (int defaults to int256)
@@ -174,8 +156,8 @@ func (it *IntType) Encode(value interface{}) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	minimum := new(big.Int).Neg(new(big.Int).Lsh(big.NewInt(1), uint(it.size-1)))
-	maximum := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), uint(it.size-1)), big.NewInt(1))
+	minimum := new(big.Int).Neg(new(big.Int).Lsh(big.NewInt(1), it.size-1))
+	maximum := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), it.size-1), big.NewInt(1))
 	if bigInt.Cmp(minimum) < 0 || bigInt.Cmp(maximum) > 0 {
 		return nil, fmt.Errorf("signed integer %s is out of range for %s", bigInt, it.GetCanonicalName())
 	}
@@ -188,8 +170,8 @@ func (it *IntType) Decode(encoded []byte, offset int) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	minimum := new(big.Int).Neg(new(big.Int).Lsh(big.NewInt(1), uint(it.size-1)))
-	maximum := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), uint(it.size-1)), big.NewInt(1))
+	minimum := new(big.Int).Neg(new(big.Int).Lsh(big.NewInt(1), it.size-1))
+	maximum := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), it.size-1), big.NewInt(1))
 	if value.Cmp(minimum) < 0 || value.Cmp(maximum) > 0 {
 		return nil, fmt.Errorf("decoded signed integer %s is out of range for %s", value, it.GetCanonicalName())
 	}
@@ -254,9 +236,8 @@ func bigIntToBytesSigned(b *big.Int, numBytes int) []byte {
 		// Convert to two's complement
 		// First, get absolute value
 		absVal := new(big.Int).Abs(b)
-		// Create a value with numBytes*8 bits set
-		// #nosec G115 -- numBytes is capped at 32, so numBytes*8 cannot overflow
-		maxVal := new(big.Int).Lsh(big.NewInt(1), uint(numBytes*8))
+		// Create a value with numBytes*8 bits set.
+		maxVal := new(big.Int).Lsh(big.NewInt(1), bitWidth(numBytes))
 		// Subtract absolute value from 2^(numBytes*8)
 		twosComp := new(big.Int).Sub(maxVal, absVal)
 		biBytes = twosComp.Bytes()
@@ -280,6 +261,14 @@ func bigIntToBytesSigned(b *big.Int, numBytes int) []byte {
 	return bytes
 }
 
+func bitWidth(numBytes int) uint {
+	var width uint
+	for index := 0; index < numBytes; index++ {
+		width += 8
+	}
+	return width
+}
+
 // decodeBigInt decodes bytes to a big.Int (unsigned interpretation)
 func decodeBigInt(bytes []byte) *big.Int {
 	if len(bytes) == 0 {
@@ -300,34 +289,16 @@ func decodeBigInt(bytes []byte) *big.Int {
 // UnsignedIntType represents unsigned integer types (uint8 to uint256)
 type UnsignedIntType struct {
 	NumericType
-	size int // Size in bits
+	size uint // Size in bits
 }
 
 // NewUnsignedIntType creates a new unsigned integer type
 func NewUnsignedIntType(name string) (*UnsignedIntType, error) {
-	uit := &UnsignedIntType{}
-	uit.name = name
-
-	// Parse size from name (e.g., "uint256" -> 256)
-	if name == "uint" {
-		uit.size = 256
-	} else if strings.HasPrefix(name, "uint") {
-		sizeStr := strings.TrimPrefix(name, "uint")
-		size, err := strconv.Atoi(sizeStr)
-		if err != nil {
-			return nil, fmt.Errorf("invalid uint type name: %s", name)
-		}
-
-		// Validate size (must be 8-256 in increments of 8)
-		if size < 8 || size > 256 || size%8 != 0 {
-			return nil, fmt.Errorf("invalid uint size: %d (must be 8-256 in increments of 8)", size)
-		}
-		uit.size = size
-	} else {
-		return nil, fmt.Errorf("invalid uint type name: %s", name)
+	size, err := parseIntegerWidth(name, "uint")
+	if err != nil {
+		return nil, err
 	}
-
-	return uit, nil
+	return &UnsignedIntType{NumericType: NumericType{baseType: baseType{name: name}}, size: size}, nil
 }
 
 // GetCanonicalName returns the canonical name (uint defaults to uint256)
@@ -344,7 +315,7 @@ func (uit *UnsignedIntType) Encode(value interface{}) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	maximum := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), uint(uit.size)), big.NewInt(1))
+	maximum := unsignedMaximum(uit.size)
 	if bigInt.Sign() < 0 || bigInt.Cmp(maximum) > 0 {
 		return nil, fmt.Errorf("unsigned integer %s is out of range for %s", bigInt, uit.GetCanonicalName())
 	}
@@ -357,10 +328,39 @@ func (uit *UnsignedIntType) Decode(encoded []byte, offset int) (interface{}, err
 	if err != nil {
 		return nil, err
 	}
-	if value.BitLen() > uit.size {
+	if value.Cmp(unsignedMaximum(uit.size)) > 0 {
 		return nil, fmt.Errorf("decoded unsigned integer %s is out of range for %s", value, uit.GetCanonicalName())
 	}
 	return value, nil
+}
+
+func unsignedMaximum(size uint) *big.Int {
+	return new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), size), big.NewInt(1))
+}
+
+var integerWidths = map[string]uint{
+	"8": 8, "16": 16, "24": 24, "32": 32, "40": 40, "48": 48, "56": 56, "64": 64,
+	"72": 72, "80": 80, "88": 88, "96": 96, "104": 104, "112": 112, "120": 120, "128": 128,
+	"136": 136, "144": 144, "152": 152, "160": 160, "168": 168, "176": 176, "184": 184, "192": 192,
+	"200": 200, "208": 208, "216": 216, "224": 224, "232": 232, "240": 240, "248": 248, "256": 256,
+}
+
+func parseIntegerWidth(name, prefix string) (uint, error) {
+	if name == prefix {
+		return 256, nil
+	}
+	if !strings.HasPrefix(name, prefix) {
+		return 0, fmt.Errorf("invalid %s type name: %s", prefix, name)
+	}
+	sizeText := strings.TrimPrefix(name, prefix)
+	if _, err := strconv.Atoi(sizeText); err != nil {
+		return 0, fmt.Errorf("invalid %s type name: %s", prefix, name)
+	}
+	size, ok := integerWidths[sizeText]
+	if !ok {
+		return 0, fmt.Errorf("invalid %s size: %s (must be 8-256 in increments of 8)", prefix, sizeText)
+	}
+	return size, nil
 }
 
 // EncodeUint encodes an unsigned int to 32 bytes
@@ -934,23 +934,26 @@ func (st *StringType) Decode(encoded []byte, offset int) (interface{}, error) {
 
 // GetType creates an ABI type from a type name string
 func GetType(typeName string) (AbiType, error) {
-	// Check for array types
 	if strings.Contains(typeName, "[") {
-		idx1 := strings.Index(typeName, "[")
-		idx2 := strings.Index(typeName[idx1:], "]")
-		if idx1 == -1 || idx2 == -1 {
-			return nil, fmt.Errorf("invalid array type: %s", typeName)
-		}
-		idx2 += idx1
-
-		// Check if it's a dynamic array (empty brackets)
-		if idx1+1 == idx2 {
-			return NewDynamicArrayType(typeName)
-		}
-		return NewStaticArrayType(typeName)
+		return getArrayType(typeName)
 	}
+	return getPrimitiveType(typeName)
+}
 
-	// Handle basic types
+func getArrayType(typeName string) (AbiType, error) {
+	opening := strings.Index(typeName, "[")
+	closing := strings.Index(typeName[opening:], "]")
+	if opening == -1 || closing == -1 {
+		return nil, fmt.Errorf("invalid array type: %s", typeName)
+	}
+	closing += opening
+	if opening+1 == closing {
+		return NewDynamicArrayType(typeName)
+	}
+	return NewStaticArrayType(typeName)
+}
+
+func getPrimitiveType(typeName string) (AbiType, error) {
 	switch {
 	case strings.HasPrefix(typeName, "int"):
 		return NewIntType(typeName)

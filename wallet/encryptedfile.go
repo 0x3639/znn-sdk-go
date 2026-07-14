@@ -164,42 +164,12 @@ func Encrypt(data []byte, password string, metadata map[string]interface{}) (*En
 // longer needed. Use [FromEncryptedFile] to validate wallet metadata after
 // decryption.
 func (ef *EncryptedFile) Decrypt(password string) ([]byte, error) {
-	if ef == nil {
-		return nil, fmt.Errorf("invalid encrypted file: nil")
+	if err := ef.validateEncryptionEnvelope(); err != nil {
+		return nil, err
 	}
-	if ef.Version != 1 {
-		return nil, fmt.Errorf("unsupported encrypted file version: %d", ef.Version)
-	}
-	if ef.Crypto == nil || ef.Crypto.Argon2Params == nil {
-		return nil, fmt.Errorf("invalid encrypted file: missing crypto parameters")
-	}
-	if ef.Crypto.CipherName != "aes-256-gcm" {
-		return nil, fmt.Errorf("unsupported cipher: %q", ef.Crypto.CipherName)
-	}
-	if ef.Crypto.Kdf != "argon2.IDKey" {
-		return nil, fmt.Errorf("unsupported key derivation function: %q", ef.Crypto.Kdf)
-	}
-
-	// Decode hex values
-	salt, err := hexToBytes(ef.Crypto.Argon2Params.Salt)
+	salt, nonce, ciphertext, err := ef.decodeEncryptionPayload()
 	if err != nil {
-		return nil, fmt.Errorf("invalid Argon2 salt: %w", err)
-	}
-	if len(salt) != 16 {
-		return nil, fmt.Errorf("invalid Argon2 salt length: got %d, want 16", len(salt))
-	}
-
-	nonce, err := hexToBytes(ef.Crypto.Nonce)
-	if err != nil {
-		return nil, fmt.Errorf("invalid AES-GCM nonce: %w", err)
-	}
-	if len(nonce) != 12 {
-		return nil, fmt.Errorf("invalid AES-GCM nonce length: got %d, want 12", len(nonce))
-	}
-
-	ciphertext, err := hexToBytes(ef.Crypto.CipherData)
-	if err != nil {
-		return nil, fmt.Errorf("invalid cipher data: %w", err)
+		return nil, err
 	}
 
 	// Derive key using the persisted parameters, falling back to all stable
@@ -210,7 +180,51 @@ func (ef *EncryptedFile) Decrypt(password string) ([]byte, error) {
 	}
 	key := crypto.DeriveKey([]byte(password), salt, params)
 
-	// Create AES-256-GCM cipher
+	return decryptAESGCM(key, nonce, ciphertext)
+}
+
+func (ef *EncryptedFile) validateEncryptionEnvelope() error {
+	if ef == nil {
+		return fmt.Errorf("invalid encrypted file: nil")
+	}
+	if ef.Version != 1 {
+		return fmt.Errorf("unsupported encrypted file version: %d", ef.Version)
+	}
+	if ef.Crypto == nil || ef.Crypto.Argon2Params == nil {
+		return fmt.Errorf("invalid encrypted file: missing crypto parameters")
+	}
+	if ef.Crypto.CipherName != "aes-256-gcm" {
+		return fmt.Errorf("unsupported cipher: %q", ef.Crypto.CipherName)
+	}
+	if ef.Crypto.Kdf != "argon2.IDKey" {
+		return fmt.Errorf("unsupported key derivation function: %q", ef.Crypto.Kdf)
+	}
+	return nil
+}
+
+func (ef *EncryptedFile) decodeEncryptionPayload() ([]byte, []byte, []byte, error) {
+	salt, err := hexToBytes(ef.Crypto.Argon2Params.Salt)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("invalid Argon2 salt: %w", err)
+	}
+	if len(salt) != 16 {
+		return nil, nil, nil, fmt.Errorf("invalid Argon2 salt length: got %d, want 16", len(salt))
+	}
+	nonce, err := hexToBytes(ef.Crypto.Nonce)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("invalid AES-GCM nonce: %w", err)
+	}
+	if len(nonce) != 12 {
+		return nil, nil, nil, fmt.Errorf("invalid AES-GCM nonce length: got %d, want 12", len(nonce))
+	}
+	ciphertext, err := hexToBytes(ef.Crypto.CipherData)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("invalid cipher data: %w", err)
+	}
+	return salt, nonce, ciphertext, nil
+}
+
+func decryptAESGCM(key, nonce, ciphertext []byte) ([]byte, error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
@@ -221,14 +235,11 @@ func (ef *EncryptedFile) Decrypt(password string) ([]byte, error) {
 		return nil, err
 	}
 
-	// Decrypt with additional authenticated data "zenon"
 	aad := []byte("zenon")
 	plaintext, err := aesgcm.Open(nil, nonce, ciphertext, aad)
 	if err != nil {
-		// Authentication failed - likely incorrect password
 		return nil, ErrIncorrectPassword
 	}
-
 	return plaintext, nil
 }
 
@@ -254,9 +265,7 @@ func (ef *EncryptedFile) Decrypt(password string) ([]byte, error) {
 // Security Note: A true result is advisory; decrypt and validate the existing
 // file before replacing it. See [FromEncryptedFile] for integrity validation.
 func (ef *EncryptedFile) NeedsUpgrade(target ...crypto.Argon2Parameters) bool {
-	if ef == nil || len(target) > 1 || ef.Version != 1 || ef.Crypto == nil ||
-		ef.Crypto.Argon2Params == nil || ef.Crypto.CipherName != "aes-256-gcm" ||
-		ef.Crypto.Kdf != "argon2.IDKey" {
+	if len(target) > 1 || !ef.hasCurrentEncryptionEnvelope() {
 		return true
 	}
 
@@ -265,12 +274,23 @@ func (ef *EncryptedFile) NeedsUpgrade(target ...crypto.Argon2Parameters) bool {
 		desired = target[0]
 	}
 	actual := ef.Crypto.Argon2Params
-	return actual.TimeCost == 0 || actual.MemoryCost == 0 ||
-		actual.HashLength == 0 || actual.Parallelism == 0 ||
-		actual.TimeCost != desired.Iterations ||
-		actual.MemoryCost != desired.Memory ||
-		actual.HashLength != desired.KeyLength ||
-		actual.Parallelism != desired.Parallelism
+	return !actual.isComplete() || !actual.matches(desired)
+}
+
+func (ef *EncryptedFile) hasCurrentEncryptionEnvelope() bool {
+	return ef != nil && ef.Version == 1 && ef.Crypto != nil &&
+		ef.Crypto.Argon2Params != nil && ef.Crypto.CipherName == "aes-256-gcm" &&
+		ef.Crypto.Kdf == "argon2.IDKey"
+}
+
+func (params *Argon2Params) isComplete() bool {
+	return params.TimeCost != 0 && params.MemoryCost != 0 &&
+		params.HashLength != 0 && params.Parallelism != 0
+}
+
+func (params *Argon2Params) matches(target crypto.Argon2Parameters) bool {
+	return params.TimeCost == target.Iterations && params.MemoryCost == target.Memory &&
+		params.HashLength == target.KeyLength && params.Parallelism == target.Parallelism
 }
 
 func (ef *EncryptedFile) argon2Parameters() (crypto.Argon2Parameters, error) {

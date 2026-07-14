@@ -28,10 +28,10 @@ func TestFixedBytesWidthsAndExactLengths(t *testing.T) {
 				!bytes.Equal(encoded[size:], make([]byte, Int32Size-size)) {
 				t.Fatalf("Encode(exact) = %x", encoded)
 			}
-			if _, err := typeObject.Encode(value[:size-1]); err == nil {
+			if _, encodeErr := typeObject.Encode(value[:size-1]); encodeErr == nil {
 				t.Fatal("Encode(short) accepted a non-exact value")
 			}
-			if _, err := typeObject.Encode(append(value, 0xff)); err == nil {
+			if _, encodeErr := typeObject.Encode(append(value, 0xff)); encodeErr == nil {
 				t.Fatal("Encode(long) accepted a non-exact value")
 			}
 

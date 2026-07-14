@@ -24,14 +24,15 @@ import (
 //   - Amount is empty (unless decimals is 0)
 //   - Amount has invalid decimal format (multiple decimal points)
 //   - Amount contains non-numeric characters
-//   - Amount is negative
+//   - Decimals is negative
 //
 // Behavior:
 //   - Integer amounts: "100" with 8 decimals becomes 10000000000
 //   - Decimal amounts: "1.5" with 8 decimals becomes 150000000
 //   - Excess decimals are truncated: "1.123456789" with 8 decimals becomes 112345678
+//   - Negative excess decimals truncate toward zero: "-1.239" with 2 decimals becomes -123
 //   - Missing decimals are padded: "1.5" with 8 decimals becomes "1.50000000"
-//   - Negative amounts are rejected (returns error)
+//   - Negative amounts preserve their sign
 //
 // Example - ZNN transfer (8 decimals):
 //
@@ -43,10 +44,18 @@ import (
 //	amount, err := ExtractDecimals("99.99", 2)
 //	// Returns: 9999 (99.99 * 10^2)
 //
-// Security:
-//   - Validates against negative amounts to prevent balance underflow
-//   - Dual validation in both integer and decimal paths
+// Example - Signed calculation with truncation toward zero:
+//
+//	amount, err := ExtractDecimals("-123.456", 2)
+//	// Returns: -12345
+//
+// Note: Signed conversion is useful for deltas, quotes, and calculations. A
+// protocol operation that requires a non-negative transfer amount must enforce
+// that separate domain rule before constructing an account block.
 func ExtractDecimals(amount string, decimals int) (*big.Int, error) {
+	if decimals < 0 {
+		return nil, fmt.Errorf("decimals cannot be negative: %d", decimals)
+	}
 	if amount == "" {
 		if decimals == 0 {
 			return big.NewInt(0), nil
@@ -60,11 +69,6 @@ func ExtractDecimals(amount string, decimals int) (*big.Int, error) {
 		intPart, ok := new(big.Int).SetString(amount, 10)
 		if !ok {
 			return nil, fmt.Errorf("invalid amount format: %s", amount)
-		}
-
-		// Validate that amount is not negative
-		if intPart.Sign() < 0 {
-			return nil, fmt.Errorf("amount cannot be negative: %s", amount)
 		}
 
 		// Multiply by 10^decimals
@@ -94,11 +98,6 @@ func ExtractDecimals(amount string, decimals int) (*big.Int, error) {
 	result, ok := new(big.Int).SetString(combined, 10)
 	if !ok {
 		return nil, fmt.Errorf("invalid amount format: %s", amount)
-	}
-
-	// Validate that amount is not negative
-	if result.Sign() < 0 {
-		return nil, fmt.Errorf("amount cannot be negative: %s", amount)
 	}
 
 	return result, nil

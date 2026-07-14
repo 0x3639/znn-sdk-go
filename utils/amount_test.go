@@ -2,7 +2,6 @@ package utils
 
 import (
 	"math/big"
-	"strings"
 	"testing"
 )
 
@@ -93,22 +92,22 @@ func TestExtractDecimals_Invalid(t *testing.T) {
 }
 
 func TestExtractDecimals_NegativeAmount_NoDecimal(t *testing.T) {
-	_, err := ExtractDecimals("-100", 8)
-	if err == nil {
-		t.Error("ExtractDecimals(\"-100\", 8) should return error for negative amount")
+	result, err := ExtractDecimals("-100", 8)
+	if err != nil {
+		t.Fatalf("ExtractDecimals() error = %v", err)
 	}
-	if err != nil && !contains(err.Error(), "cannot be negative") {
-		t.Errorf("Expected 'cannot be negative' error, got: %v", err)
+	if want := big.NewInt(-10000000000); result.Cmp(want) != 0 {
+		t.Errorf("ExtractDecimals(\"-100\", 8) = %s, want %s", result, want)
 	}
 }
 
 func TestExtractDecimals_NegativeAmount_WithDecimal(t *testing.T) {
-	_, err := ExtractDecimals("-1.5", 8)
-	if err == nil {
-		t.Error("ExtractDecimals(\"-1.5\", 8) should return error for negative amount")
+	result, err := ExtractDecimals("-1.5", 8)
+	if err != nil {
+		t.Fatalf("ExtractDecimals() error = %v", err)
 	}
-	if err != nil && !contains(err.Error(), "cannot be negative") {
-		t.Errorf("Expected 'cannot be negative' error, got: %v", err)
+	if want := big.NewInt(-150000000); result.Cmp(want) != 0 {
+		t.Errorf("ExtractDecimals(\"-1.5\", 8) = %s, want %s", result, want)
 	}
 }
 
@@ -126,18 +125,29 @@ func TestExtractDecimals_NegativeZero(t *testing.T) {
 }
 
 func TestExtractDecimals_NegativeSmallAmount(t *testing.T) {
-	_, err := ExtractDecimals("-0.00000001", 8)
-	if err == nil {
-		t.Error("ExtractDecimals(\"-0.00000001\", 8) should return error for negative amount")
+	result, err := ExtractDecimals("-0.00000001", 8)
+	if err != nil {
+		t.Fatalf("ExtractDecimals() error = %v", err)
 	}
-	if err != nil && !contains(err.Error(), "cannot be negative") {
-		t.Errorf("Expected 'cannot be negative' error, got: %v", err)
+	if want := big.NewInt(-1); result.Cmp(want) != 0 {
+		t.Errorf("ExtractDecimals(\"-0.00000001\", 8) = %s, want %s", result, want)
 	}
 }
 
-// Helper function to check if string contains substring
-func contains(s, substr string) bool {
-	return strings.Contains(s, substr)
+func TestExtractDecimals_NegativeTruncatesTowardZero(t *testing.T) {
+	result, err := ExtractDecimals("-123.456", 2)
+	if err != nil {
+		t.Fatalf("ExtractDecimals() error = %v", err)
+	}
+	if want := big.NewInt(-12345); result.Cmp(want) != 0 {
+		t.Errorf("ExtractDecimals(\"-123.456\", 2) = %s, want %s", result, want)
+	}
+}
+
+func TestExtractDecimals_RejectsNegativeDecimals(t *testing.T) {
+	if _, err := ExtractDecimals("1", -1); err == nil {
+		t.Fatal("ExtractDecimals accepted a negative decimal count")
+	}
 }
 
 // =============================================================================

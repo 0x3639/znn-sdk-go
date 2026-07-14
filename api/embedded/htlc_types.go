@@ -79,6 +79,7 @@ func (h *HtlcInfo) UnmarshalJSON(data []byte) error {
 	h.ExpirationTime = aux.ExpirationTime
 	h.HashType = aux.HashType
 	h.KeyMaxSize = aux.KeyMaxSize
+	h.HashLock = make([]byte, 0)
 	// Decode base64 hashLock
 	if aux.HashLock != "" {
 		decoded, err := base64.StdEncoding.DecodeString(aux.HashLock)

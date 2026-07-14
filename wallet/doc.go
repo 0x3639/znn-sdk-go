@@ -3,8 +3,12 @@
 // encrypted keystore management.
 //
 // The wallet package enables secure storage and management of Zenon Network keypairs
-// using industry-standard cryptographic practices. Wallets are encrypted with Argon2
-// key derivation and stored as JSON keyfiles.
+// using industry-standard cryptographic practices. Wallets are encrypted with Argon2id
+// key derivation and AES-256-GCM, then stored as self-describing JSON key files. The
+// encrypted payload is raw BIP39 entropy so key files interoperate with other stable
+// Zenon SDKs. Salt-only legacy files and JSON payloads written by older Go SDK releases
+// remain readable; use [EncryptedFile.NeedsUpgrade] to identify files that should be
+// re-encrypted with complete Argon2 parameters.
 //
 // # Basic Usage
 //
@@ -57,6 +61,10 @@
 //	if err != nil {
 //	    log.Fatal(err)
 //	}
+//
+// Key-file metadata includes the account-zero base address. [FromEncryptedFile]
+// re-derives that address after decryption and rejects mismatches, detecting metadata
+// substitution before returning a usable wallet.
 //
 //	// List all wallets in directory
 //	wallets, err := manager.ListAllKeyStores()

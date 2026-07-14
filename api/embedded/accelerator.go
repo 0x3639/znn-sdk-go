@@ -3,25 +3,29 @@ package embedded
 import (
 	"math/big"
 
+	"github.com/0x3639/znn-sdk-go/internal/rpcvalidation"
+	"github.com/0x3639/znn-sdk-go/transport"
 	"github.com/zenon-network/go-zenon/chain/nom"
 	"github.com/zenon-network/go-zenon/common"
 	"github.com/zenon-network/go-zenon/common/types"
-	"github.com/zenon-network/go-zenon/rpc/server"
 	"github.com/zenon-network/go-zenon/vm/constants"
 	"github.com/zenon-network/go-zenon/vm/embedded/definition"
 )
 
 type AcceleratorApi struct {
-	client *server.Client
+	client transport.Caller
 }
 
-func NewAcceleratorApi(client *server.Client) *AcceleratorApi {
+func NewAcceleratorApi(client transport.Caller) *AcceleratorApi {
 	return &AcceleratorApi{
 		client: client,
 	}
 }
 
 func (aa *AcceleratorApi) GetAll(pageIndex, pageSize uint32) (*ProjectList, error) {
+	if err := rpcvalidation.ValidateLimit("embedded.accelerator.getAll", "pageSize", uint64(pageSize), rpcvalidation.MaxPageSize); err != nil {
+		return nil, err
+	}
 	ans := new(ProjectList)
 	if err := aa.client.Call(ans, "embedded.accelerator.getAll", pageIndex, pageSize); err != nil {
 		return nil, err

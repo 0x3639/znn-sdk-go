@@ -1,16 +1,16 @@
 package api
 
 import (
+	"github.com/0x3639/znn-sdk-go/transport"
 	"github.com/zenon-network/go-zenon/protocol"
 	"github.com/zenon-network/go-zenon/rpc/api"
-	"github.com/zenon-network/go-zenon/rpc/server"
 )
 
 type StatsApi struct {
-	client *server.Client
+	client transport.Caller
 }
 
-func NewStatsApi(client *server.Client) *StatsApi {
+func NewStatsApi(client transport.Caller) *StatsApi {
 	return &StatsApi{
 		client: client,
 	}

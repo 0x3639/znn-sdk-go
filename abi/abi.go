@@ -141,8 +141,8 @@ func (e *Entry) EncodeSignature() []byte {
 
 // EncodeArguments encodes function arguments with proper head/tail separation for dynamic types
 func (e *Entry) EncodeArguments(args []interface{}) ([]byte, error) {
-	if len(args) > len(e.Inputs) {
-		return nil, fmt.Errorf("too many arguments: got %d, expected %d", len(args), len(e.Inputs))
+	if len(args) != len(e.Inputs) {
+		return nil, fmt.Errorf("invalid argument count: got %d, expected %d", len(args), len(e.Inputs))
 	}
 
 	// Calculate static size and count dynamic parameters

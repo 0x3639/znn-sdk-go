@@ -3,18 +3,19 @@ package embedded
 import (
 	"math/big"
 
+	"github.com/0x3639/znn-sdk-go/internal/rpcvalidation"
+	"github.com/0x3639/znn-sdk-go/transport"
 	"github.com/zenon-network/go-zenon/chain/nom"
 	"github.com/zenon-network/go-zenon/common"
 	"github.com/zenon-network/go-zenon/common/types"
-	"github.com/zenon-network/go-zenon/rpc/server"
 	"github.com/zenon-network/go-zenon/vm/embedded/definition"
 )
 
 type BridgeApi struct {
-	client *server.Client
+	client transport.Caller
 }
 
-func NewBridgeApi(client *server.Client) *BridgeApi {
+func NewBridgeApi(client transport.Caller) *BridgeApi {
 	return &BridgeApi{
 		client: client,
 	}
@@ -69,6 +70,9 @@ func (ba *BridgeApi) GetWrapTokenRequestById(id types.Hash) (*WrapTokenRequest, 
 }
 
 func (ba *BridgeApi) GetAllWrapTokenRequests(pageIndex, pageSize uint32) (*WrapTokenRequestList, error) {
+	if err := rpcvalidation.ValidateLimit("embedded.bridge.getAllWrapTokenRequests", "pageSize", uint64(pageSize), rpcvalidation.MaxPageSize); err != nil {
+		return nil, err
+	}
 	ans := new(WrapTokenRequestList)
 	if err := ba.client.Call(ans, "embedded.bridge.getAllWrapTokenRequests", pageIndex, pageSize); err != nil {
 		return nil, err
@@ -77,6 +81,9 @@ func (ba *BridgeApi) GetAllWrapTokenRequests(pageIndex, pageSize uint32) (*WrapT
 }
 
 func (ba *BridgeApi) GetAllWrapTokenRequestsByToAddress(toAddress string, pageIndex, pageSize uint32) (*WrapTokenRequestList, error) {
+	if err := rpcvalidation.ValidateLimit("embedded.bridge.getAllWrapTokenRequestsByToAddress", "pageSize", uint64(pageSize), rpcvalidation.MaxPageSize); err != nil {
+		return nil, err
+	}
 	ans := new(WrapTokenRequestList)
 	if err := ba.client.Call(ans, "embedded.bridge.getAllWrapTokenRequestsByToAddress", toAddress, pageIndex, pageSize); err != nil {
 		return nil, err
@@ -85,6 +92,9 @@ func (ba *BridgeApi) GetAllWrapTokenRequestsByToAddress(toAddress string, pageIn
 }
 
 func (ba *BridgeApi) GetAllWrapTokenRequestsByToAddressNetworkClassAndChainId(toAddress string, networkClass, chainId, pageIndex, pageSize uint32) (*WrapTokenRequestList, error) {
+	if err := rpcvalidation.ValidateLimit("embedded.bridge.getAllWrapTokenRequestsByToAddressNetworkClassAndChainId", "pageSize", uint64(pageSize), rpcvalidation.MaxPageSize); err != nil {
+		return nil, err
+	}
 	ans := new(WrapTokenRequestList)
 	if err := ba.client.Call(ans, "embedded.bridge.getAllWrapTokenRequestsByToAddressNetworkClassAndChainId", toAddress, networkClass, chainId, pageIndex, pageSize); err != nil {
 		return nil, err
@@ -93,6 +103,9 @@ func (ba *BridgeApi) GetAllWrapTokenRequestsByToAddressNetworkClassAndChainId(to
 }
 
 func (ba *BridgeApi) GetAllNetworks(pageIndex, pageSize uint32) (*BridgeNetworkInfoList, error) {
+	if err := rpcvalidation.ValidateLimit("embedded.bridge.getAllNetworks", "pageSize", uint64(pageSize), rpcvalidation.MaxPageSize); err != nil {
+		return nil, err
+	}
 	ans := new(BridgeNetworkInfoList)
 	if err := ba.client.Call(ans, "embedded.bridge.getAllNetworks", pageIndex, pageSize); err != nil {
 		return nil, err
@@ -101,6 +114,9 @@ func (ba *BridgeApi) GetAllNetworks(pageIndex, pageSize uint32) (*BridgeNetworkI
 }
 
 func (ba *BridgeApi) GetAllUnsignedWrapTokenRequests(pageIndex, pageSize uint32) (*WrapTokenRequestList, error) {
+	if err := rpcvalidation.ValidateLimit("embedded.bridge.getAllUnsignedWrapTokenRequests", "pageSize", uint64(pageSize), rpcvalidation.MaxPageSize); err != nil {
+		return nil, err
+	}
 	ans := new(WrapTokenRequestList)
 	if err := ba.client.Call(ans, "embedded.bridge.getAllUnsignedWrapTokenRequests", pageIndex, pageSize); err != nil {
 		return nil, err
@@ -117,6 +133,9 @@ func (ba *BridgeApi) GetUnwrapTokenRequestByHashAndLog(txHash types.Hash, logInd
 }
 
 func (ba *BridgeApi) GetAllUnwrapTokenRequests(pageIndex, pageSize uint32) (*UnwrapTokenRequestList, error) {
+	if err := rpcvalidation.ValidateLimit("embedded.bridge.getAllUnwrapTokenRequests", "pageSize", uint64(pageSize), rpcvalidation.MaxPageSize); err != nil {
+		return nil, err
+	}
 	ans := new(UnwrapTokenRequestList)
 	if err := ba.client.Call(ans, "embedded.bridge.getAllUnwrapTokenRequests", pageIndex, pageSize); err != nil {
 		return nil, err
@@ -125,6 +144,9 @@ func (ba *BridgeApi) GetAllUnwrapTokenRequests(pageIndex, pageSize uint32) (*Unw
 }
 
 func (ba *BridgeApi) GetAllUnwrapTokenRequestsByToAddress(toAddress string, pageIndex, pageSize uint32) (*UnwrapTokenRequestList, error) {
+	if err := rpcvalidation.ValidateLimit("embedded.bridge.getAllUnwrapTokenRequestsByToAddress", "pageSize", uint64(pageSize), rpcvalidation.MaxPageSize); err != nil {
+		return nil, err
+	}
 	ans := new(UnwrapTokenRequestList)
 	if err := ba.client.Call(ans, "embedded.bridge.getAllUnwrapTokenRequestsByToAddress", toAddress, pageIndex, pageSize); err != nil {
 		return nil, err

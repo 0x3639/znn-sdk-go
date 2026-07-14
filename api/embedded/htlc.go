@@ -4,19 +4,19 @@ import (
 	"math/big"
 
 	sdkembedded "github.com/0x3639/znn-sdk-go/embedded"
+	"github.com/0x3639/znn-sdk-go/transport"
 	"github.com/zenon-network/go-zenon/chain/nom"
 	"github.com/zenon-network/go-zenon/common"
 	"github.com/zenon-network/go-zenon/common/types"
-	"github.com/zenon-network/go-zenon/rpc/server"
 )
 
 // HtlcApi provides access to the HTLC (Hashed Timelock Contract) embedded contract
 type HtlcApi struct {
-	client *server.Client
+	client transport.Caller
 }
 
 // NewHtlcApi creates a new HTLC API instance
-func NewHtlcApi(client *server.Client) *HtlcApi {
+func NewHtlcApi(client transport.Caller) *HtlcApi {
 	return &HtlcApi{
 		client: client,
 	}

@@ -1,10 +1,11 @@
-// Package rpc_client provides WebSocket-based RPC client functionality for connecting to
-// Zenon Network nodes. This is the main entry point for the SDK, managing connections and
-// instantiating all API endpoints.
+// Package rpc_client provides HTTP and WebSocket JSON-RPC client functionality for
+// connecting to Zenon Network nodes. This is the main entry point for the SDK,
+// managing connections and instantiating all API endpoints.
 //
-// The RPC client establishes a WebSocket connection to a Zenon node and provides access to
-// all blockchain APIs including ledger queries, embedded contract interactions, network
-// statistics, and real-time subscriptions.
+// HTTP and HTTPS support ledger, stats, embedded reads, and transaction publication.
+// WebSocket and secure WebSocket transports support the same requests plus real-time
+// subscriptions. API errors are normalized as transport.RPCError values containing
+// node error data and the original method and positional parameters.
 //
 // # Basic Usage
 //
@@ -23,6 +24,14 @@
 //	}
 //	fmt.Printf("Current height: %d\n", momentum.Height)
 //
+// HTTP read/write lifecycle:
+//
+//	httpClient, err := rpc_client.NewRpcClient("http://127.0.0.1:35997")
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	defer httpClient.Stop()
+//
 // # Connection Management
 //
 // The client supports callbacks for connection lifecycle events:
@@ -34,6 +43,10 @@
 //	client.AddOnConnectionLostCallback(func(err error) {
 //	    fmt.Printf("Connection lost: %v\n", err)
 //	})
+//
+// For normalized updates with automatic reconnection and resubscription, use
+// [RpcClient.Subscribe]. Calling [RpcClient.Stop] closes these subscription sockets,
+// closes their channels, and clears registered lifecycle callbacks.
 //
 // # Available APIs
 //
@@ -47,9 +60,9 @@
 //
 // For advanced configuration, use NewRpcClientWithOptions:
 //
-//	options := &rpc_client.ClientOptions{
-//	    EnableAutoReconnect: true,
-//	    MaxRetries:          5,
+//	options := rpc_client.ClientOptions{
+//	    AutoReconnect:    true,
+//	    ReconnectAttempts: 5,
 //	}
 //	client, err := rpc_client.NewRpcClientWithOptions("ws://127.0.0.1:35998", options)
 //

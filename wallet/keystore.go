@@ -255,65 +255,117 @@ func (ks *KeyStore) GetBaseAddress() (*types.Address, error) {
 	return kp.GetAddress()
 }
 
-// ToEncryptedFile encrypts the keystore to an EncryptedFile
+// ToEncryptedFile encrypts the keystore as an interoperable Zenon key file.
+//
+// The encrypted plaintext is the raw 16-byte or 32-byte BIP39 entropy, matching
+// the stable cross-SDK key-file format. The method derives account zero and
+// writes its address to top-level metadata. Supplied metadata is copied and
+// cannot override the derived baseAddress.
+//
+// Parameters:
+//   - password: UTF-8 password used for Argon2id key derivation.
+//   - metadata: Optional additional top-level key-file properties.
+//
+// ToEncryptedFile returns a version-one [EncryptedFile], or an error if the
+// keystore has no valid BIP39 entropy, account zero cannot be derived, or
+// encryption fails.
+//
+// Example:
+//
+//	file, err := keystore.ToEncryptedFile("correct horse battery staple", nil)
+//	if err != nil {
+//		return err
+//	}
+//	jsonData, err := file.ToJSON()
+//
+// Security Note: Seed-only keystores cannot be serialized into the stable
+// entropy-based format. Existing Go-generated JSON payloads remain readable by
+// [FromEncryptedFile].
 func (ks *KeyStore) ToEncryptedFile(password string, metadata map[string]interface{}) (*EncryptedFile, error) {
-	// Prepare keystore data for encryption
-	data := make(map[string]interface{})
-
-	if ks.Mnemonic != "" {
-		data["mnemonic"] = ks.Mnemonic
+	if ks == nil || (len(ks.Entropy) != 16 && len(ks.Entropy) != 32) {
+		return nil, fmt.Errorf("%w: stable key files require 16 or 32 bytes of entropy", ErrInvalidKeyStore)
 	}
 
-	if ks.Entropy != nil {
-		data["entropy"] = hex.EncodeToString(ks.Entropy)
+	fileMetadata := make(map[string]interface{}, len(metadata)+2)
+	for key, value := range metadata {
+		fileMetadata[key] = value
 	}
 
-	if ks.Seed != nil {
-		data["seed"] = hex.EncodeToString(ks.Seed)
-	}
-
-	// Serialize to JSON
-	jsonData, err := serializeKeyStoreData(data)
+	baseAddr, err := ks.GetBaseAddress()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get base address: %w", err)
+	}
+	fileMetadata[BaseAddressKey] = baseAddr.String()
+
+	if _, hasWalletType := fileMetadata[WalletTypeKey]; !hasWalletType {
+		fileMetadata[WalletTypeKey] = KeyStoreWalletType
 	}
 
-	// Add base address to metadata if not present
-	if metadata == nil {
-		metadata = make(map[string]interface{})
-	}
-
-	if _, hasBaseAddr := metadata[BaseAddressKey]; !hasBaseAddr {
-		baseAddr, err := ks.GetBaseAddress()
-		if err != nil {
-			return nil, fmt.Errorf("failed to get base address: %w", err)
-		}
-		metadata[BaseAddressKey] = baseAddr.String()
-	}
-
-	if _, hasWalletType := metadata[WalletTypeKey]; !hasWalletType {
-		metadata[WalletTypeKey] = KeyStoreWalletType
-	}
-
-	// Encrypt
-	return Encrypt(jsonData, password, metadata)
+	return Encrypt(ks.Entropy, password, fileMetadata)
 }
 
-// FromEncryptedFile decrypts an EncryptedFile to a KeyStore
+// FromEncryptedFile decrypts and validates an encrypted Zenon key file.
+//
+// Stable files contain raw BIP39 entropy. For backward compatibility, the
+// method also accepts the JSON plaintext emitted by Go SDK versions through
+// v0.1.19, including mnemonic, entropy, and seed forms. After constructing the
+// keystore it derives account zero and requires it to match metadata.baseAddress.
+//
+// Parameters:
+//   - ef: Parsed encrypted key file.
+//   - password: UTF-8 password used by the file's Argon2id configuration.
+//
+// FromEncryptedFile returns a ready-to-use KeyStore. It returns
+// [ErrIncorrectPassword] for authentication failures and [ErrInvalidKeyStore]
+// for invalid entropy, legacy payloads, missing metadata, or base-address
+// mismatches.
+//
+// Example:
+//
+//	file, err := FromJSON(jsonData)
+//	if err != nil {
+//		return err
+//	}
+//	keystore, err := FromEncryptedFile(file, password)
+//
+// Security Note: Base-address validation detects metadata substitution after
+// successful decryption. It does not make unencrypted metadata confidential.
 func FromEncryptedFile(ef *EncryptedFile, password string) (*KeyStore, error) {
-	// Decrypt
 	plaintext, err := ef.Decrypt(password)
 	if err != nil {
 		return nil, err
 	}
 
-	// Parse keystore data
+	var store *KeyStore
+	if len(plaintext) == 16 || len(plaintext) == 32 {
+		store, err = NewKeyStoreFromEntropy(plaintext)
+	} else {
+		store, err = keyStoreFromLegacyPlaintext(plaintext)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrInvalidKeyStore, err)
+	}
+
+	baseAddress, ok := ef.Metadata[BaseAddressKey].(string)
+	if !ok || baseAddress == "" {
+		return nil, fmt.Errorf("%w: missing metadata.%s", ErrInvalidKeyStore, BaseAddressKey)
+	}
+	derived, err := store.GetBaseAddress()
+	if err != nil {
+		return nil, fmt.Errorf("%w: failed to derive account zero: %w", ErrInvalidKeyStore, err)
+	}
+	if derived.String() != baseAddress {
+		return nil, fmt.Errorf("%w: metadata.%s mismatch: got %s, derived %s", ErrInvalidKeyStore, BaseAddressKey, baseAddress, derived)
+	}
+	return store, nil
+}
+
+func keyStoreFromLegacyPlaintext(plaintext []byte) (*KeyStore, error) {
 	data, err := deserializeKeyStoreData(plaintext)
 	if err != nil {
 		return nil, err
 	}
 
-	// Try to construct KeyStore from available data
 	if mnemonic, ok := data["mnemonic"].(string); ok && mnemonic != "" {
 		return NewKeyStoreFromMnemonic(mnemonic)
 	}

@@ -9,6 +9,8 @@
 
 A comprehensive Go SDK for interacting with the Zenon Network. Features a complete implementation of ABI encoding/decoding, embedded contract APIs, wallet management, PoW generation, and an enhanced WebSocket client with auto-reconnect.
 
+See [CHANGELOG.md](CHANGELOG.md) for release changes and compatibility notes.
+
 Follows the [official Dart SDK](https://github.com/zenon-network/znn_sdk_dart) structure. Tested with Go v1.18+. Compatible with [go-zenon](https://github.com/zenon-network/go-zenon).
 
 ## Features

@@ -868,6 +868,49 @@ func TestDecodeList_MultipleDynamicBeforeStatic(t *testing.T) {
 	}
 }
 
+// ==================== TypeEnum Tests ====================
+
+func TestTypeEnum_String(t *testing.T) {
+	tests := []struct {
+		te   TypeEnum
+		want string
+	}{
+		{Function, "function"},
+		{TypeEnum(99), "unknown"},
+	}
+
+	for _, tt := range tests {
+		got := tt.te.String()
+		if got != tt.want {
+			t.Errorf("TypeEnum(%d).String() = %s, want %s", tt.te, got, tt.want)
+		}
+	}
+}
+
+// ==================== AbiFunction.Decode error cases ====================
+
+func TestAbiFunction_Decode_TooShort(t *testing.T) {
+	params := []Param{{Name: "a", Type: mustGetType("uint256")}}
+	fn := NewAbiFunction("test", params)
+
+	// Fewer than 4 bytes (EncodedSignLength)
+	_, err := fn.Decode([]byte{0x01, 0x02})
+	if err == nil {
+		t.Error("Decode() should return error for too-short data")
+	}
+}
+
+// ==================== extractSignature edge cases ====================
+
+func TestExtractSignature_Short(t *testing.T) {
+	// Data shorter than EncodedSignLength should return data as-is
+	short := []byte{0xAA, 0xBB}
+	got := extractSignature(short)
+	if len(got) != 2 {
+		t.Errorf("extractSignature on short data: len = %d, want 2", len(got))
+	}
+}
+
 // ==================== Helper Functions ====================
 
 func mustGetType(typeName string) AbiType {

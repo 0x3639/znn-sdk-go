@@ -33,11 +33,11 @@ func TestPillar_ParseSuccess(t *testing.T) {
 		t.Fatal("Pillar ABI is nil")
 	}
 
-	if len(Pillar.Entries) != 6 {
-		t.Errorf("Pillar has %d entries, want 6", len(Pillar.Entries))
+	if len(Pillar.Entries) != 10 {
+		t.Errorf("Pillar has %d entries, want 10", len(Pillar.Entries))
 	}
 
-	expectedNames := []string{"Register", "RegisterLegacy", "Revoke", "UpdatePillar", "Delegate", "Undelegate"}
+	expectedNames := []string{"Update", "Register", "RegisterLegacy", "UpdatePillar", "DepositQsr", "WithdrawQsr", "Revoke", "Delegate", "Undelegate", "CollectReward"}
 	for i, expected := range expectedNames {
 		if Pillar.Entries[i].Name != expected {
 			t.Errorf("Pillar.Entries[%d].Name = %s, want %s", i, Pillar.Entries[i].Name, expected)
@@ -106,11 +106,11 @@ func TestSentinel_ParseSuccess(t *testing.T) {
 		t.Fatal("Sentinel ABI is nil")
 	}
 
-	if len(Sentinel.Entries) != 2 {
-		t.Errorf("Sentinel has %d entries, want 2", len(Sentinel.Entries))
+	if len(Sentinel.Entries) != 6 {
+		t.Errorf("Sentinel has %d entries, want 6", len(Sentinel.Entries))
 	}
 
-	expectedNames := []string{"Register", "Revoke"}
+	expectedNames := []string{"DepositQsr", "WithdrawQsr", "Register", "Revoke", "Update", "CollectReward"}
 	for i, expected := range expectedNames {
 		if Sentinel.Entries[i].Name != expected {
 			t.Errorf("Sentinel.Entries[%d].Name = %s, want %s", i, Sentinel.Entries[i].Name, expected)
@@ -137,11 +137,11 @@ func TestStake_ParseSuccess(t *testing.T) {
 		t.Fatal("Stake ABI is nil")
 	}
 
-	if len(Stake.Entries) != 2 {
-		t.Errorf("Stake has %d entries, want 2", len(Stake.Entries))
+	if len(Stake.Entries) != 4 {
+		t.Errorf("Stake has %d entries, want 4", len(Stake.Entries))
 	}
 
-	expectedNames := []string{"Stake", "Cancel"}
+	expectedNames := []string{"Stake", "Cancel", "CollectReward", "Update"}
 	for i, expected := range expectedNames {
 		if Stake.Entries[i].Name != expected {
 			t.Errorf("Stake.Entries[%d].Name = %s, want %s", i, Stake.Entries[i].Name, expected)
@@ -154,11 +154,11 @@ func TestAccelerator_ParseSuccess(t *testing.T) {
 		t.Fatal("Accelerator ABI is nil")
 	}
 
-	if len(Accelerator.Entries) != 6 {
-		t.Errorf("Accelerator has %d entries, want 6", len(Accelerator.Entries))
+	if len(Accelerator.Entries) != 7 {
+		t.Errorf("Accelerator has %d entries, want 7", len(Accelerator.Entries))
 	}
 
-	expectedNames := []string{"CreateProject", "AddPhase", "UpdatePhase", "Donate", "VoteByName", "VoteByProdAddress"}
+	expectedNames := []string{"Update", "CreateProject", "AddPhase", "UpdatePhase", "Donate", "VoteByName", "VoteByProdAddress"}
 	for i, expected := range expectedNames {
 		if Accelerator.Entries[i].Name != expected {
 			t.Errorf("Accelerator.Entries[%d].Name = %s, want %s", i, Accelerator.Entries[i].Name, expected)

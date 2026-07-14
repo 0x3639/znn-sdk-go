@@ -14,12 +14,16 @@ const PlasmaDefinition = `[
 
 // PillarDefinition contains the ABI for the Pillar embedded contract
 const PillarDefinition = `[
+	{"type":"function","name":"Update","inputs":[]},
 	{"type":"function","name":"Register","inputs":[{"name":"name","type":"string"},{"name":"producerAddress","type":"address"},{"name":"rewardAddress","type":"address"},{"name":"giveBlockRewardPercentage","type":"uint8"},{"name":"giveDelegateRewardPercentage","type":"uint8"}]},
 	{"type":"function","name":"RegisterLegacy","inputs":[{"name":"name","type":"string"},{"name":"producerAddress","type":"address"},{"name":"rewardAddress","type":"address"},{"name":"giveBlockRewardPercentage","type":"uint8"},{"name":"giveDelegateRewardPercentage","type":"uint8"},{"name":"publicKey","type":"string"},{"name":"signature","type":"string"}]},
-	{"type":"function","name":"Revoke","inputs":[{"name":"name","type":"string"}]},
 	{"type":"function","name":"UpdatePillar","inputs":[{"name":"name","type":"string"},{"name":"producerAddress","type":"address"},{"name":"rewardAddress","type":"address"},{"name":"giveBlockRewardPercentage","type":"uint8"},{"name":"giveDelegateRewardPercentage","type":"uint8"}]},
+	{"type":"function","name":"DepositQsr","inputs":[]},
+	{"type":"function","name":"WithdrawQsr","inputs":[]},
+	{"type":"function","name":"Revoke","inputs":[{"name":"name","type":"string"}]},
 	{"type":"function","name":"Delegate","inputs":[{"name":"name","type":"string"}]},
-	{"type":"function","name":"Undelegate","inputs":[]}
+	{"type":"function","name":"Undelegate","inputs":[]},
+	{"type":"function","name":"CollectReward","inputs":[]}
 ]`
 
 // TokenDefinition contains the ABI for the Token embedded contract
@@ -33,8 +37,12 @@ const TokenDefinition = `[
 
 // SentinelDefinition contains the ABI for the Sentinel embedded contract
 const SentinelDefinition = `[
+	{"type":"function","name":"DepositQsr","inputs":[]},
+	{"type":"function","name":"WithdrawQsr","inputs":[]},
 	{"type":"function","name":"Register","inputs":[]},
-	{"type":"function","name":"Revoke","inputs":[]}
+	{"type":"function","name":"Revoke","inputs":[]},
+	{"type":"function","name":"Update","inputs":[]},
+	{"type":"function","name":"CollectReward","inputs":[]}
 ]`
 
 // SwapDefinition contains the ABI for the Swap embedded contract
@@ -45,11 +53,14 @@ const SwapDefinition = `[
 // StakeDefinition contains the ABI for the Stake embedded contract
 const StakeDefinition = `[
 	{"type":"function","name":"Stake","inputs":[{"name":"durationInSec", "type":"int64"}]},
-	{"type":"function","name":"Cancel","inputs":[{"name":"id","type":"hash"}]}
+	{"type":"function","name":"Cancel","inputs":[{"name":"id","type":"hash"}]},
+	{"type":"function","name":"CollectReward","inputs":[]},
+	{"type":"function","name":"Update","inputs":[]}
 ]`
 
 // AcceleratorDefinition contains the ABI for the Accelerator embedded contract
 const AcceleratorDefinition = `[
+	{"type":"function","name":"Update", "inputs":[]},
 	{"type":"function","name":"CreateProject", "inputs":[{"name":"name","type":"string"},{"name":"description","type":"string"},{"name":"url","type":"string"},{"name":"znnFundsNeeded","type":"uint256"},{"name":"qsrFundsNeeded","type":"uint256"}]},
 	{"type":"function","name":"AddPhase", "inputs":[{"name":"id","type":"hash"},{"name":"name","type":"string"},{"name":"description","type":"string"},{"name":"url","type":"string"},{"name":"znnFundsNeeded","type":"uint256"},{"name":"qsrFundsNeeded","type":"uint256"}]},
 	{"type":"function","name":"UpdatePhase", "inputs":[{"name":"id","type":"hash"},{"name":"name","type":"string"},{"name":"description","type":"string"},{"name":"url","type":"string"},{"name":"znnFundsNeeded","type":"uint256"},{"name":"qsrFundsNeeded","type":"uint256"}]},

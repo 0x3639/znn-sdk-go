@@ -11,6 +11,8 @@ import (
 
 func TestValidateWsConnectionURL_Valid(t *testing.T) {
 	validURLs := []string{
+		"http://localhost:35997",
+		"https://example.com",
 		"ws://localhost:35998",
 		"wss://localhost:35998",
 		"ws://127.0.0.1:35998",
@@ -41,8 +43,6 @@ func TestValidateWsConnectionURL_EmptyURL(t *testing.T) {
 
 func TestValidateWsConnectionURL_InvalidScheme(t *testing.T) {
 	invalidURLs := []string{
-		"http://localhost:35998",
-		"https://localhost:35998",
 		"ftp://localhost:35998",
 		"tcp://localhost:35998",
 		"localhost:35998",
@@ -193,7 +193,6 @@ func TestNormalizeWsURL_WithoutPort(t *testing.T) {
 func TestNormalizeWsURL_InvalidURL(t *testing.T) {
 	invalidURLs := []string{
 		"",
-		"http://localhost",
 		"not a url",
 		"ws://localhost:99999",
 	}
@@ -202,6 +201,22 @@ func TestNormalizeWsURL_InvalidURL(t *testing.T) {
 		_, err := NormalizeWsURL(urlStr)
 		if err == nil {
 			t.Errorf("NormalizeWsURL(%q) should return error", urlStr)
+		}
+	}
+}
+
+func TestNormalizeConnectionURL_HTTPDefaults(t *testing.T) {
+	tests := map[string]string{
+		"http://localhost":    "http://localhost:80",
+		"https://example.com": "https://example.com:443",
+	}
+	for input, expected := range tests {
+		actual, err := NormalizeConnectionURL(input)
+		if err != nil {
+			t.Fatalf("NormalizeConnectionURL(%q) error = %v", input, err)
+		}
+		if actual != expected {
+			t.Errorf("NormalizeConnectionURL(%q) = %q, want %q", input, actual, expected)
 		}
 	}
 }

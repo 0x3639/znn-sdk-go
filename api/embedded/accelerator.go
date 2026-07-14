@@ -3,19 +3,19 @@ package embedded
 import (
 	"math/big"
 
+	"github.com/0x3639/znn-sdk-go/transport"
 	"github.com/zenon-network/go-zenon/chain/nom"
 	"github.com/zenon-network/go-zenon/common"
 	"github.com/zenon-network/go-zenon/common/types"
-	"github.com/zenon-network/go-zenon/rpc/server"
 	"github.com/zenon-network/go-zenon/vm/constants"
 	"github.com/zenon-network/go-zenon/vm/embedded/definition"
 )
 
 type AcceleratorApi struct {
-	client *server.Client
+	client transport.Caller
 }
 
-func NewAcceleratorApi(client *server.Client) *AcceleratorApi {
+func NewAcceleratorApi(client transport.Caller) *AcceleratorApi {
 	return &AcceleratorApi{
 		client: client,
 	}

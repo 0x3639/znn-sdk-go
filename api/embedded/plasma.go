@@ -3,18 +3,18 @@ package embedded
 import (
 	"math/big"
 
+	"github.com/0x3639/znn-sdk-go/transport"
 	"github.com/zenon-network/go-zenon/chain/nom"
 	"github.com/zenon-network/go-zenon/common"
 	"github.com/zenon-network/go-zenon/common/types"
-	"github.com/zenon-network/go-zenon/rpc/server"
 	"github.com/zenon-network/go-zenon/vm/embedded/definition"
 )
 
 type PlasmaApi struct {
-	client *server.Client
+	client transport.Caller
 }
 
-func NewPlasmaApi(client *server.Client) *PlasmaApi {
+func NewPlasmaApi(client transport.Caller) *PlasmaApi {
 	return &PlasmaApi{
 		client: client,
 	}

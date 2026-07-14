@@ -3,18 +3,18 @@ package embedded
 import (
 	"math/big"
 
+	"github.com/0x3639/znn-sdk-go/transport"
 	"github.com/zenon-network/go-zenon/chain/nom"
 	"github.com/zenon-network/go-zenon/common"
 	"github.com/zenon-network/go-zenon/common/types"
-	"github.com/zenon-network/go-zenon/rpc/server"
 	"github.com/zenon-network/go-zenon/vm/embedded/definition"
 )
 
 type LiquidityApi struct {
-	client *server.Client
+	client transport.Caller
 }
 
-func NewLiquidityApi(client *server.Client) *LiquidityApi {
+func NewLiquidityApi(client transport.Caller) *LiquidityApi {
 	return &LiquidityApi{
 		client: client,
 	}

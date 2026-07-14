@@ -6,17 +6,17 @@ import (
 	"strings"
 	"time"
 
+	"github.com/0x3639/znn-sdk-go/transport"
 	"github.com/zenon-network/go-zenon/chain/nom"
 	"github.com/zenon-network/go-zenon/common/types"
 	"github.com/zenon-network/go-zenon/rpc/api"
-	"github.com/zenon-network/go-zenon/rpc/server"
 )
 
 type LedgerApi struct {
-	client *server.Client
+	client transport.Caller
 }
 
-func NewLedgerApi(client *server.Client) *LedgerApi {
+func NewLedgerApi(client transport.Caller) *LedgerApi {
 	return &LedgerApi{
 		client: client,
 	}

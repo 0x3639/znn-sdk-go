@@ -225,7 +225,6 @@ func TestRpcClient_TriggerConnectionLost(t *testing.T) {
 func TestNewRpcClient_InvalidURL(t *testing.T) {
 	invalidURLs := []string{
 		"",
-		"http://localhost:35998",
 		"not-a-url",
 		"ws://localhost:99999",
 	}

@@ -2,10 +2,10 @@ package embedded
 
 import (
 	sdkembedded "github.com/0x3639/znn-sdk-go/embedded"
+	"github.com/0x3639/znn-sdk-go/transport"
 	"github.com/zenon-network/go-zenon/chain/nom"
 	"github.com/zenon-network/go-zenon/common"
 	"github.com/zenon-network/go-zenon/common/types"
-	"github.com/zenon-network/go-zenon/rpc/server"
 	"github.com/zenon-network/go-zenon/vm/embedded/definition"
 )
 
@@ -14,10 +14,10 @@ import (
 const SecondsPerDay = 24 * 60 * 60
 
 type SwapApi struct {
-	client *server.Client
+	client transport.Caller
 }
 
-func NewSwapApi(client *server.Client) *SwapApi {
+func NewSwapApi(client transport.Caller) *SwapApi {
 	return &SwapApi{
 		client: client,
 	}

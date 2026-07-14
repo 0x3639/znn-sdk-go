@@ -3,18 +3,18 @@ package embedded
 import (
 	"math/big"
 
+	"github.com/0x3639/znn-sdk-go/transport"
 	"github.com/zenon-network/go-zenon/chain/nom"
 	"github.com/zenon-network/go-zenon/common"
 	"github.com/zenon-network/go-zenon/common/types"
-	"github.com/zenon-network/go-zenon/rpc/server"
 	"github.com/zenon-network/go-zenon/vm/embedded/definition"
 )
 
 type StakeApi struct {
-	client *server.Client
+	client transport.Caller
 }
 
-func NewStakeApi(client *server.Client) *StakeApi {
+func NewStakeApi(client transport.Caller) *StakeApi {
 	return &StakeApi{
 		client: client,
 	}

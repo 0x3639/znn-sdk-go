@@ -8,6 +8,7 @@ import (
 
 	"github.com/0x3639/znn-sdk-go/api"
 	"github.com/0x3639/znn-sdk-go/api/embedded"
+	"github.com/0x3639/znn-sdk-go/transport"
 
 	"github.com/zenon-network/go-zenon/rpc/server"
 )
@@ -22,6 +23,7 @@ type ConnectionLostCallback func(err error)
 type RpcClient struct {
 	// Connection management
 	client     *server.Client
+	caller     *transport.NormalizingCaller
 	url        string
 	status     WebsocketStatus
 	statusLock sync.RWMutex
@@ -41,6 +43,10 @@ type RpcClient struct {
 	onConnectionEstablished []ConnectionEstablishedCallback
 	onConnectionLost        []ConnectionLostCallback
 	callbackLock            sync.RWMutex
+
+	// Normalized subscriptions created through Subscribe.
+	subscriptionLock sync.Mutex
+	subscriptions    map[*NormalizedSubscription]struct{}
 
 	// Monitoring
 	monitorTicker  *time.Ticker
@@ -100,7 +106,7 @@ func DefaultClientOptions() ClientOptions {
 
 // NewRpcClient creates a new RPC client connected to a Zenon node with default options.
 //
-// This is the main entry point for the SDK. It establishes a WebSocket connection to the
+// This is the main entry point for the SDK. It establishes an HTTP or WebSocket connection to the
 // specified node URL and initializes all API endpoints (Ledger, Stats, Subscriber, and
 // all embedded contract APIs).
 //
@@ -110,7 +116,8 @@ func DefaultClientOptions() ClientOptions {
 //   - Infinite reconnection attempts
 //
 // Parameters:
-//   - url: WebSocket URL of the Zenon node (e.g., "ws://127.0.0.1:35998")
+//   - url: HTTP(S) or WebSocket URL of the Zenon node (for example,
+//     "http://127.0.0.1:35997" or "ws://127.0.0.1:35998")
 //
 // Returns an initialized RpcClient ready to use, or an error if connection fails.
 //
@@ -138,7 +145,8 @@ func NewRpcClient(url string) (*RpcClient, error) {
 // health checks, and retry policies.
 //
 // Parameters:
-//   - url: WebSocket URL of the Zenon node (e.g., "ws://127.0.0.1:35998")
+//   - url: HTTP(S) or WebSocket URL of the Zenon node (for example,
+//     "https://node.example" or "wss://node.example")
 //   - opts: ClientOptions struct configuring connection behavior
 //
 // Available options:
@@ -166,13 +174,14 @@ func NewRpcClient(url string) (*RpcClient, error) {
 //	}
 //	defer client.Stop()
 //
-// The client will validate and normalize the WebSocket URL automatically.
+// The client validates and normalizes the transport URL automatically. HTTP
+// clients support request/response RPC calls; subscriptions require ws or wss.
 func NewRpcClientWithOptions(url string, opts ClientOptions) (*RpcClient, error) {
-	if err := ValidateWsConnectionURL(url); err != nil {
-		return nil, fmt.Errorf("invalid WebSocket URL: %w", err)
+	if err := ValidateConnectionURL(url); err != nil {
+		return nil, fmt.Errorf("invalid RPC URL: %w", err)
 	}
 
-	normalized, err := NormalizeWsURL(url)
+	normalized, err := NormalizeConnectionURL(url)
 	if err != nil {
 		return nil, err
 	}
@@ -188,6 +197,7 @@ func NewRpcClientWithOptions(url string, opts ClientOptions) (*RpcClient, error)
 		onConnectionEstablished: make([]ConnectionEstablishedCallback, 0),
 		onConnectionLost:        make([]ConnectionLostCallback, 0),
 		healthCheckCmd:          opts.HealthCheckCommand,
+		subscriptions:           make(map[*NormalizedSubscription]struct{}),
 	}
 
 	// Connect initially
@@ -203,7 +213,7 @@ func NewRpcClientWithOptions(url string, opts ClientOptions) (*RpcClient, error)
 	return c, nil
 }
 
-// connect establishes the WebSocket connection and initializes APIs
+// connect establishes the selected JSON-RPC transport and initializes APIs.
 func (c *RpcClient) connect() error {
 	c.setStatus(Connecting)
 
@@ -214,6 +224,7 @@ func (c *RpcClient) connect() error {
 	}
 
 	c.client = client
+	c.caller = transport.NewNormalizingCaller(client)
 	c.initializeAPIs()
 	c.setStatus(Running)
 	c.currentAttempt = 0
@@ -229,19 +240,19 @@ func (c *RpcClient) initializeAPIs() {
 	c.apiLock.Lock()
 	defer c.apiLock.Unlock()
 
-	c.AcceleratorApi = embedded.NewAcceleratorApi(c.client)
-	c.BridgeApi = embedded.NewBridgeApi(c.client)
-	c.PillarApi = embedded.NewPillarApi(c.client)
-	c.PlasmaApi = embedded.NewPlasmaApi(c.client)
-	c.SentinelApi = embedded.NewSentinelApi(c.client)
-	c.SporkApi = embedded.NewSporkApi(c.client)
-	c.StakeApi = embedded.NewStakeApi(c.client)
-	c.SwapApi = embedded.NewSwapApi(c.client)
-	c.TokenApi = embedded.NewTokenApi(c.client)
-	c.LiquidityApi = embedded.NewLiquidityApi(c.client)
-	c.HtlcApi = embedded.NewHtlcApi(c.client)
-	c.LedgerApi = api.NewLedgerApi(c.client)
-	c.StatsApi = api.NewStatsApi(c.client)
+	c.AcceleratorApi = embedded.NewAcceleratorApi(c.caller)
+	c.BridgeApi = embedded.NewBridgeApi(c.caller)
+	c.PillarApi = embedded.NewPillarApi(c.caller)
+	c.PlasmaApi = embedded.NewPlasmaApi(c.caller)
+	c.SentinelApi = embedded.NewSentinelApi(c.caller)
+	c.SporkApi = embedded.NewSporkApi(c.caller)
+	c.StakeApi = embedded.NewStakeApi(c.caller)
+	c.SwapApi = embedded.NewSwapApi(c.caller)
+	c.TokenApi = embedded.NewTokenApi(c.caller)
+	c.LiquidityApi = embedded.NewLiquidityApi(c.caller)
+	c.HtlcApi = embedded.NewHtlcApi(c.caller)
+	c.LedgerApi = api.NewLedgerApi(c.caller)
+	c.StatsApi = api.NewStatsApi(c.caller)
 	c.SubscriberApi = api.NewSubscriberApi(c.client)
 }
 
@@ -406,7 +417,7 @@ func (c *RpcClient) performHealthCheck() {
 	defer cancel()
 
 	var result interface{}
-	err := c.client.CallContext(ctx, &result, c.healthCheckCmd)
+	err := c.caller.CallContext(ctx, &result, c.healthCheckCmd)
 	if err != nil {
 		// Connection appears to be lost
 		c.handleConnectionLoss(fmt.Errorf("health check failed: %w", err))
@@ -473,8 +484,18 @@ func (c *RpcClient) startReconnect() {
 			return
 		}
 
-		// Wait before next attempt with exponential backoff
-		time.Sleep(delay)
+		// Wait before next attempt with exponential backoff, while remaining
+		// responsive to intentional shutdown.
+		timer := time.NewTimer(delay)
+		select {
+		case <-timer.C:
+		case <-c.reconnectCtx.Done():
+			timer.Stop()
+			return
+		case <-c.stopReconnectChan:
+			timer.Stop()
+			return
+		}
 		delay *= 2
 		if delay > c.maxReconnectDelay {
 			delay = c.maxReconnectDelay
@@ -489,11 +510,12 @@ func (c *RpcClient) Restart() error {
 	return c.connect()
 }
 
-// Stop gracefully shuts down the RPC client, closing the WebSocket connection
+// Stop gracefully shuts down the RPC client, closing its HTTP or WebSocket transport
 // and stopping all background tasks.
 //
 // This method:
-//   - Closes the WebSocket connection
+//   - Closes the underlying RPC transport
+//   - Closes normalized subscriptions and their dedicated WebSocket connections
 //   - Stops health check monitoring
 //   - Cancels any ongoing reconnection attempts
 //   - Cleans up all resources
@@ -516,6 +538,7 @@ func (c *RpcClient) Restart() error {
 // intentional shutdown rather than a connection failure.
 func (c *RpcClient) Stop() {
 	c.setStatus(Stopped)
+	c.closeNormalizedSubscriptions()
 
 	// Stop monitoring
 	if c.monitorCancel != nil {
@@ -539,4 +562,11 @@ func (c *RpcClient) Stop() {
 		c.client.Close()
 		c.client = nil
 	}
+	c.caller = nil
+
+	// Release connection lifecycle callbacks on intentional disconnect.
+	c.callbackLock.Lock()
+	c.onConnectionEstablished = nil
+	c.onConnectionLost = nil
+	c.callbackLock.Unlock()
 }

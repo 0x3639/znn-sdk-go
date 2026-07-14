@@ -858,137 +858,20 @@ func TestBoolType_Encode(t *testing.T) {
 		t.Fatalf("NewBoolType() error = %v", err)
 	}
 
+	trueWord := make([]byte, Int32Size)
+	trueWord[Int32Size-1] = 1
 	tests := []struct {
 		name      string
 		value     interface{}
 		want      []byte
 		wantError bool
 	}{
-		{
-			name:  "bool true",
-			value: true,
-			want: []byte{
-				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-			},
-		},
-		{
-			name:  "bool false",
-			value: false,
-			want: []byte{
-				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-			},
-		},
-		{
-			name:  "string 'true'",
-			value: "true",
-			want: []byte{
-				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-			},
-		},
-		{
-			name:  "string 'True'",
-			value: "True",
-			want: []byte{
-				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-			},
-		},
-		{
-			name:  "string 'TRUE'",
-			value: "TRUE",
-			want: []byte{
-				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-			},
-		},
-		{
-			name:  "string '1'",
-			value: "1",
-			want: []byte{
-				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-			},
-		},
-		{
-			name:  "string 'false'",
-			value: "false",
-			want: []byte{
-				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-			},
-		},
-		{
-			name:  "string 'False'",
-			value: "False",
-			want: []byte{
-				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-			},
-		},
-		{
-			name:  "string '0'",
-			value: "0",
-			want: []byte{
-				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-			},
-		},
-		{
-			name:  "string empty",
-			value: "",
-			want: []byte{
-				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-			},
-		},
-		{
-			name:  "int 0",
-			value: 0,
-			want: []byte{
-				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-			},
-		},
-		{
-			name:  "int 1",
-			value: 1,
-			want: []byte{
-				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-			},
-		},
-		{
-			name:  "int 42 (truthy)",
-			value: 42,
-			want: []byte{
-				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-			},
-		},
-		{
-			name:  "uint64 0",
-			value: uint64(0),
-			want: []byte{
-				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-			},
-		},
-		{
-			name:  "uint64 1",
-			value: uint64(1),
-			want: []byte{
-				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-			},
-		},
-		{
-			name:      "unsupported type",
-			value:     []byte{1, 2, 3},
-			wantError: true,
-		},
+		{name: "bool true", value: true, want: trueWord},
+		{name: "bool false", value: false, want: make([]byte, Int32Size)},
+		{name: "string", value: "true", wantError: true},
+		{name: "numeric zero", value: 0, wantError: true},
+		{name: "numeric one", value: 1, wantError: true},
+		{name: "byte slice", value: []byte{1}, wantError: true},
 	}
 
 	for _, tt := range tests {
@@ -1011,67 +894,35 @@ func TestBoolType_Decode(t *testing.T) {
 		t.Fatalf("NewBoolType() error = %v", err)
 	}
 
+	falseWord := make([]byte, Int32Size)
+	trueWord := make([]byte, Int32Size)
+	trueWord[Int32Size-1] = 1
+	twoWord := make([]byte, Int32Size)
+	twoWord[Int32Size-1] = 2
+	highWord := make([]byte, Int32Size)
+	highWord[0] = 1
 	tests := []struct {
-		name    string
-		encoded []byte
-		offset  int
-		want    bool
+		name      string
+		encoded   []byte
+		offset    int
+		want      bool
+		wantError bool
 	}{
-		{
-			name: "zero = false",
-			encoded: []byte{
-				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-			},
-			offset: 0,
-			want:   false,
-		},
-		{
-			name: "one = true",
-			encoded: []byte{
-				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-			},
-			offset: 0,
-			want:   true,
-		},
-		{
-			name: "non-zero = true (42)",
-			encoded: []byte{
-				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 42,
-			},
-			offset: 0,
-			want:   true,
-		},
-		{
-			name: "non-zero = true (255)",
-			encoded: []byte{
-				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255,
-			},
-			offset: 0,
-			want:   true,
-		},
-		{
-			name: "with offset",
-			encoded: []byte{
-				// Offset bytes (ignored)
-				99, 99, 99, 99,
-				// Actual value (1 = true)
-				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-			},
-			offset: 4,
-			want:   true,
-		},
+		{name: "zero = false", encoded: falseWord, want: false},
+		{name: "one = true", encoded: trueWord, want: true},
+		{name: "non-canonical two", encoded: twoWord, wantError: true},
+		{name: "non-canonical high byte", encoded: highWord, wantError: true},
+		{name: "with offset", encoded: append([]byte{99, 99, 99, 99}, trueWord...), offset: 4, want: true},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := bt.Decode(tt.encoded, tt.offset)
-			if err != nil {
-				t.Errorf("BoolType.Decode() error = %v", err)
+			if (err != nil) != tt.wantError {
+				t.Errorf("BoolType.Decode() error = %v, wantError %v", err, tt.wantError)
+				return
+			}
+			if tt.wantError {
 				return
 			}
 			gotBool, ok := got.(bool)
@@ -1886,28 +1737,10 @@ func TestBytes32Type_Encode_ByteSlice(t *testing.T) {
 		t.Errorf("Bytes32Type.Encode() modified bytes")
 	}
 
-	// Shorter byte slice (should be right-padded with zeros)
+	// Shorter byte slices are not canonical for bytes32.
 	shortBytes := []byte{1, 2, 3, 4, 5}
-	encoded, err = bt.Encode(shortBytes)
-	if err != nil {
-		t.Errorf("Bytes32Type.Encode() with short byte slice error = %v", err)
-		return
-	}
-
-	if len(encoded) != Int32Size {
-		t.Errorf("Bytes32Type.Encode() returned %d bytes, want %d", len(encoded), Int32Size)
-	}
-
-	// Check first 5 bytes match
-	if !bytes.Equal(encoded[:5], shortBytes) {
-		t.Errorf("Bytes32Type.Encode() did not copy bytes correctly")
-	}
-
-	// Check remaining bytes are zero
-	for i := 5; i < 32; i++ {
-		if encoded[i] != 0 {
-			t.Errorf("Bytes32Type.Encode() byte %d = %x, want 0x00 (padding)", i, encoded[i])
-		}
+	if _, err = bt.Encode(shortBytes); err == nil {
+		t.Error("Bytes32Type.Encode() with short byte slice should return error")
 	}
 
 	// Invalid byte slice (too long)
@@ -1929,13 +1762,13 @@ func TestBytes32Type_Encode_Numeric(t *testing.T) {
 		value   interface{}
 		wantErr bool
 	}{
-		{"int", int(42), false},
-		{"int8", int8(42), false},
-		{"int16", int16(42), false},
-		{"int32", int32(42), false},
-		{"int64", int64(42), false},
-		{"big.Int", big.NewInt(42), false},
-		{"negative big.Int", big.NewInt(-42), false},
+		{"int", int(42), true},
+		{"int8", int8(42), true},
+		{"int16", int16(42), true},
+		{"int32", int32(42), true},
+		{"int64", int64(42), true},
+		{"big.Int", big.NewInt(42), true},
+		{"negative big.Int", big.NewInt(-42), true},
 	}
 
 	for _, tt := range tests {

@@ -2,6 +2,7 @@ package abi
 
 import (
 	"bytes"
+	"encoding/hex"
 	"fmt"
 	"math/big"
 	"reflect"
@@ -173,12 +174,26 @@ func (it *IntType) Encode(value interface{}) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	minimum := new(big.Int).Neg(new(big.Int).Lsh(big.NewInt(1), uint(it.size-1)))
+	maximum := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), uint(it.size-1)), big.NewInt(1))
+	if bigInt.Cmp(minimum) < 0 || bigInt.Cmp(maximum) > 0 {
+		return nil, fmt.Errorf("signed integer %s is out of range for %s", bigInt, it.GetCanonicalName())
+	}
 	return EncodeIntBig(bigInt), nil
 }
 
 // Decode decodes a signed integer value
 func (it *IntType) Decode(encoded []byte, offset int) (interface{}, error) {
-	return DecodeInt(encoded, offset)
+	value, err := DecodeInt(encoded, offset)
+	if err != nil {
+		return nil, err
+	}
+	minimum := new(big.Int).Neg(new(big.Int).Lsh(big.NewInt(1), uint(it.size-1)))
+	maximum := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), uint(it.size-1)), big.NewInt(1))
+	if value.Cmp(minimum) < 0 || value.Cmp(maximum) > 0 {
+		return nil, fmt.Errorf("decoded signed integer %s is out of range for %s", value, it.GetCanonicalName())
+	}
+	return value, nil
 }
 
 // EncodeInt encodes an int to 32 bytes
@@ -329,12 +344,23 @@ func (uit *UnsignedIntType) Encode(value interface{}) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	maximum := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), uint(uit.size)), big.NewInt(1))
+	if bigInt.Sign() < 0 || bigInt.Cmp(maximum) > 0 {
+		return nil, fmt.Errorf("unsigned integer %s is out of range for %s", bigInt, uit.GetCanonicalName())
+	}
 	return EncodeUintBig(bigInt)
 }
 
 // Decode decodes an unsigned integer value
 func (uit *UnsignedIntType) Decode(encoded []byte, offset int) (interface{}, error) {
-	return DecodeUint(encoded, offset)
+	value, err := DecodeUint(encoded, offset)
+	if err != nil {
+		return nil, err
+	}
+	if value.BitLen() > uit.size {
+		return nil, fmt.Errorf("decoded unsigned integer %s is out of range for %s", value, uit.GetCanonicalName())
+	}
+	return value, nil
 }
 
 // EncodeUint encodes an unsigned int to 32 bytes
@@ -414,48 +440,30 @@ func NewBoolType() (*BoolType, error) {
 
 // Encode encodes a boolean value as 0 (false) or 1 (true)
 func (bt *BoolType) Encode(value interface{}) ([]byte, error) {
-	switch v := value.(type) {
-	case bool:
-		if v {
-			return bt.IntType.Encode(1)
-		}
-		return bt.IntType.Encode(0)
-
-	case string:
-		if v == "true" || v == "True" || v == "TRUE" || v == "1" {
-			return bt.IntType.Encode(1)
-		}
-		return bt.IntType.Encode(0)
-
-	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
-		// Allow numeric input: 0 = false, anything else = true
-		bigInt, err := bt.EncodeInternal(value)
-		if err != nil {
-			return nil, err
-		}
-		if bigInt.Sign() == 0 {
-			return bt.IntType.Encode(0)
-		}
-		return bt.IntType.Encode(1)
-
-	default:
+	v, ok := value.(bool)
+	if !ok {
 		return nil, fmt.Errorf("unsupported value type for boolean encoding: %T", value)
 	}
+	if v {
+		return EncodeIntBig(big.NewInt(1)), nil
+	}
+	return EncodeIntBig(big.NewInt(0)), nil
 }
 
-// Decode decodes a boolean value (0 = false, non-zero = true)
+// Decode decodes a canonical boolean word (0 = false, 1 = true)
 func (bt *BoolType) Decode(encoded []byte, offset int) (interface{}, error) {
-	result, err := bt.IntType.Decode(encoded, offset)
+	result, err := DecodeUint(encoded, offset)
 	if err != nil {
 		return nil, err
 	}
-
-	bigInt, ok := result.(*big.Int)
-	if !ok {
-		return nil, fmt.Errorf("unexpected decode result type: %T", result)
+	switch {
+	case result.Sign() == 0:
+		return false, nil
+	case result.Cmp(big.NewInt(1)) == 0:
+		return true, nil
+	default:
+		return nil, fmt.Errorf("invalid boolean encoding: expected canonical word 0 or 1, got %s", result)
 	}
-
-	return bigInt.Sign() != 0, nil
 }
 
 // =============================================================================
@@ -599,87 +607,94 @@ func (ht *HashType) Decode(encoded []byte, offset int) (interface{}, error) {
 // Bytes32Type - Fixed 32-byte Type
 // =============================================================================
 
-// Bytes32Type represents fixed 32-byte values (similar to HashType but decodes to []byte)
-type Bytes32Type struct {
+// FixedBytesType represents a fixed bytes1 through bytes32 ABI value.
+//
+// Values must contain exactly the declared number of bytes. They are encoded
+// left-aligned in a 32-byte ABI word with zero padding on the right.
+type FixedBytesType struct {
 	baseType
+	size int
 }
 
-// NewBytes32Type creates a new bytes32 type
+// Bytes32Type is retained as an alias for compatibility with callers that used
+// the original bytes32-only implementation. Use [NewFixedBytesType] for any
+// bytes1 through bytes32 declaration.
+type Bytes32Type = FixedBytesType
+
+// NewFixedBytesType creates a fixed bytes1 through bytes32 ABI type.
+//
+// Parameters:
+//   - name: Canonical fixed-byte name, such as "bytes4" or "bytes32".
+//
+// NewFixedBytesType returns the parsed type or an error when the width is
+// missing, non-numeric, or outside the inclusive range 1 through 32.
+//
+// Example:
+//
+//	typeObject, err := NewFixedBytesType("bytes4")
+//	encoded, err := typeObject.Encode([]byte{0xde, 0xad, 0xbe, 0xef})
+//
+// Note: Fixed bytes are distinct from dynamic [BytesType] values and require
+// an exact input length.
+func NewFixedBytesType(name string) (*FixedBytesType, error) {
+	if !strings.HasPrefix(name, "bytes") {
+		return nil, fmt.Errorf("invalid fixed bytes type name: %s", name)
+	}
+	size, err := strconv.Atoi(strings.TrimPrefix(name, "bytes"))
+	if err != nil || size < 1 || size > 32 {
+		return nil, fmt.Errorf("invalid fixed bytes size in %q: must be 1-32", name)
+	}
+	return &FixedBytesType{baseType: baseType{name: name}, size: size}, nil
+}
+
+// NewBytes32Type creates a fixed-byte ABI type.
+//
+// This compatibility constructor historically accepted only "bytes32". It now
+// delegates to [NewFixedBytesType], so callers may use it with bytes1 through
+// bytes32. Invalid names return an error.
 func NewBytes32Type(name string) (*Bytes32Type, error) {
-	return &Bytes32Type{
-		baseType: baseType{name: name},
-	}, nil
+	return NewFixedBytesType(name)
 }
 
-// Encode encodes a bytes32 value to 32 bytes
-func (bt *Bytes32Type) Encode(value interface{}) ([]byte, error) {
+// Encode encodes an exact-length fixed byte value into one 32-byte ABI word.
+func (bt *FixedBytesType) Encode(value interface{}) ([]byte, error) {
+	var data []byte
 	switch v := value.(type) {
 	case string:
-		// Try parsing as hex string
-		if len(v) > 2 && v[:2] == "0x" {
-			v = v[2:] // Remove 0x prefix
+		if strings.HasPrefix(v, "0x") || strings.HasPrefix(v, "0X") {
+			v = v[2:]
 		}
-
-		// Decode hex string
-		if len(v) != 64 {
-			return nil, fmt.Errorf("invalid hex string length: expected 64 chars, got %d", len(v))
+		decoded, err := hex.DecodeString(v)
+		if err != nil {
+			return nil, fmt.Errorf("invalid fixed bytes hex string: %w", err)
 		}
-
-		bytes := make([]byte, 32)
-		for i := 0; i < 32; i++ {
-			_, err := fmt.Sscanf(v[i*2:i*2+2], "%x", &bytes[i])
-			if err != nil {
-				return nil, fmt.Errorf("invalid hex string: %w", err)
-			}
-		}
-		return bytes, nil
+		data = decoded
 
 	case []byte:
-		// Byte slice must be exactly 32 bytes or less (will be right-padded)
-		if len(v) > 32 {
-			return nil, fmt.Errorf("byte slice too long: expected max 32 bytes, got %d", len(v))
-		}
-
-		result := make([]byte, 32)
-		copy(result, v)
-		return result, nil
-
-	case *big.Int:
-		// Encode as big.Int (for numeric values)
-		return EncodeIntBig(v), nil
-
-	case int, int8, int16, int32, int64:
-		// Convert to big.Int and encode
-		var bigInt *big.Int
-		switch val := v.(type) {
-		case int:
-			bigInt = big.NewInt(int64(val))
-		case int8:
-			bigInt = big.NewInt(int64(val))
-		case int16:
-			bigInt = big.NewInt(int64(val))
-		case int32:
-			bigInt = big.NewInt(int64(val))
-		case int64:
-			bigInt = big.NewInt(val)
-		}
-		return EncodeIntBig(bigInt), nil
+		data = v
 
 	default:
-		return nil, fmt.Errorf("unsupported value type for bytes32 encoding: %T", value)
+		return nil, fmt.Errorf("unsupported value type for %s encoding: %T", bt.name, value)
 	}
+	if len(data) != bt.size {
+		return nil, fmt.Errorf("invalid %s length: got %d bytes, want exactly %d", bt.name, len(data), bt.size)
+	}
+	result := make([]byte, Int32Size)
+	copy(result, data)
+	return result, nil
 }
 
-// Decode decodes a bytes32 value from encoded bytes at offset
-func (bt *Bytes32Type) Decode(encoded []byte, offset int) (interface{}, error) {
+// Decode decodes a fixed byte value and rejects non-zero right padding.
+func (bt *FixedBytesType) Decode(encoded []byte, offset int) (interface{}, error) {
 	if len(encoded) < offset+Int32Size {
-		return nil, fmt.Errorf("insufficient bytes for decoding bytes32")
+		return nil, fmt.Errorf("insufficient bytes for decoding %s", bt.name)
 	}
-
-	// Extract 32 bytes
-	result := make([]byte, Int32Size)
-	copy(result, encoded[offset:offset+Int32Size])
-
+	word := encoded[offset : offset+Int32Size]
+	if !bytes.Equal(word[bt.size:], make([]byte, Int32Size-bt.size)) {
+		return nil, fmt.Errorf("invalid %s encoding: non-zero right padding", bt.name)
+	}
+	result := make([]byte, bt.size)
+	copy(result, word[:bt.size])
 	return result, nil
 }
 
@@ -947,8 +962,8 @@ func GetType(typeName string) (AbiType, error) {
 		return NewAddressType()
 	case typeName == "hash":
 		return NewHashType()
-	case typeName == "bytes32":
-		return NewBytes32Type(typeName)
+	case strings.HasPrefix(typeName, "bytes") && typeName != "bytes":
+		return NewFixedBytesType(typeName)
 	case typeName == "tokenStandard":
 		return NewTokenStandardType()
 	case typeName == "bytes":
@@ -1401,13 +1416,8 @@ type FunctionType struct {
 
 // NewFunctionType creates a new function type
 func NewFunctionType() (*FunctionType, error) {
-	bytes32Type, err := NewBytes32Type("function")
-	if err != nil {
-		return nil, err
-	}
-
 	return &FunctionType{
-		Bytes32Type: *bytes32Type,
+		Bytes32Type: FixedBytesType{baseType: baseType{name: "function"}, size: 32},
 	}, nil
 }
 

@@ -49,12 +49,22 @@
 // # Common Data Types
 //
 // The ABI package handles encoding/decoding of:
-//   - Basic types: uint8, uint64, bool, string
+//   - Basic types: int8 through int256, uint8 through uint256, bool, string
+//   - Fixed bytes: bytes1 through bytes32
 //   - Big integers: *big.Int for large numbers
 //   - Addresses: types.Address
 //   - Token standards: types.ZenonTokenStandard
 //   - Hashes: types.Hash
 //   - Complex structures and arrays
+//
+// # Canonical Validation
+//
+// Encoding requires exactly one value for each declared parameter. Signed and
+// unsigned integers must fit their declared bit width, fixed-byte values must
+// have exactly their declared length, and boolean inputs must have Go type bool.
+// Decoding rejects integer words outside the declared width, non-zero fixed-byte
+// padding, and boolean words other than canonical zero or one. These checks prevent
+// silent truncation and ambiguous wire encodings before a contract call is sent.
 //
 // # Internal Usage
 //

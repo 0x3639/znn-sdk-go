@@ -1,6 +1,7 @@
 package embedded
 
 import (
+	"github.com/0x3639/znn-sdk-go/internal/rpcvalidation"
 	"github.com/0x3639/znn-sdk-go/transport"
 	"github.com/zenon-network/go-zenon/chain/nom"
 	"github.com/zenon-network/go-zenon/common"
@@ -40,6 +41,9 @@ func NewSporkApi(client transport.Caller) *SporkApi {
 //	    fmt.Printf("Spork: %s, Active: %t\n", spork.Name, spork.Activated)
 //	}
 func (sa *SporkApi) GetAll(pageIndex, pageSize uint32) (*SporkList, error) {
+	if err := rpcvalidation.ValidateLimit("embedded.spork.getAll", "pageSize", uint64(pageSize), rpcvalidation.MaxPageSize); err != nil {
+		return nil, err
+	}
 	ans := new(SporkList)
 	if err := sa.client.Call(ans, "embedded.spork.getAll", pageIndex, pageSize); err != nil {
 		return nil, err

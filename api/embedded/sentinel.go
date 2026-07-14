@@ -3,6 +3,7 @@ package embedded
 import (
 	"math/big"
 
+	"github.com/0x3639/znn-sdk-go/internal/rpcvalidation"
 	"github.com/0x3639/znn-sdk-go/transport"
 	"github.com/zenon-network/go-zenon/chain/nom"
 	"github.com/zenon-network/go-zenon/common"
@@ -30,6 +31,9 @@ func (sa *SentinelApi) GetByOwner(address types.Address) (*SentinelInfo, error) 
 }
 
 func (sa *SentinelApi) GetAllActive(pageIndex, pageSize uint32) (*SentinelInfoList, error) {
+	if err := rpcvalidation.ValidateLimit("embedded.sentinel.getAllActive", "pageSize", uint64(pageSize), rpcvalidation.MaxPageSize); err != nil {
+		return nil, err
+	}
 	ans := new(SentinelInfoList)
 	if err := sa.client.Call(ans, "embedded.sentinel.getAllActive", pageIndex, pageSize); err != nil {
 		return nil, err
@@ -54,6 +58,9 @@ func (sa *SentinelApi) GetUncollectedReward(address types.Address) (*Uncollected
 }
 
 func (sa *SentinelApi) GetFrontierRewardByPage(address types.Address, pageIndex, pageSize uint32) (*RewardHistoryList, error) {
+	if err := rpcvalidation.ValidateLimit("embedded.sentinel.getFrontierRewardByPage", "pageSize", uint64(pageSize), rpcvalidation.MaxPageSize); err != nil {
+		return nil, err
+	}
 	ans := new(RewardHistoryList)
 	if err := sa.client.Call(ans, "embedded.sentinel.getFrontierRewardByPage", address, pageIndex, pageSize); err != nil {
 		return nil, err

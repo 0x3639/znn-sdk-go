@@ -3,6 +3,7 @@ package embedded
 import (
 	"math/big"
 
+	"github.com/0x3639/znn-sdk-go/internal/rpcvalidation"
 	"github.com/0x3639/znn-sdk-go/transport"
 	"github.com/zenon-network/go-zenon/chain/nom"
 	"github.com/zenon-network/go-zenon/common"
@@ -91,6 +92,9 @@ func (sa *StakeApi) GetUncollectedReward(address types.Address) (*UncollectedRew
 //	        entry.Znn, entry.Qsr, entry.Height)
 //	}
 func (sa *StakeApi) GetFrontierRewardByPage(address types.Address, pageIndex, pageSize uint32) (*RewardHistoryList, error) {
+	if err := rpcvalidation.ValidateLimit("embedded.stake.getFrontierRewardByPage", "pageSize", uint64(pageSize), rpcvalidation.MaxPageSize); err != nil {
+		return nil, err
+	}
 	ans := new(RewardHistoryList)
 	if err := sa.client.Call(ans, "embedded.stake.getFrontierRewardByPage", address.String(), pageIndex, pageSize); err != nil {
 		return nil, err
@@ -136,6 +140,9 @@ func (sa *StakeApi) GetFrontierRewardByPage(address types.Address, pageIndex, pa
 //	}
 //	fmt.Printf("Total staked: %s ZNN\n", totalStaked)
 func (sa *StakeApi) GetEntriesByAddress(address types.Address, pageIndex, pageSize uint32) (*StakeList, error) {
+	if err := rpcvalidation.ValidateLimit("embedded.stake.getEntriesByAddress", "pageSize", uint64(pageSize), rpcvalidation.MaxPageSize); err != nil {
+		return nil, err
+	}
 	ans := new(StakeList)
 	if err := sa.client.Call(ans, "embedded.stake.getEntriesByAddress", address.String(), pageIndex, pageSize); err != nil {
 		return nil, err

@@ -3,6 +3,7 @@ package embedded
 import (
 	"math/big"
 
+	"github.com/0x3639/znn-sdk-go/internal/rpcvalidation"
 	"github.com/0x3639/znn-sdk-go/transport"
 	"github.com/zenon-network/go-zenon/chain/nom"
 	"github.com/zenon-network/go-zenon/common"
@@ -29,6 +30,9 @@ func (sa *LiquidityApi) GetUncollectedReward(address types.Address) (*Uncollecte
 }
 
 func (sa *LiquidityApi) GetFrontierRewardByPage(address types.Address, pageIndex, pageSize uint32) (*RewardHistoryList, error) {
+	if err := rpcvalidation.ValidateLimit("embedded.liquidity.getFrontierRewardByPage", "pageSize", uint64(pageSize), rpcvalidation.MaxPageSize); err != nil {
+		return nil, err
+	}
 	ans := new(RewardHistoryList)
 	if err := sa.client.Call(ans, "embedded.liquidity.getFrontierRewardByPage", address.String(), pageIndex, pageSize); err != nil {
 		return nil, err
@@ -53,6 +57,9 @@ func (sa *LiquidityApi) GetSecurityInfo() (*SecurityInfo, error) {
 }
 
 func (sa *LiquidityApi) GetLiquidityStakeEntriesByAddress(address types.Address, pageIndex, pageSize uint32) (*LiquidityStakeList, error) {
+	if err := rpcvalidation.ValidateLimit("embedded.liquidity.getLiquidityStakeEntriesByAddress", "pageSize", uint64(pageSize), rpcvalidation.MemoryPoolPageSize); err != nil {
+		return nil, err
+	}
 	ans := new(LiquidityStakeList)
 	if err := sa.client.Call(ans, "embedded.liquidity.getLiquidityStakeEntriesByAddress", address.String(), pageIndex, pageSize); err != nil {
 		return nil, err

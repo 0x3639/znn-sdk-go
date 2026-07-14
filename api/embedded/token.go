@@ -3,6 +3,7 @@ package embedded
 import (
 	"math/big"
 
+	"github.com/0x3639/znn-sdk-go/internal/rpcvalidation"
 	"github.com/0x3639/znn-sdk-go/transport"
 	"github.com/zenon-network/go-zenon/chain/nom"
 	"github.com/zenon-network/go-zenon/common"
@@ -46,6 +47,9 @@ func NewTokenApi(client transport.Caller) *TokenApi {
 //	    fmt.Printf("%s (%s): %s\n", token.Name, token.Symbol, token.TokenStandard)
 //	}
 func (ta *TokenApi) GetAll(pageIndex, pageSize uint32) (*TokenList, error) {
+	if err := rpcvalidation.ValidateLimit("embedded.token.getAll", "pageSize", uint64(pageSize), rpcvalidation.MaxPageSize); err != nil {
+		return nil, err
+	}
 	ans := new(TokenList)
 	if err := ta.client.Call(ans, "embedded.token.getAll", pageIndex, pageSize); err != nil {
 		return nil, err
@@ -85,6 +89,9 @@ func (ta *TokenApi) GetAll(pageIndex, pageSize uint32) (*TokenList, error) {
 //	    fmt.Printf("- %s (%s)\n", token.Name, token.Symbol)
 //	}
 func (ta *TokenApi) GetByOwner(address types.Address, pageIndex, pageSize uint32) (*TokenList, error) {
+	if err := rpcvalidation.ValidateLimit("embedded.token.getByOwner", "pageSize", uint64(pageSize), rpcvalidation.MaxPageSize); err != nil {
+		return nil, err
+	}
 	ans := new(TokenList)
 	if err := ta.client.Call(ans, "embedded.token.getByOwner", address, pageIndex, pageSize); err != nil {
 		return nil, err

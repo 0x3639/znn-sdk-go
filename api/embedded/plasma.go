@@ -3,6 +3,7 @@ package embedded
 import (
 	"math/big"
 
+	"github.com/0x3639/znn-sdk-go/internal/rpcvalidation"
 	"github.com/0x3639/znn-sdk-go/transport"
 	"github.com/zenon-network/go-zenon/chain/nom"
 	"github.com/zenon-network/go-zenon/common"
@@ -55,6 +56,9 @@ func (pa *PlasmaApi) Get(address types.Address) (*PlasmaInfo, error) {
 }
 
 func (pa *PlasmaApi) GetEntriesByAddress(address types.Address, pageIndex, pageSize uint32) (*FusionEntryList, error) {
+	if err := rpcvalidation.ValidateLimit("embedded.plasma.getEntriesByAddress", "pageSize", uint64(pageSize), rpcvalidation.MaxPageSize); err != nil {
+		return nil, err
+	}
 	ans := new(FusionEntryList)
 	if err := pa.client.Call(ans, "embedded.plasma.getEntriesByAddress", address.String(), pageIndex, pageSize); err != nil {
 		return nil, err

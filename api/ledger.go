@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/0x3639/znn-sdk-go/internal/rpcvalidation"
 	"github.com/0x3639/znn-sdk-go/transport"
 	"github.com/zenon-network/go-zenon/chain/nom"
 	"github.com/zenon-network/go-zenon/common/types"
@@ -35,7 +36,10 @@ func NewLedgerApi(client transport.Caller) *LedgerApi {
 // Parameters:
 //   - transaction: Fully prepared AccountBlock ready for submission
 //
-// Returns an error if the transaction is rejected by the node. Common rejection reasons:
+// Success requires the node to return the canonical JSON null result. The
+// method returns an error if the node returns any non-null value, even when the
+// JSON-RPC envelope itself reports success. It also returns an error when the
+// transaction is rejected by the node. Common rejection reasons:
 //   - Insufficient PoW/plasma
 //   - Invalid signature
 //   - Incorrect height or previous hash
@@ -58,6 +62,9 @@ func (la *LedgerApi) PublishRawTransaction(transaction *nom.AccountBlock) error 
 	var ans interface{}
 	if err := la.client.Call(&ans, "ledger.publishRawTransaction", transaction); err != nil {
 		return err
+	}
+	if ans != nil {
+		return fmt.Errorf("ledger.publishRawTransaction returned non-null success result: %v", ans)
 	}
 	return nil
 }
@@ -258,6 +265,9 @@ func isTransientError(err error) bool {
 //	    fmt.Printf("Block hash: %s\n", block.Hash)
 //	}
 func (la *LedgerApi) GetUnconfirmedBlocksByAddress(address types.Address, pageIndex, pageSize uint32) (*api.AccountBlockList, error) {
+	if err := rpcvalidation.ValidateLimit("ledger.getUnconfirmedBlocksByAddress", "pageSize", uint64(pageSize), rpcvalidation.MemoryPoolPageSize); err != nil {
+		return nil, err
+	}
 	ans := new(api.AccountBlockList)
 	if err := la.client.Call(ans, "ledger.getUnconfirmedBlocksByAddress", address.String(), pageIndex, pageSize); err != nil {
 		return nil, err
@@ -309,6 +319,9 @@ func (la *LedgerApi) GetAccountBlockByHash(blockHash types.Hash) (*api.AccountBl
 }
 
 func (la *LedgerApi) GetAccountBlocksByHeight(address types.Address, height, count uint64) (*api.AccountBlockList, error) {
+	if err := rpcvalidation.ValidateLimit("ledger.getAccountBlocksByHeight", "count", count, rpcvalidation.MaxPageSize); err != nil {
+		return nil, err
+	}
 	ans := new(api.AccountBlockList)
 	if err := la.client.Call(ans, "ledger.getAccountBlocksByHeight", address.String(), height, count); err != nil {
 		return nil, err
@@ -317,6 +330,9 @@ func (la *LedgerApi) GetAccountBlocksByHeight(address types.Address, height, cou
 }
 
 func (la *LedgerApi) GetAccountBlocksByPage(address types.Address, pageIndex, pageSize uint32) (*api.AccountBlockList, error) {
+	if err := rpcvalidation.ValidateLimit("ledger.getAccountBlocksByPage", "pageSize", uint64(pageSize), rpcvalidation.MaxPageSize); err != nil {
+		return nil, err
+	}
 	ans := new(api.AccountBlockList)
 	if err := la.client.Call(ans, "ledger.getAccountBlocksByPage", address.String(), pageIndex, pageSize); err != nil {
 		return nil, err
@@ -402,6 +418,9 @@ func (la *LedgerApi) GetAccountInfoByAddress(address types.Address) (*api.Accoun
 // Note: Unreceived blocks must be received to access the funds. They don't expire but
 // remain pending until explicitly received.
 func (la *LedgerApi) GetUnreceivedBlocksByAddress(address types.Address, pageIndex, pageSize uint32) (*api.AccountBlockList, error) {
+	if err := rpcvalidation.ValidateLimit("ledger.getUnreceivedBlocksByAddress", "pageSize", uint64(pageSize), rpcvalidation.MemoryPoolPageSize); err != nil {
+		return nil, err
+	}
 	ans := new(api.AccountBlockList)
 	if err := la.client.Call(ans, "ledger.getUnreceivedBlocksByAddress", address.String(), pageIndex, pageSize); err != nil {
 		return nil, err
@@ -464,6 +483,9 @@ func (la *LedgerApi) GetMomentumByHash(hash types.Hash) (*api.Momentum, error) {
 }
 
 func (la *LedgerApi) GetMomentumsByHeight(height, count uint64) (*api.MomentumList, error) {
+	if err := rpcvalidation.ValidateLimit("ledger.getMomentumsByHeight", "count", count, rpcvalidation.MaxPageSize); err != nil {
+		return nil, err
+	}
 	ans := new(api.MomentumList)
 	if err := la.client.Call(ans, "ledger.getMomentumsByHeight", height, count); err != nil {
 		return nil, err
@@ -472,6 +494,9 @@ func (la *LedgerApi) GetMomentumsByHeight(height, count uint64) (*api.MomentumLi
 }
 
 func (la *LedgerApi) GetMomentumsByPage(pageIndex, pageSize uint32) (*api.MomentumList, error) {
+	if err := rpcvalidation.ValidateLimit("ledger.getMomentumsByPage", "pageSize", uint64(pageSize), rpcvalidation.MaxPageSize); err != nil {
+		return nil, err
+	}
 	ans := new(api.MomentumList)
 	if err := la.client.Call(ans, "ledger.getMomentumsByPage", pageIndex, pageSize); err != nil {
 		return nil, err
@@ -480,6 +505,9 @@ func (la *LedgerApi) GetMomentumsByPage(pageIndex, pageSize uint32) (*api.Moment
 }
 
 func (la *LedgerApi) GetDetailedMomentumsByHeight(height, count uint64) (*api.DetailedMomentumList, error) {
+	if err := rpcvalidation.ValidateLimit("ledger.getDetailedMomentumsByHeight", "count", count, rpcvalidation.MaxPageSize); err != nil {
+		return nil, err
+	}
 	ans := new(api.DetailedMomentumList)
 	if err := la.client.Call(ans, "ledger.getDetailedMomentumsByHeight", height, count); err != nil {
 		return nil, err

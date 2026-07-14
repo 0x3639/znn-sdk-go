@@ -3,6 +3,7 @@ package embedded
 import (
 	"math/big"
 
+	"github.com/0x3639/znn-sdk-go/internal/rpcvalidation"
 	"github.com/0x3639/znn-sdk-go/transport"
 	"github.com/zenon-network/go-zenon/chain/nom"
 	"github.com/zenon-network/go-zenon/common"
@@ -77,6 +78,9 @@ func (pa *PillarApi) GetUncollectedReward(address types.Address) (*UncollectedRe
 }
 
 func (pa *PillarApi) GetFrontierRewardByPage(address types.Address, pageIndex, pageSize uint32) (*RewardHistoryList, error) {
+	if err := rpcvalidation.ValidateLimit("embedded.pillar.getFrontierRewardByPage", "pageSize", uint64(pageSize), rpcvalidation.MaxPageSize); err != nil {
+		return nil, err
+	}
 	ans := new(RewardHistoryList)
 	if err := pa.client.Call(ans, "embedded.pillar.getFrontierRewardByPage", address.String(), pageIndex, pageSize); err != nil {
 		return nil, err
@@ -85,6 +89,9 @@ func (pa *PillarApi) GetFrontierRewardByPage(address types.Address, pageIndex, p
 }
 
 func (pa *PillarApi) GetAll(pageIndex, pageSize uint32) (*PillarInfoList, error) {
+	if err := rpcvalidation.ValidateLimit("embedded.pillar.getAll", "pageSize", uint64(pageSize), rpcvalidation.MaxPageSize); err != nil {
+		return nil, err
+	}
 	ans := new(PillarInfoList)
 	if err := pa.client.Call(ans, "embedded.pillar.getAll", pageIndex, pageSize); err != nil {
 		return nil, err
@@ -125,6 +132,9 @@ func (pa *PillarApi) GetDelegatedPillar(address types.Address) (*DelegationInfo,
 }
 
 func (pa *PillarApi) GetPillarEpochHistory(pillarName string, pageIndex, pageSize uint32) (*PillarEpochHistoryList, error) {
+	if err := rpcvalidation.ValidateLimit("embedded.pillar.getPillarEpochHistory", "pageSize", uint64(pageSize), rpcvalidation.MaxPageSize); err != nil {
+		return nil, err
+	}
 	ans := new(PillarEpochHistoryList)
 	if err := pa.client.Call(ans, "embedded.pillar.getPillarEpochHistory", pillarName, pageIndex, pageSize); err != nil {
 		return nil, err
@@ -133,6 +143,9 @@ func (pa *PillarApi) GetPillarEpochHistory(pillarName string, pageIndex, pageSiz
 }
 
 func (pa *PillarApi) GetPillarsHistoryByEpoch(epoch uint64, pageIndex, pageSize uint32) (*PillarEpochHistoryList, error) {
+	if err := rpcvalidation.ValidateLimit("embedded.pillar.getPillarsHistoryByEpoch", "pageSize", uint64(pageSize), rpcvalidation.MaxPageSize); err != nil {
+		return nil, err
+	}
 	ans := new(PillarEpochHistoryList)
 	if err := pa.client.Call(ans, "embedded.pillar.getPillarsHistoryByEpoch", epoch, pageIndex, pageSize); err != nil {
 		return nil, err

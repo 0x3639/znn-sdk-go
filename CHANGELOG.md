@@ -4,6 +4,8 @@ Notable changes to the Zenon Go SDK are documented in this file.
 
 ## Unreleased
 
+## v0.2.0 - 2026-07-14
+
 This release brings the Go SDK into conformance with the stable Zenon SDK
 specification and the pinned canonical `go-zenon` behavior.
 

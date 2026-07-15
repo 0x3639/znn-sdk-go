@@ -72,13 +72,13 @@ func TestArrayTypedSliceAndErrorPaths(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := static.Encode([]int{1, 2}); err != nil {
-		t.Fatalf("static typed slice: %v", err)
+	if _, encodeErr := static.Encode([]int{1, 2}); encodeErr != nil {
+		t.Fatalf("static typed slice: %v", encodeErr)
 	}
-	if _, err := static.Encode(42); err == nil {
+	if _, encodeErr := static.Encode(42); encodeErr == nil {
 		t.Fatal("static array accepted a scalar")
 	}
-	if _, err := static.EncodeList([]interface{}{1}); err == nil {
+	if _, encodeErr := static.EncodeList([]interface{}{1}); encodeErr == nil {
 		t.Fatal("static array accepted the wrong element count")
 	}
 

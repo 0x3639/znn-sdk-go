@@ -150,8 +150,8 @@ func TestFromEncryptedFileRejectsMissingMetadataAndInvalidPlaintext(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := FromEncryptedFile(file, "password"); !errors.Is(err, ErrInvalidKeyStore) {
-		t.Fatalf("missing metadata error = %v", err)
+	if _, fromErr := FromEncryptedFile(file, "password"); !errors.Is(fromErr, ErrInvalidKeyStore) {
+		t.Fatalf("missing metadata error = %v", fromErr)
 	}
 
 	invalid, err := Encrypt([]byte("not a keystore"), "password", map[string]interface{}{

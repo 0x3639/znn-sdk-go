@@ -4,6 +4,26 @@ Notable changes to the Zenon Go SDK are documented in this file.
 
 ## Unreleased
 
+## v0.2.1 - 2026-07-14
+
+This patch release corrects ABI decoding for arrays with dynamic element types
+and expands regression coverage across SDK error and lifecycle paths.
+
+### Fixed
+
+- Static and dynamic ABI arrays now advance through each encoded head pointer
+  when their elements are dynamically sized, rather than decoding every
+  element from the first pointer.
+- Dynamic ABI array decoding now rejects negative encoded lengths.
+
+### Validation
+
+- Added exhaustive error-injection and lifecycle tests for API, RPC client,
+  subscription, transport, wallet, Zenon transaction, ABI, and wire-model
+  behavior.
+- Total Go statement coverage is 93.1%, with the native test suite, race tests,
+  vet, and golangci-lint passing.
+
 ## v0.2.0 - 2026-07-14
 
 This release brings the Go SDK into conformance with the stable Zenon SDK

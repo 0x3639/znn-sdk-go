@@ -1,15 +1,24 @@
 package zenon
 
 import (
+	"encoding/json"
 	"math/big"
+	"net/http"
+	"net/http/httptest"
+	"reflect"
+	"strings"
 	"testing"
 
+	"github.com/0x3639/znn-sdk-go/api/embedded"
 	"github.com/0x3639/znn-sdk-go/pow"
+	"github.com/0x3639/znn-sdk-go/rpc_client"
+	"github.com/0x3639/znn-sdk-go/transport"
 	"github.com/0x3639/znn-sdk-go/utils"
 	"github.com/0x3639/znn-sdk-go/wallet"
 	"github.com/zenon-network/go-zenon/chain/nom"
 	"github.com/zenon-network/go-zenon/common/types"
 	gozenonpow "github.com/zenon-network/go-zenon/pow"
+	nodeapi "github.com/zenon-network/go-zenon/rpc/api"
 )
 
 // testMnemonic is a well-known valid BIP39 mnemonic used only for deterministic
@@ -161,5 +170,276 @@ func TestSendFlowNonceAcceptedByNode(t *testing.T) {
 
 	if !gozenonpow.CheckPoWNonce(block) {
 		t.Errorf("send-flow nonce %x rejected by go-zenon CheckPoWNonce", nonce)
+	}
+}
+
+type zenonRPCFixture struct {
+	frontier  interface{}
+	momentum  interface{}
+	source    interface{}
+	pow       embedded.GetRequiredResult
+	errors    map[string]string
+	calls     []string
+	published *nom.AccountBlock
+}
+
+func newZenonTestClient(t *testing.T, fixture *zenonRPCFixture) (*rpc_client.RpcClient, func()) {
+	t.Helper()
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		defer request.Body.Close()
+		var rpcRequest transport.Request
+		if err := json.NewDecoder(request.Body).Decode(&rpcRequest); err != nil {
+			t.Errorf("decode request: %v", err)
+			writer.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		fixture.calls = append(fixture.calls, rpcRequest.Method)
+		writer.Header().Set("Content-Type", "application/json")
+		if message := fixture.errors[rpcRequest.Method]; message != "" {
+			_ = json.NewEncoder(writer).Encode(map[string]interface{}{
+				"jsonrpc": "2.0", "id": rpcRequest.ID,
+				"error": map[string]interface{}{"code": -32000, "message": message},
+			})
+			return
+		}
+		var result interface{}
+		switch rpcRequest.Method {
+		case "ledger.getFrontierAccountBlock":
+			result = fixture.frontier
+		case "ledger.getFrontierMomentum":
+			result = fixture.momentum
+		case "ledger.getAccountBlockByHash":
+			result = fixture.source
+		case "embedded.plasma.getRequiredPoWForAccountBlock":
+			result = fixture.pow
+		case "ledger.publishRawTransaction":
+			if len(rpcRequest.Params) == 1 {
+				raw, _ := json.Marshal(rpcRequest.Params[0])
+				fixture.published = new(nom.AccountBlock)
+				_ = json.Unmarshal(raw, fixture.published)
+			}
+			result = nil
+		default:
+			t.Errorf("unexpected RPC method %q", rpcRequest.Method)
+		}
+		_ = json.NewEncoder(writer).Encode(map[string]interface{}{
+			"jsonrpc": "2.0", "id": rpcRequest.ID, "result": result,
+		})
+	}))
+
+	options := rpc_client.DefaultClientOptions()
+	options.AutoReconnect = false
+	options.HealthCheckInterval = 0
+	client, err := rpc_client.NewRpcClientWithOptions(server.URL, options)
+	if err != nil {
+		server.Close()
+		t.Fatalf("NewRpcClientWithOptions: %v", err)
+	}
+	cleanup := func() {
+		client.Stop()
+		server.Close()
+	}
+	return client, cleanup
+}
+
+func testMomentum(height, chainIdentifier uint64, hash types.Hash) *nodeapi.Momentum {
+	return &nodeapi.Momentum{Momentum: &nom.Momentum{
+		Version:         1,
+		ChainIdentifier: chainIdentifier,
+		Hash:            hash,
+		Height:          height,
+	}}
+}
+
+func TestZenonSendCompletesPlasmaBackedFlow(t *testing.T) {
+	momentumHash := types.HexToHashPanic("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+	fixture := &zenonRPCFixture{
+		momentum: testMomentum(99, 7, momentumHash),
+		pow:      embedded.GetRequiredResult{BasePlasma: 21000},
+		errors:   make(map[string]string),
+	}
+	client, cleanup := newZenonTestClient(t, fixture)
+	defer cleanup()
+
+	z := NewZenon(client)
+	if z.Client() != client {
+		t.Fatal("Client() did not return the configured RPC client")
+	}
+	kp := testKeyPair(t)
+	to := types.ParseAddressPanic("z1qzal6c5s9rjnnxd2z7dvdhjxpmmj4fmw56a0mz")
+	template := client.LedgerApi.SendTemplate(to, types.ZnnTokenStandard, big.NewInt(42), []byte("memo"))
+
+	published, err := z.Send(template, kp)
+	if err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	if published != template || fixture.published == nil {
+		t.Fatal("Send did not publish the prepared template")
+	}
+	if template.Height != 1 || template.PreviousHash != types.ZeroHash || template.ChainIdentifier != 7 {
+		t.Fatalf("chain position = height %d previous %s chain %d", template.Height, template.PreviousHash, template.ChainIdentifier)
+	}
+	if template.MomentumAcknowledged.Hash != momentumHash || template.MomentumAcknowledged.Height != 99 {
+		t.Fatalf("momentum acknowledgment = %+v", template.MomentumAcknowledged)
+	}
+	if template.FusedPlasma != 21000 || template.Difficulty != 0 || template.Nonce.Data != ([8]byte{}) {
+		t.Fatalf("plasma fields = fused %d difficulty %d nonce %x", template.FusedPlasma, template.Difficulty, template.Nonce.Data)
+	}
+	if len(template.PublicKey) == 0 || len(template.Signature) == 0 || template.Hash == types.ZeroHash {
+		t.Fatal("prepared transaction is missing signing fields")
+	}
+	wantCalls := []string{
+		"ledger.getFrontierAccountBlock",
+		"ledger.getFrontierMomentum",
+		"embedded.plasma.getRequiredPoWForAccountBlock",
+		"ledger.publishRawTransaction",
+	}
+	if !reflect.DeepEqual(fixture.calls, wantCalls) {
+		t.Fatalf("RPC calls = %v, want %v", fixture.calls, wantCalls)
+	}
+}
+
+func TestZenonPrepareBlockGeneratesPoWAndPreservesChainID(t *testing.T) {
+	frontierHash := types.HexToHashPanic("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
+	momentumHash := types.HexToHashPanic("cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc")
+	fixture := &zenonRPCFixture{
+		frontier: &nodeapi.AccountBlock{AccountBlock: nom.AccountBlock{Height: 7, Hash: frontierHash, Amount: big.NewInt(0)}},
+		momentum: testMomentum(100, 9, momentumHash),
+		pow:      embedded.GetRequiredResult{AvailablePlasma: 11, BasePlasma: 22, RequiredDifficulty: 1},
+		errors:   make(map[string]string),
+	}
+	client, cleanup := newZenonTestClient(t, fixture)
+	defer cleanup()
+	z := NewZenon(client)
+	var statuses []pow.PowStatus
+	z.PowCallback = func(status pow.PowStatus) { statuses = append(statuses, status) }
+
+	kp := testKeyPair(t)
+	template := client.LedgerApi.SendTemplate(types.PlasmaContract, types.QsrTokenStandard, big.NewInt(1), nil)
+	template.ChainIdentifier = 77
+	prepared, err := z.PrepareBlock(template, kp)
+	if err != nil {
+		t.Fatalf("PrepareBlock: %v", err)
+	}
+	if prepared != template || template.Height != 8 || template.PreviousHash != frontierHash || template.ChainIdentifier != 77 {
+		t.Fatalf("prepared chain position = %+v", template)
+	}
+	if template.FusedPlasma != 11 || template.Difficulty != 1 || !gozenonpow.CheckPoWNonce(template) {
+		t.Fatalf("PoW fields = fused %d difficulty %d nonce %x", template.FusedPlasma, template.Difficulty, template.Nonce.Data)
+	}
+	if !reflect.DeepEqual(statuses, []pow.PowStatus{pow.Generating, pow.Done}) {
+		t.Fatalf("PoW statuses = %v", statuses)
+	}
+
+	required, err := z.RequiresPoW(client.LedgerApi.SendTemplate(types.PlasmaContract, types.ZnnTokenStandard, big.NewInt(0), nil), kp)
+	if err != nil || !required {
+		t.Fatalf("RequiresPoW = %v, %v", required, err)
+	}
+}
+
+func TestZenonFlowValidationAndRPCFailures(t *testing.T) {
+	momentum := testMomentum(1, 1, types.ZeroHash)
+	address, err := testKeyPair(t).GetAddress()
+	if err != nil {
+		t.Fatal(err)
+	}
+	validSource := &nodeapi.AccountBlock{AccountBlock: nom.AccountBlock{ToAddress: *address, Amount: big.NewInt(1)}}
+
+	tests := []struct {
+		name    string
+		fixture *zenonRPCFixture
+		block   func() *nom.AccountBlock
+		want    string
+	}{
+		{
+			name:    "frontier error",
+			fixture: &zenonRPCFixture{momentum: momentum, errors: map[string]string{"ledger.getFrontierAccountBlock": "frontier failed"}},
+			block:   func() *nom.AccountBlock { return &nom.AccountBlock{BlockType: nom.BlockTypeUserSend} },
+			want:    "failed to get frontier account block",
+		},
+		{
+			name:    "momentum error",
+			fixture: &zenonRPCFixture{momentum: momentum, errors: map[string]string{"ledger.getFrontierMomentum": "momentum failed"}},
+			block:   func() *nom.AccountBlock { return &nom.AccountBlock{BlockType: nom.BlockTypeUserSend} },
+			want:    "failed to get frontier momentum",
+		},
+		{
+			name:    "momentum unavailable",
+			fixture: &zenonRPCFixture{momentum: nil, errors: make(map[string]string)},
+			block:   func() *nom.AccountBlock { return &nom.AccountBlock{BlockType: nom.BlockTypeUserSend} },
+			want:    "frontier momentum unavailable",
+		},
+		{
+			name:    "receive missing source hash",
+			fixture: &zenonRPCFixture{momentum: momentum, errors: make(map[string]string)},
+			block:   func() *nom.AccountBlock { return &nom.AccountBlock{BlockType: nom.BlockTypeUserReceive} },
+			want:    "non-empty fromBlockHash",
+		},
+		{
+			name:    "receive source query error",
+			fixture: &zenonRPCFixture{momentum: momentum, errors: map[string]string{"ledger.getAccountBlockByHash": "source failed"}},
+			block: func() *nom.AccountBlock {
+				return &nom.AccountBlock{BlockType: nom.BlockTypeUserReceive, FromBlockHash: types.HexToHashPanic("dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd")}
+			},
+			want: "failed to fetch source send block",
+		},
+		{
+			name:    "receive wrong recipient",
+			fixture: &zenonRPCFixture{momentum: momentum, source: &nodeapi.AccountBlock{AccountBlock: nom.AccountBlock{ToAddress: types.PlasmaContract, Amount: big.NewInt(1)}}, errors: make(map[string]string)},
+			block: func() *nom.AccountBlock {
+				return &nom.AccountBlock{BlockType: nom.BlockTypeUserReceive, FromBlockHash: types.HexToHashPanic("eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee")}
+			},
+			want: "does not match account",
+		},
+		{
+			name:    "receive data",
+			fixture: &zenonRPCFixture{momentum: momentum, source: validSource, errors: make(map[string]string)},
+			block: func() *nom.AccountBlock {
+				return &nom.AccountBlock{BlockType: nom.BlockTypeUserReceive, FromBlockHash: types.HexToHashPanic("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"), Data: []byte("not allowed")}
+			},
+			want: "must not carry data",
+		},
+		{
+			name:    "prefilled difficulty without nonce",
+			fixture: &zenonRPCFixture{momentum: momentum, errors: make(map[string]string)},
+			block:   func() *nom.AccountBlock { return &nom.AccountBlock{BlockType: nom.BlockTypeUserSend, Difficulty: 1} },
+			want:    "but no nonce",
+		},
+		{
+			name:    "pow query error",
+			fixture: &zenonRPCFixture{momentum: momentum, errors: map[string]string{"embedded.plasma.getRequiredPoWForAccountBlock": "pow failed"}},
+			block:   func() *nom.AccountBlock { return &nom.AccountBlock{BlockType: nom.BlockTypeUserSend} },
+			want:    "failed to query required PoW",
+		},
+		{
+			name:    "hostile difficulty",
+			fixture: &zenonRPCFixture{momentum: momentum, pow: embedded.GetRequiredResult{RequiredDifficulty: pow.MaxReasonableDifficulty + 1}, errors: make(map[string]string)},
+			block:   func() *nom.AccountBlock { return &nom.AccountBlock{BlockType: nom.BlockTypeUserSend} },
+			want:    "above the maximum supported",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			client, cleanup := newZenonTestClient(t, test.fixture)
+			defer cleanup()
+			_, err := NewZenon(client).PrepareBlock(test.block(), testKeyPair(t))
+			if err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("error = %v, want substring %q", err, test.want)
+			}
+		})
+	}
+}
+
+func TestZenonSendWrapsPublishFailure(t *testing.T) {
+	fixture := &zenonRPCFixture{
+		momentum: testMomentum(1, 1, types.ZeroHash),
+		errors:   map[string]string{"ledger.publishRawTransaction": "publish failed"},
+	}
+	client, cleanup := newZenonTestClient(t, fixture)
+	defer cleanup()
+	block := client.LedgerApi.SendTemplate(types.PlasmaContract, types.ZnnTokenStandard, big.NewInt(1), nil)
+	if _, err := NewZenon(client).Send(block, testKeyPair(t)); err == nil || !strings.Contains(err.Error(), "failed to publish transaction") {
+		t.Fatalf("Send error = %v", err)
 	}
 }

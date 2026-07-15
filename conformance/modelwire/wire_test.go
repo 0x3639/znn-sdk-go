@@ -11,6 +11,11 @@ func TestStableModelRegistryIsComplete(t *testing.T) {
 	if got, want := len(factories), 72; got != want {
 		t.Fatalf("registered models = %d, want %d", got, want)
 	}
+	for name, factory := range factories {
+		if instance := factory(); instance == nil {
+			t.Errorf("factory %q returned nil", name)
+		}
+	}
 }
 
 func TestRoundTripUsesSDKModelValues(t *testing.T) {
@@ -59,5 +64,65 @@ func TestRoundTripPreservesEmptyByteString(t *testing.T) {
 	}
 	if got := actual.(map[string]interface{})["hashLock"]; got != "" {
 		t.Fatalf("hashLock = %#v, want empty string", got)
+	}
+}
+
+func TestConformShapeCoversEveryWireShape(t *testing.T) {
+	t.Parallel()
+	template, err := decodeJSON([]byte(`{"array":[{"string":"7","number":2,"boolean":true,"nothing":null}],"empty":[]}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	actual, err := decodeJSON([]byte(`{"array":[{"string":7,"number":2,"boolean":true,"nothing":null}],"empty":[1,2]}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := conformShape(template, actual, "root")
+	if err != nil {
+		t.Fatalf("conformShape() error = %v", err)
+	}
+	object := got.(map[string]interface{})
+	item := object["array"].([]interface{})[0].(map[string]interface{})
+	if item["string"] != "7" || item["boolean"] != true || item["nothing"] != nil {
+		t.Fatalf("normalized item = %#v", item)
+	}
+	if len(object["empty"].([]interface{})) != 2 {
+		t.Fatalf("empty template did not preserve observed items: %#v", object["empty"])
+	}
+}
+
+func TestConformShapeRejectsMismatches(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name     string
+		template interface{}
+		actual   interface{}
+	}{
+		{"unsupported", struct{}{}, nil},
+		{"object", map[string]interface{}{}, []interface{}{}},
+		{"missing-field", map[string]interface{}{"field": ""}, map[string]interface{}{}},
+		{"array", []interface{}{}, map[string]interface{}{}},
+		{"array-length", []interface{}{json.Number("1")}, []interface{}{}},
+		{"string", "", true},
+		{"number", json.Number("1"), "1"},
+		{"boolean", true, "true"},
+		{"null", nil, false},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if _, err := conformShape(test.template, test.actual, "root"); err == nil {
+				t.Fatal("mismatched shape was accepted")
+			}
+		})
+	}
+}
+
+func TestDecodeJSONAndRoundTripRejectInvalidJSON(t *testing.T) {
+	t.Parallel()
+	if _, err := decodeJSON([]byte(`{`)); err == nil {
+		t.Fatal("decodeJSON accepted invalid JSON")
+	}
+	if _, err := RoundTrip("StakeEntry", json.RawMessage(`{`)); err == nil {
+		t.Fatal("RoundTrip accepted invalid JSON")
 	}
 }

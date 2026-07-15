@@ -1137,6 +1137,10 @@ func (sat *StaticArrayType) EncodeTuple(values []interface{}) ([]byte, error) {
 
 // Decode decodes a static array from encoded data
 func (sat *StaticArrayType) Decode(encoded []byte, offset int) (interface{}, error) {
+	if sat.elementType.IsDynamicType() {
+		return sat.DecodeTuple(encoded, offset, sat.size)
+	}
+
 	result := make([]interface{}, sat.size)
 
 	for i := 0; i < sat.size; i++ {
@@ -1177,7 +1181,11 @@ func (sat *StaticArrayType) DecodeTuple(encoded []byte, origOffset int, length i
 			}
 			result[i] = decoded
 		}
-		offset += sat.elementType.GetFixedSize()
+		if sat.elementType.IsDynamicType() {
+			offset += Int32Size
+		} else {
+			offset += sat.elementType.GetFixedSize()
+		}
 	}
 
 	return result, nil
@@ -1341,6 +1349,9 @@ func (dat *DynamicArrayType) Decode(encoded []byte, origOffset int) (interface{}
 		return nil, fmt.Errorf("failed to decode array length: %w", err)
 	}
 	length := int(lengthBig.Int64())
+	if length < 0 {
+		return nil, fmt.Errorf("invalid array length: %d", length)
+	}
 
 	// Move past length
 	origOffset += 32
@@ -1369,7 +1380,11 @@ func (dat *DynamicArrayType) Decode(encoded []byte, origOffset int) (interface{}
 			}
 			result[i] = decoded
 		}
-		offset += dat.elementType.GetFixedSize()
+		if dat.elementType.IsDynamicType() {
+			offset += Int32Size
+		} else {
+			offset += dat.elementType.GetFixedSize()
+		}
 	}
 
 	return result, nil
@@ -1402,7 +1417,11 @@ func (dat *DynamicArrayType) DecodeTuple(encoded []byte, origOffset int, length 
 			}
 			result[i] = decoded
 		}
-		offset += dat.elementType.GetFixedSize()
+		if dat.elementType.IsDynamicType() {
+			offset += Int32Size
+		} else {
+			offset += dat.elementType.GetFixedSize()
+		}
 	}
 
 	return result, nil

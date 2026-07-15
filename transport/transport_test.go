@@ -1,11 +1,37 @@
 package transport
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"reflect"
 	"testing"
 )
+
+type stubCaller struct {
+	err   error
+	calls int
+}
+
+func (c *stubCaller) Call(_ interface{}, _ string, _ ...interface{}) error {
+	c.calls++
+	return c.err
+}
+
+type stubContextCaller struct {
+	stubCaller
+	contextErr   error
+	contextCalls int
+}
+
+func (c *stubContextCaller) CallContext(_ context.Context, _ interface{}, _ string, _ ...interface{}) error {
+	c.contextCalls++
+	return c.contextErr
+}
+
+type emptyMessageError struct{}
+
+func (emptyMessageError) Error() string { return "" }
 
 type codedDataError struct{}
 
@@ -65,5 +91,89 @@ func TestNormalizeSubscriptionNotificationRejectsInvalidInput(t *testing.T) {
 		if _, err := NormalizeSubscriptionNotification(test.method, json.RawMessage(test.params)); err == nil {
 			t.Errorf("NormalizeSubscriptionNotification(%q, %s) accepted invalid input", test.method, test.params)
 		}
+	}
+}
+
+func TestNormalizingCallerCallPaths(t *testing.T) {
+	var nilWrapper *NormalizingCaller
+	if err := nilWrapper.Call(nil, "missing", 1); err == nil {
+		t.Fatal("nil wrapper call succeeded")
+	}
+	if err := NewNormalizingCaller(nil).Call(nil, "missing", 1); err == nil {
+		t.Fatal("nil underlying caller succeeded")
+	}
+
+	raw := new(stubCaller)
+	wrapper := NewNormalizingCaller(raw)
+	if err := wrapper.Call(nil, "ok", 1); err != nil {
+		t.Fatalf("success error = %v", err)
+	}
+	raw.err = errors.New("boom")
+	err := wrapper.Call(nil, "failure", 2)
+	var rpcErr *RPCError
+	if !errors.As(err, &rpcErr) || rpcErr.Method != "failure" || !reflect.DeepEqual(rpcErr.Parameters, []interface{}{2}) {
+		t.Fatalf("normalized error = %+v", err)
+	}
+}
+
+func TestNormalizingCallerContextPaths(t *testing.T) {
+	if err := (*NormalizingCaller)(nil).CallContext(context.Background(), nil, "missing"); err == nil {
+		t.Fatal("nil context wrapper call succeeded")
+	}
+
+	contextual := new(stubContextCaller)
+	wrapper := NewNormalizingCaller(contextual)
+	if err := wrapper.CallContext(context.Background(), nil, "ok"); err != nil {
+		t.Fatalf("context success error = %v", err)
+	}
+	if contextual.contextCalls != 1 || contextual.calls != 0 {
+		t.Fatalf("context calls = %d, ordinary calls = %d", contextual.contextCalls, contextual.calls)
+	}
+	contextual.contextErr = context.DeadlineExceeded
+	if err := wrapper.CallContext(context.Background(), nil, "failure"); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("context error = %v", err)
+	}
+
+	fallback := new(stubCaller)
+	wrapper = NewNormalizingCaller(fallback)
+	if err := wrapper.CallContext(context.Background(), nil, "fallback"); err != nil || fallback.calls != 1 {
+		t.Fatalf("fallback error = %v, calls = %d", err, fallback.calls)
+	}
+	canceled, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := wrapper.CallContext(canceled, nil, "canceled"); !errors.Is(err, context.Canceled) {
+		t.Fatalf("canceled error = %v", err)
+	}
+}
+
+func TestRPCErrorNilAndExistingErrorBehavior(t *testing.T) {
+	var nilErr *RPCError
+	if got := nilErr.Error(); got != "<nil>" {
+		t.Fatalf("nil Error() = %q", got)
+	}
+	if nilErr.Unwrap() != nil {
+		t.Fatal("nil Unwrap() returned a cause")
+	}
+	if NormalizeRPCError(nil, "method") != nil {
+		t.Fatal("nil input returned a normalized error")
+	}
+
+	cause := errors.New("cause")
+	existing := &RPCError{Code: 17, Message: "existing", Data: "data", Method: "old", Parameters: []interface{}{1}, Cause: cause}
+	copy := NormalizeRPCError(existing, "")
+	if copy == existing || copy.Code != 17 || copy.Method != "old" ||
+		!reflect.DeepEqual(copy.Parameters, []interface{}{1}) || !errors.Is(copy, existing) {
+		t.Fatalf("copied error = %+v", copy)
+	}
+
+	empty := NormalizeRPCError(emptyMessageError{}, "empty")
+	if empty.Message != "Unknown error occurred" || empty.Code != -1 {
+		t.Fatalf("empty-message normalization = %+v", empty)
+	}
+}
+
+func TestNormalizeSubscriptionNotificationMalformedJSON(t *testing.T) {
+	if _, err := NormalizeSubscriptionNotification("ledger.subscription", json.RawMessage(`{`)); err == nil {
+		t.Fatal("malformed notification was accepted")
 	}
 }

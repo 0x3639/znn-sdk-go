@@ -69,6 +69,13 @@ func DecodeList(params []Param, encoded []byte) ([]interface{}, error) {
 			if decodeErr != nil {
 				return nil, fmt.Errorf("failed to decode offset for param %s: %w", param.Name, decodeErr)
 			}
+			// The offset word is attacker-controlled: reject values that are
+			// negative, wider than int64 (Int64() would silently alias them),
+			// or that point past the last full word of the payload.
+			if offsetBig.Sign() < 0 || !offsetBig.IsInt64() ||
+				offsetBig.Int64() > int64(len(encoded)-Int32Size) {
+				return nil, fmt.Errorf("invalid offset for param %s: %s", param.Name, offsetBig)
+			}
 			dataOffset := int(offsetBig.Int64())
 
 			// Decode from the pointed location

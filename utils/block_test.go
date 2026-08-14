@@ -9,6 +9,24 @@ import (
 	"github.com/zenon-network/go-zenon/common/types"
 )
 
+func mustTxBytes(t *testing.T, block *nom.AccountBlock) []byte {
+	t.Helper()
+	b, err := GetTransactionBytes(block)
+	if err != nil {
+		t.Fatalf("GetTransactionBytes error = %v", err)
+	}
+	return b
+}
+
+func mustTxHash(t *testing.T, block *nom.AccountBlock) types.Hash {
+	t.Helper()
+	h, err := GetTransactionHash(block)
+	if err != nil {
+		t.Fatalf("GetTransactionHash error = %v", err)
+	}
+	return h
+}
+
 func TestIsSendBlock(t *testing.T) {
 	testCases := []struct {
 		blockType int
@@ -88,7 +106,7 @@ func createTestBlock() *nom.AccountBlock {
 
 func TestGetTransactionBytesLength(t *testing.T) {
 	block := createTestBlock()
-	bytes := GetTransactionBytes(block)
+	bytes := mustTxBytes(t, block)
 
 	// Total should be 306 bytes:
 	// version(8) + chainId(8) + blockType(8) + prevHash(32) + height(8) +
@@ -103,7 +121,7 @@ func TestGetTransactionBytesLength(t *testing.T) {
 
 func TestGetTransactionBytesFieldPositions(t *testing.T) {
 	block := createTestBlock()
-	bytes := GetTransactionBytes(block)
+	bytes := mustTxBytes(t, block)
 
 	// Verify field positions
 	// version: bytes 0-7 (8 bytes)
@@ -210,8 +228,8 @@ func TestGetTransactionHashConsistency(t *testing.T) {
 	block := createTestBlock()
 
 	// Multiple calls should produce the same hash
-	hash1 := GetTransactionHash(block)
-	hash2 := GetTransactionHash(block)
+	hash1 := mustTxHash(t, block)
+	hash2 := mustTxHash(t, block)
 
 	if hash1 != hash2 {
 		t.Error("GetTransactionHash should produce consistent results")
@@ -223,8 +241,8 @@ func TestGetTransactionHashDifferentBlocks(t *testing.T) {
 	block2 := createTestBlock()
 	block2.Height = 101 // Different height
 
-	hash1 := GetTransactionHash(block1)
-	hash2 := GetTransactionHash(block2)
+	hash1 := mustTxHash(t, block1)
+	hash2 := mustTxHash(t, block2)
 
 	if hash1 == hash2 {
 		t.Error("Different blocks should produce different hashes")
@@ -233,7 +251,7 @@ func TestGetTransactionHashDifferentBlocks(t *testing.T) {
 
 func TestGetTransactionHashIsValidHash(t *testing.T) {
 	block := createTestBlock()
-	hash := GetTransactionHash(block)
+	hash := mustTxHash(t, block)
 
 	// Hash should be 32 bytes
 	if len(hash.Bytes()) != 32 {
@@ -290,7 +308,7 @@ func TestGetTransactionBytesWithNilAmount(t *testing.T) {
 	block.Amount = nil // Test nil amount handling
 
 	// Should not panic
-	bytes := GetTransactionBytes(block)
+	bytes := mustTxBytes(t, block)
 
 	// Should still be 306 bytes
 	if len(bytes) != 306 {
@@ -302,7 +320,7 @@ func TestGetTransactionBytesWithEmptyData(t *testing.T) {
 	block := createTestBlock()
 	block.Data = []byte{}
 
-	bytes := GetTransactionBytes(block)
+	bytes := mustTxBytes(t, block)
 
 	// Should be 306 bytes
 	if len(bytes) != 306 {
@@ -321,7 +339,7 @@ func TestGetTransactionBytesWithData(t *testing.T) {
 	block := createTestBlock()
 	block.Data = []byte("test data for transaction")
 
-	bytes := GetTransactionBytes(block)
+	bytes := mustTxBytes(t, block)
 
 	// Should still be 306 bytes (data is hashed)
 	if len(bytes) != 306 {

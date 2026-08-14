@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"fmt"
 	"math/big"
 
 	"github.com/zenon-network/go-zenon/chain/nom"
@@ -77,19 +78,24 @@ func IsReceiveBlock(blockType int) bool {
 //   - block: The AccountBlock to serialize. Must have all fields populated.
 //     If Amount is nil, it will be treated as zero.
 //
-// Returns the 306-byte serialized representation of the block.
+// Returns the 306-byte serialized representation of the block, or an error if
+// the block's Amount is negative or does not fit in 32 unsigned bytes (such
+// amounts cannot be encoded injectively and are invalid on-chain).
 //
 // Example:
 //
 //	// Serialize a block for manual hashing
-//	bytes := utils.GetTransactionBytes(block)
+//	bytes, err := utils.GetTransactionBytes(block)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
 //	fmt.Printf("Serialized block: %d bytes\n", len(bytes)) // 306 bytes
 //
 // Note: This function is typically used internally by GetTransactionHash.
 // Most users should call GetTransactionHash directly.
 //
 // Reference: znn_sdk_dart/lib/src/utils/block.dart:31-70
-func GetTransactionBytes(block *nom.AccountBlock) []byte {
+func GetTransactionBytes(block *nom.AccountBlock) ([]byte, error) {
 	versionBytes := Uint64ToBytes(block.Version)
 	chainIdentifierBytes := Uint64ToBytes(block.ChainIdentifier)
 	blockTypeBytes := Uint64ToBytes(block.BlockType)
@@ -110,7 +116,10 @@ func GetTransactionBytes(block *nom.AccountBlock) []byte {
 	if amount == nil {
 		amount = big.NewInt(0)
 	}
-	amountBytes := BigIntToBytes(amount, 32)
+	amountBytes, err := BigIntToBytes(amount, 32)
+	if err != nil {
+		return nil, fmt.Errorf("invalid block amount: %w", err)
+	}
 
 	tokenStandardBytes := block.TokenStandard.Bytes()
 	fromBlockHashBytes := block.FromBlockHash.Bytes()
@@ -144,7 +153,7 @@ func GetTransactionBytes(block *nom.AccountBlock) []byte {
 		fusedPlasmaBytes,
 		difficultyBytes,
 		nonceBytes,
-	})
+	}), nil
 }
 
 // GetTransactionHash computes the transaction hash for an AccountBlock.
@@ -163,7 +172,8 @@ func GetTransactionBytes(block *nom.AccountBlock) []byte {
 // Parameters:
 //   - block: The AccountBlock to hash (must be fully populated)
 //
-// Returns the transaction hash (which equals the entry ID).
+// Returns the transaction hash (which equals the entry ID), or an error if
+// the block's Amount cannot be encoded (see GetTransactionBytes).
 //
 // Example - Predicting a stake ID:
 //
@@ -174,15 +184,22 @@ func GetTransactionBytes(block *nom.AccountBlock) []byte {
 //	// ... populate template fields ...
 //
 //	// Compute the ID before sending
-//	stakeId := utils.GetTransactionHash(template)
+//	stakeId, err := utils.GetTransactionHash(template)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
 //	fmt.Println("Stake will have ID:", stakeId.String())
 //
 //	// Now send the transaction
 //	// The on-chain stake entry will have this ID
 //
 // Reference: znn_sdk_dart/lib/src/utils/block.dart:27-29
-func GetTransactionHash(block *nom.AccountBlock) types.Hash {
-	return HashDigest(GetTransactionBytes(block))
+func GetTransactionHash(block *nom.AccountBlock) (types.Hash, error) {
+	bytes, err := GetTransactionBytes(block)
+	if err != nil {
+		return types.Hash{}, err
+	}
+	return HashDigest(bytes), nil
 }
 
 // GetPoWData computes the data hash used for PoW generation.

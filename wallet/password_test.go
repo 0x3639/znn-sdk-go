@@ -17,7 +17,7 @@ func TestValidatePassword_Valid(t *testing.T) {
 		"password123",                        // Mixed alphanumeric
 		"MyP@ssw0rd",                         // Mixed with special chars
 		"a very long passphrase with spaces", // Long phrase
-		"こんにちは世界",                            // Unicode characters
+		"こんにちは世界です",                          // Unicode characters (9 runes)
 	}
 
 	for _, password := range validPasswords {
@@ -225,20 +225,19 @@ func TestCountCharacterClasses(t *testing.T) {
 // =============================================================================
 
 func TestValidatePassword_Unicode(t *testing.T) {
-	// Unicode passwords should work fine
+	// Unicode passwords should work fine (length is counted in characters,
+	// not bytes, so each must have at least MinPasswordLength runes)
 	unicodePasswords := []string{
-		"こんにちは世界",    // Japanese
-		"Привет123",  // Russian + numbers
-		"🔐🔑🗝️12345",  // Emojis + numbers
-		"café☕️pass", // Mixed
+		"こんにちは世界です",   // Japanese (9 runes)
+		"Привет123",   // Russian + numbers
+		"🔐🔑🗝️12345",   // Emojis + numbers
+		"café☕️pass1", // Mixed
 	}
 
 	for _, password := range unicodePasswords {
-		if len(password) >= MinPasswordLength {
-			err := ValidatePassword(password)
-			if err != nil {
-				t.Errorf("ValidatePassword(%q) should accept unicode: %v", password, err)
-			}
+		err := ValidatePassword(password)
+		if err != nil {
+			t.Errorf("ValidatePassword(%q) should accept unicode: %v", password, err)
 		}
 	}
 }

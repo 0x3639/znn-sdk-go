@@ -3,6 +3,7 @@ package wallet
 import (
 	"crypto/ed25519"
 	"runtime"
+	"sync"
 
 	"github.com/0x3639/znn-sdk-go/crypto"
 	"github.com/zenon-network/go-zenon/common/types"
@@ -25,8 +26,13 @@ func zeroBytes(b []byte) {
 	runtime.KeepAlive(b)
 }
 
-// KeyPair represents an Ed25519 key pair with address
+// KeyPair represents an Ed25519 key pair with address.
+//
+// A KeyPair is safe for concurrent use: the lazy derivation of the public
+// key and address, signing, and Destroy are all serialized by an internal
+// mutex.
 type KeyPair struct {
+	mu         sync.Mutex
 	privateKey []byte
 	publicKey  []byte
 	address    *types.Address
@@ -52,11 +58,21 @@ func NewKeyPairFromSeed(seed []byte) (*KeyPair, error) {
 
 // GetPrivateKey returns the private key bytes
 func (kp *KeyPair) GetPrivateKey() []byte {
+	kp.mu.Lock()
+	defer kp.mu.Unlock()
 	return kp.privateKey
 }
 
 // GetPublicKey returns the public key, deriving it if necessary
 func (kp *KeyPair) GetPublicKey() ([]byte, error) {
+	kp.mu.Lock()
+	defer kp.mu.Unlock()
+	return kp.getPublicKeyLocked()
+}
+
+// getPublicKeyLocked derives and caches the public key.
+// The caller must hold kp.mu.
+func (kp *KeyPair) getPublicKeyLocked() ([]byte, error) {
 	if kp.publicKey == nil {
 		pubKey, err := crypto.GetPublicKey(kp.privateKey)
 		if err != nil {
@@ -69,8 +85,10 @@ func (kp *KeyPair) GetPublicKey() ([]byte, error) {
 
 // GetAddress returns the Zenon address, deriving it if necessary
 func (kp *KeyPair) GetAddress() (*types.Address, error) {
+	kp.mu.Lock()
+	defer kp.mu.Unlock()
 	if kp.address == nil {
-		pubKey, err := kp.GetPublicKey()
+		pubKey, err := kp.getPublicKeyLocked()
 		if err != nil {
 			return nil, err
 		}
@@ -84,6 +102,8 @@ func (kp *KeyPair) GetAddress() (*types.Address, error) {
 
 // Sign signs a message with the private key
 func (kp *KeyPair) Sign(message []byte) ([]byte, error) {
+	kp.mu.Lock()
+	defer kp.mu.Unlock()
 	return crypto.Sign(message, kp.privateKey)
 }
 
@@ -110,6 +130,9 @@ func (kp *KeyPair) Verify(signature []byte, message []byte) (bool, error) {
 //	defer kp.Destroy()  // Ensure cleanup even if function panics
 //	// ... use keypair for signing ...
 func (kp *KeyPair) Destroy() {
+	kp.mu.Lock()
+	defer kp.mu.Unlock()
+
 	// Zero out private key bytes using secure zeroing
 	if kp.privateKey != nil {
 		zeroBytes(kp.privateKey)

@@ -122,6 +122,9 @@ func (f *FusionEntryList) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &aux); err != nil {
 		return err
 	}
+	if err := requireNoNilEntries("fusion", aux.List); err != nil {
+		return err
+	}
 	f.QsrAmount = common.StringToBigInt(aux.QsrAmount)
 	f.Count = aux.Count
 	f.List = aux.List

@@ -277,13 +277,16 @@ func TestEmbeddedTransactionBuildersProduceSendBlocks(t *testing.T) {
 }
 
 func TestEmbeddedCustomJSONTypesDecodeStringAmounts(t *testing.T) {
+	// PillarInfo and Project require nested fields (currentStats, votes) that
+	// the node always populates, matching the Dart reference; they reject an
+	// empty object and are covered separately below.
 	typesUnderTest := []json.Unmarshaler{
-		new(UncollectedReward), new(RewardHistoryEntry), new(PillarInfo),
+		new(UncollectedReward), new(RewardHistoryEntry),
 		new(PillarEpochHistory), new(DelegationInfo), new(StakeEntry),
 		new(StakeList), new(PlasmaInfo), new(FusionEntry), new(FusionEntryList),
 		new(Token), new(TokenTuple), new(LiquidityInfo), new(LiquidityStakeEntry),
 		new(LiquidityStakeList), new(TokenPair), new(WrapTokenRequest),
-		new(UnwrapTokenRequest), new(ZtsFeesInfo), new(PhaseInfo), new(Project),
+		new(UnwrapTokenRequest), new(ZtsFeesInfo), new(PhaseInfo),
 		new(SwapAssetEntry), new(SwapAssetEntrySimple), new(HtlcInfo),
 	}
 
@@ -292,6 +295,15 @@ func TestEmbeddedCustomJSONTypesDecodeStringAmounts(t *testing.T) {
 			if err := value.UnmarshalJSON([]byte(`{}`)); err != nil {
 				t.Fatalf("empty object: %v", err)
 			}
+			if err := value.UnmarshalJSON([]byte(`{`)); err == nil {
+				t.Fatal("malformed JSON was accepted")
+			}
+		})
+	}
+
+	// The strict types still reject malformed JSON.
+	for _, value := range []json.Unmarshaler{new(PillarInfo), new(Project)} {
+		t.Run(fmt.Sprintf("%T/malformed", value), func(t *testing.T) {
 			if err := value.UnmarshalJSON([]byte(`{`)); err == nil {
 				t.Fatal("malformed JSON was accepted")
 			}

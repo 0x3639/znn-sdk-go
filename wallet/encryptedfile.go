@@ -293,6 +293,19 @@ func (params *Argon2Params) matches(target crypto.Argon2Parameters) bool {
 		params.HashLength == target.KeyLength && params.Parallelism == target.Parallelism
 }
 
+// Upper bounds for the Argon2 cost parameters read from a keystore file.
+// The costs are attacker-controlled whenever a keystore is imported:
+// argon2.IDKey allocates MemoryCost KiB and loops TimeCost times, so a
+// crafted key file with huge costs would exhaust memory or CPU during a
+// routine wallet import (CWE-400). The limits are generous multiples of the
+// 64 MiB / 1-iteration defaults so legitimately hardened keystores still load.
+const (
+	// MaxArgon2TimeCost is the maximum accepted Argon2 iteration count.
+	MaxArgon2TimeCost = 64
+	// MaxArgon2MemoryCost is the maximum accepted Argon2 memory cost in KiB (2 GiB).
+	MaxArgon2MemoryCost = 2 * 1024 * 1024
+)
+
 func (ef *EncryptedFile) argon2Parameters() (crypto.Argon2Parameters, error) {
 	defaults := crypto.DefaultArgon2Parameters()
 	stored := ef.Crypto.Argon2Params
@@ -316,6 +329,12 @@ func (ef *EncryptedFile) argon2Parameters() (crypto.Argon2Parameters, error) {
 	}
 	if params.KeyLength != 32 {
 		return crypto.Argon2Parameters{}, fmt.Errorf("invalid AES-256 key length: got %d, want 32", params.KeyLength)
+	}
+	if params.Iterations > MaxArgon2TimeCost {
+		return crypto.Argon2Parameters{}, fmt.Errorf("argon2 time cost %d exceeds maximum %d", params.Iterations, MaxArgon2TimeCost)
+	}
+	if params.Memory > MaxArgon2MemoryCost {
+		return crypto.Argon2Parameters{}, fmt.Errorf("argon2 memory cost %d KiB exceeds maximum %d KiB", params.Memory, MaxArgon2MemoryCost)
 	}
 	return params, nil
 }

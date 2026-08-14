@@ -119,6 +119,10 @@ const (
 
 	// TokenSymbolMaxLength is the maximum length for token symbols
 	TokenSymbolMaxLength = 10
+
+	// TokenDomainMaxLength is the maximum length for token domains,
+	// matching go-zenon's constants.TokenDomainLengthMax
+	TokenDomainMaxLength = 128
 )
 
 var (

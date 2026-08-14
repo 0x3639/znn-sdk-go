@@ -212,7 +212,11 @@ func (z *Zenon) setDifficulty(transaction *nom.AccountBlock) error {
 //
 // Reference: znn_sdk_dart/lib/src/utils/block.dart:_setHashAndSignature
 func (z *Zenon) setHashAndSignature(transaction *nom.AccountBlock, keyPair *wallet.KeyPair) error {
-	transaction.Hash = utils.GetTransactionHash(transaction)
+	hash, err := utils.GetTransactionHash(transaction)
+	if err != nil {
+		return fmt.Errorf("failed to compute transaction hash: %w", err)
+	}
+	transaction.Hash = hash
 
 	signature, err := keyPair.Sign(transaction.Hash.Bytes())
 	if err != nil {

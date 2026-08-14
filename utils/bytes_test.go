@@ -102,7 +102,10 @@ func TestBigIntRoundTrip(t *testing.T) {
 func TestBigIntToBytes(t *testing.T) {
 	// Test with 32 bytes
 	val := big.NewInt(42)
-	result := BigIntToBytes(val, 32)
+	result, err := BigIntToBytes(val, 32)
+	if err != nil {
+		t.Fatalf("BigIntToBytes error = %v", err)
+	}
 
 	if len(result) != 32 {
 		t.Errorf("len(result) = %d, want 32", len(result))
@@ -123,7 +126,10 @@ func TestBigIntToBytes(t *testing.T) {
 
 func TestBigIntToBytesSigned_Positive(t *testing.T) {
 	val := big.NewInt(42)
-	result := BigIntToBytesSigned(val, 4)
+	result, err := BigIntToBytesSigned(val, 4)
+	if err != nil {
+		t.Fatalf("BigIntToBytesSigned error = %v", err)
+	}
 
 	if len(result) != 4 {
 		t.Errorf("len(result) = %d, want 4", len(result))
@@ -137,7 +143,10 @@ func TestBigIntToBytesSigned_Positive(t *testing.T) {
 
 func TestBigIntToBytesSigned_Negative(t *testing.T) {
 	val := big.NewInt(-1)
-	result := BigIntToBytesSigned(val, 4)
+	result, err := BigIntToBytesSigned(val, 4)
+	if err != nil {
+		t.Fatalf("BigIntToBytesSigned error = %v", err)
+	}
 
 	if len(result) != 4 {
 		t.Errorf("len(result) = %d, want 4", len(result))

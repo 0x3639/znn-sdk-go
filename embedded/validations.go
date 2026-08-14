@@ -53,6 +53,10 @@ func ValidateTokenDomain(value string) error {
 		return fmt.Errorf("token domain cannot be empty")
 	}
 
+	if len(value) > TokenDomainMaxLength {
+		return fmt.Errorf("token domain must have maximum %d characters", TokenDomainMaxLength)
+	}
+
 	if !TokenDomainRegExp.MatchString(value) {
 		return fmt.Errorf("domain is not valid")
 	}

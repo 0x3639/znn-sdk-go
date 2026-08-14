@@ -110,6 +110,9 @@ func (s *StakeList) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &aux); err != nil {
 		return err
 	}
+	if err := requireNoNilEntries("stake", aux.List); err != nil {
+		return err
+	}
 	s.TotalAmount = common.StringToBigInt(aux.TotalAmount)
 	s.TotalWeightedAmount = common.StringToBigInt(aux.TotalWeightedAmount)
 	s.Count = aux.Count

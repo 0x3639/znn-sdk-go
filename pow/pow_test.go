@@ -355,7 +355,10 @@ func TestGeneratePowBytes_ReturnsBytes(t *testing.T) {
 // =============================================================================
 
 func TestBenchmarkPoW_LowDifficulty(t *testing.T) {
-	nonce, iterations := BenchmarkPoW(10)
+	nonce, iterations, err := BenchmarkPoW(10)
+	if err != nil {
+		t.Fatalf("BenchmarkPoW(10) error = %v", err)
+	}
 
 	if len(nonce) != 16 {
 		t.Errorf("BenchmarkPoW() nonce length = %d, want 16", len(nonce))
@@ -369,7 +372,10 @@ func TestBenchmarkPoW_LowDifficulty(t *testing.T) {
 }
 
 func TestBenchmarkPoW_MediumDifficulty(t *testing.T) {
-	nonce, iterations := BenchmarkPoW(1000)
+	nonce, iterations, err := BenchmarkPoW(1000)
+	if err != nil {
+		t.Fatalf("BenchmarkPoW(1000) error = %v", err)
+	}
 
 	if len(nonce) != 16 {
 		t.Errorf("BenchmarkPoW() nonce length = %d, want 16", len(nonce))
@@ -384,8 +390,11 @@ func TestBenchmarkPoW_MediumDifficulty(t *testing.T) {
 
 func TestBenchmarkPoW_Deterministic(t *testing.T) {
 	// BenchmarkPoW uses a fixed hash, so should be deterministic
-	nonce1, iter1 := BenchmarkPoW(100)
-	nonce2, iter2 := BenchmarkPoW(100)
+	nonce1, iter1, err1 := BenchmarkPoW(100)
+	nonce2, iter2, err2 := BenchmarkPoW(100)
+	if err1 != nil || err2 != nil {
+		t.Fatalf("BenchmarkPoW(100) errors = %v, %v", err1, err2)
+	}
 
 	if nonce1 != nonce2 {
 		t.Error("BenchmarkPoW() should be deterministic")

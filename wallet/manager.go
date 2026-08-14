@@ -12,6 +12,29 @@ type KeyStoreManager struct {
 	WalletPath string
 }
 
+// validateKeyStoreName ensures a caller-supplied wallet name resolves to a
+// single file directly inside the managed wallet directory.
+//
+// Wallet names reach this package from CLIs and wallet backends, so they must
+// be treated as untrusted input: a name containing path separators or ".."
+// components would let filepath.Join escape the wallet directory and read or
+// overwrite arbitrary files (CWE-22).
+//
+// Returns an error if the name is empty, contains a path separator, or is a
+// relative path component ("." or "..").
+func validateKeyStoreName(name string) error {
+	if name == "" {
+		return fmt.Errorf("name cannot be empty")
+	}
+	if name == "." || name == ".." {
+		return fmt.Errorf("invalid keystore name: %q", name)
+	}
+	if strings.ContainsAny(name, `/\`) || name != filepath.Base(name) {
+		return fmt.Errorf("keystore name must not contain path separators: %q", name)
+	}
+	return nil
+}
+
 // NewKeyStoreManager creates a new keystore manager for managing encrypted wallet files
 // in the specified directory.
 //
@@ -84,8 +107,8 @@ func (m *KeyStoreManager) SaveKeyStore(store *KeyStore, password, name string) e
 		return fmt.Errorf("invalid password: %w", err)
 	}
 
-	if name == "" {
-		return fmt.Errorf("name cannot be empty")
+	if err := validateKeyStoreName(name); err != nil {
+		return err
 	}
 
 	// Get base address for metadata
@@ -160,15 +183,15 @@ func (m *KeyStoreManager) ReadKeyStore(password string, keyStoreFile string) (*K
 		return nil, fmt.Errorf("password cannot be empty")
 	}
 
-	if keyStoreFile == "" {
-		return nil, fmt.Errorf("keystore file cannot be empty")
+	if err := validateKeyStoreName(keyStoreFile); err != nil {
+		return nil, err
 	}
 
 	// Construct file path
 	filePath := filepath.Join(m.WalletPath, keyStoreFile)
 
 	// Read file
-	// #nosec G304 - filePath is constructed from controlled wallet directory
+	// #nosec G304 - keyStoreFile is confined to the wallet directory by validateKeyStoreName
 	jsonData, err := os.ReadFile(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read keystore file: %w", err)
@@ -192,8 +215,8 @@ func (m *KeyStoreManager) ReadKeyStore(password string, keyStoreFile string) (*K
 // FindKeyStore searches for a keystore file by name
 // Returns the filename if found, empty string if not found
 func (m *KeyStoreManager) FindKeyStore(name string) (string, error) {
-	if name == "" {
-		return "", fmt.Errorf("name cannot be empty")
+	if err := validateKeyStoreName(name); err != nil {
+		return "", err
 	}
 
 	// Try exact match first
@@ -336,15 +359,15 @@ func (m *KeyStoreManager) CreateFromMnemonic(mnemonic, passphrase, name string) 
 
 // GetKeystoreInfo reads metadata from a keystore file without decrypting
 func (m *KeyStoreManager) GetKeystoreInfo(keyStoreFile string) (map[string]interface{}, error) {
-	if keyStoreFile == "" {
-		return nil, fmt.Errorf("keystore file cannot be empty")
+	if err := validateKeyStoreName(keyStoreFile); err != nil {
+		return nil, err
 	}
 
 	// Construct file path
 	filePath := filepath.Join(m.WalletPath, keyStoreFile)
 
 	// Read file
-	// #nosec G304 - filePath is constructed from controlled wallet directory
+	// #nosec G304 - keyStoreFile is confined to the wallet directory by validateKeyStoreName
 	jsonData, err := os.ReadFile(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read keystore file: %w", err)

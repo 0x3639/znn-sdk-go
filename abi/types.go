@@ -190,7 +190,9 @@ func EncodeIntBig(bigInt *big.Int) []byte {
 
 // DecodeInt decodes a signed integer from encoded bytes at offset
 func DecodeInt(encoded []byte, offset int) (*big.Int, error) {
-	if len(encoded) < offset+Int32Size {
+	// The comparison must be overflow-safe: offset may be attacker-controlled,
+	// so offset+Int32Size could wrap around and bypass a naive length check.
+	if offset < 0 || offset > len(encoded)-Int32Size {
 		return nil, fmt.Errorf("insufficient bytes for decoding int")
 	}
 
@@ -835,7 +837,7 @@ func (bt *BytesType) Encode(value interface{}) ([]byte, error) {
 
 // Decode decodes dynamic bytes from encoded data at offset
 func (bt *BytesType) Decode(encoded []byte, offset int) (interface{}, error) {
-	if len(encoded) < offset+Int32Size {
+	if offset < 0 || offset > len(encoded)-Int32Size {
 		return nil, fmt.Errorf("insufficient bytes for decoding bytes length")
 	}
 
@@ -845,19 +847,21 @@ func (bt *BytesType) Decode(encoded []byte, offset int) (interface{}, error) {
 		return nil, fmt.Errorf("failed to decode bytes length: %w", err)
 	}
 
-	length := int(lengthBig.Int64())
-	if length < 0 {
-		return nil, fmt.Errorf("invalid bytes length: %d", length)
+	if lengthBig.Sign() < 0 {
+		return nil, fmt.Errorf("invalid bytes length: %s", lengthBig)
 	}
+
+	// The length word is attacker-controlled: it must fit in an int64 and the
+	// available bytes without truncation, and the bounds comparison must not
+	// rely on dataOffset+length, which can overflow int.
+	dataOffset := offset + Int32Size
+	if !lengthBig.IsInt64() || lengthBig.Int64() > int64(len(encoded)-dataOffset) {
+		return nil, fmt.Errorf("insufficient bytes for decoding bytes data")
+	}
+	length := int(lengthBig.Int64())
 
 	if length == 0 {
 		return []byte{}, nil
-	}
-
-	// Check if we have enough bytes for the data
-	dataOffset := offset + Int32Size
-	if len(encoded) < dataOffset+length {
-		return nil, fmt.Errorf("insufficient bytes for decoding bytes data")
 	}
 
 	// Extract data
@@ -1166,7 +1170,10 @@ func (sat *StaticArrayType) DecodeTuple(encoded []byte, origOffset int, length i
 			if err != nil {
 				return nil, fmt.Errorf("failed to decode offset for element %d: %w", i, err)
 			}
-			elemOffset := origOffset + int(offsetBig.Int64())
+			elemOffset, err := elementDataOffset(encoded, origOffset, offsetBig)
+			if err != nil {
+				return nil, fmt.Errorf("invalid offset for element %d: %w", i, err)
+			}
 
 			decoded, err := sat.elementType.Decode(encoded, elemOffset)
 			if err != nil {
@@ -1348,13 +1355,22 @@ func (dat *DynamicArrayType) Decode(encoded []byte, origOffset int) (interface{}
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode array length: %w", err)
 	}
-	length := int(lengthBig.Int64())
-	if length < 0 {
-		return nil, fmt.Errorf("invalid array length: %d", length)
+	if lengthBig.Sign() < 0 {
+		return nil, fmt.Errorf("invalid array length: %s", lengthBig)
 	}
 
 	// Move past length
-	origOffset += 32
+	origOffset += Int32Size
+
+	// The length word is attacker-controlled and is used to size the result
+	// allocation, so bound it by the payload: every element of a well-formed
+	// encoding consumes at least Int32Size bytes after the length word.
+	maxElements := int64(len(encoded)-origOffset) / Int32Size
+	if !lengthBig.IsInt64() || lengthBig.Int64() > maxElements {
+		return nil, fmt.Errorf("array length %s exceeds available data", lengthBig)
+	}
+	length := int(lengthBig.Int64())
+
 	offset := origOffset
 	result := make([]interface{}, length)
 
@@ -1365,7 +1381,10 @@ func (dat *DynamicArrayType) Decode(encoded []byte, origOffset int) (interface{}
 			if err != nil {
 				return nil, fmt.Errorf("failed to decode offset for element %d: %w", i, err)
 			}
-			elemOffset := origOffset + int(offsetBig.Int64())
+			elemOffset, err := elementDataOffset(encoded, origOffset, offsetBig)
+			if err != nil {
+				return nil, fmt.Errorf("invalid offset for element %d: %w", i, err)
+			}
 
 			decoded, err := dat.elementType.Decode(encoded, elemOffset)
 			if err != nil {
@@ -1402,7 +1421,10 @@ func (dat *DynamicArrayType) DecodeTuple(encoded []byte, origOffset int, length 
 			if err != nil {
 				return nil, fmt.Errorf("failed to decode offset for element %d: %w", i, err)
 			}
-			elemOffset := origOffset + int(offsetBig.Int64())
+			elemOffset, err := elementDataOffset(encoded, origOffset, offsetBig)
+			if err != nil {
+				return nil, fmt.Errorf("invalid offset for element %d: %w", i, err)
+			}
 
 			decoded, err := dat.elementType.Decode(encoded, elemOffset)
 			if err != nil {
@@ -1425,6 +1447,24 @@ func (dat *DynamicArrayType) DecodeTuple(encoded []byte, origOffset int, length 
 	}
 
 	return result, nil
+}
+
+// elementDataOffset validates an attacker-controlled relative offset word and
+// returns the absolute offset of an array element's data. The element data
+// must begin with at least one 32-byte word inside the encoded payload.
+func elementDataOffset(encoded []byte, origOffset int, relOffset *big.Int) (int, error) {
+	if relOffset.Sign() < 0 || !relOffset.IsInt64() || relOffset.Int64() > int64(len(encoded)) {
+		return 0, fmt.Errorf("element offset %s out of range", relOffset)
+	}
+	if origOffset < 0 || origOffset > len(encoded) {
+		return 0, fmt.Errorf("element base offset %d out of range", origOffset)
+	}
+	// Both operands are bounded by len(encoded), so the sum cannot overflow.
+	elemOffset := origOffset + int(relOffset.Int64())
+	if elemOffset > len(encoded)-Int32Size {
+		return 0, fmt.Errorf("element offset %s out of range", relOffset)
+	}
+	return elemOffset, nil
 }
 
 // =============================================================================

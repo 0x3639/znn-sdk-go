@@ -21,12 +21,17 @@ type ConnectionLostCallback func(err error)
 
 // RpcClient wraps go-zenon's RPC client with connection management
 type RpcClient struct {
-	// Connection management
-	client     *server.Client
-	caller     *transport.NormalizingCaller
-	url        string
-	status     WebsocketStatus
-	statusLock sync.RWMutex
+	// Connection management. lifecycleLock guards the mutable connection
+	// lifecycle fields below (client, caller, currentAttempt, reconnectCtx,
+	// reconnectCtxCancel, stopped), which are accessed from the constructor,
+	// the reconnect goroutine, the health monitor, and Stop/Restart.
+	lifecycleLock sync.Mutex
+	client        *server.Client
+	caller        *transport.NormalizingCaller
+	stopped       bool // latched by Stop(); prevents reconnect resurrection
+	url           string
+	status        WebsocketStatus
+	statusLock    sync.RWMutex
 
 	// Auto-reconnect configuration
 	autoReconnect      bool
@@ -187,13 +192,15 @@ func NewRpcClientWithOptions(url string, opts ClientOptions) (*RpcClient, error)
 	}
 
 	c := &RpcClient{
-		url:                     normalized,
-		status:                  Uninitialized,
-		autoReconnect:           opts.AutoReconnect,
-		reconnectDelay:          opts.ReconnectDelay,
-		maxReconnectDelay:       opts.MaxReconnectDelay,
-		reconnectAttempts:       opts.ReconnectAttempts,
-		stopReconnectChan:       make(chan struct{}),
+		url:               normalized,
+		status:            Uninitialized,
+		autoReconnect:     opts.AutoReconnect,
+		reconnectDelay:    opts.ReconnectDelay,
+		maxReconnectDelay: opts.MaxReconnectDelay,
+		reconnectAttempts: opts.ReconnectAttempts,
+		// Buffered so Stop()'s signal is never dropped when the reconnect
+		// goroutine is not currently parked in a receive.
+		stopReconnectChan:       make(chan struct{}, 1),
 		onConnectionEstablished: make([]ConnectionEstablishedCallback, 0),
 		onConnectionLost:        make([]ConnectionLostCallback, 0),
 		healthCheckCmd:          opts.HealthCheckCommand,
@@ -223,11 +230,25 @@ func (c *RpcClient) connect() error {
 		return fmt.Errorf("failed to connect to %s: %w", c.url, err)
 	}
 
+	// server.Dial can return after Stop() latched the client. Publish the new
+	// connection and read the stopped latch atomically so a late reconnect can
+	// never resurrect a stopped client; abandon the connection if it lost the
+	// race.
+	c.lifecycleLock.Lock()
+	if c.stopped {
+		c.lifecycleLock.Unlock()
+		client.Close()
+		c.setStatus(Stopped)
+		return fmt.Errorf("rpc client stopped during connect")
+	}
+	caller := transport.NewNormalizingCaller(client)
 	c.client = client
-	c.caller = transport.NewNormalizingCaller(client)
-	c.initializeAPIs()
-	c.setStatus(Running)
+	c.caller = caller
 	c.currentAttempt = 0
+	c.lifecycleLock.Unlock()
+
+	c.initializeAPIs(client, caller)
+	c.setStatus(Running)
 
 	// Trigger connection established callbacks
 	c.triggerConnectionEstablished()
@@ -235,25 +256,27 @@ func (c *RpcClient) connect() error {
 	return nil
 }
 
-// initializeAPIs creates all API instances with thread-safe locking
-func (c *RpcClient) initializeAPIs() {
+// initializeAPIs creates all API instances with thread-safe locking.
+// The client and caller are passed in (rather than read from the struct) so
+// that a concurrent Stop() niling those fields cannot race this method.
+func (c *RpcClient) initializeAPIs(client *server.Client, caller *transport.NormalizingCaller) {
 	c.apiLock.Lock()
 	defer c.apiLock.Unlock()
 
-	c.AcceleratorApi = embedded.NewAcceleratorApi(c.caller)
-	c.BridgeApi = embedded.NewBridgeApi(c.caller)
-	c.PillarApi = embedded.NewPillarApi(c.caller)
-	c.PlasmaApi = embedded.NewPlasmaApi(c.caller)
-	c.SentinelApi = embedded.NewSentinelApi(c.caller)
-	c.SporkApi = embedded.NewSporkApi(c.caller)
-	c.StakeApi = embedded.NewStakeApi(c.caller)
-	c.SwapApi = embedded.NewSwapApi(c.caller)
-	c.TokenApi = embedded.NewTokenApi(c.caller)
-	c.LiquidityApi = embedded.NewLiquidityApi(c.caller)
-	c.HtlcApi = embedded.NewHtlcApi(c.caller)
-	c.LedgerApi = api.NewLedgerApi(c.caller)
-	c.StatsApi = api.NewStatsApi(c.caller)
-	c.SubscriberApi = api.NewSubscriberApi(c.client)
+	c.AcceleratorApi = embedded.NewAcceleratorApi(caller)
+	c.BridgeApi = embedded.NewBridgeApi(caller)
+	c.PillarApi = embedded.NewPillarApi(caller)
+	c.PlasmaApi = embedded.NewPlasmaApi(caller)
+	c.SentinelApi = embedded.NewSentinelApi(caller)
+	c.SporkApi = embedded.NewSporkApi(caller)
+	c.StakeApi = embedded.NewStakeApi(caller)
+	c.SwapApi = embedded.NewSwapApi(caller)
+	c.TokenApi = embedded.NewTokenApi(caller)
+	c.LiquidityApi = embedded.NewLiquidityApi(caller)
+	c.HtlcApi = embedded.NewHtlcApi(caller)
+	c.LedgerApi = api.NewLedgerApi(caller)
+	c.StatsApi = api.NewStatsApi(caller)
+	c.SubscriberApi = api.NewSubscriberApi(client)
 }
 
 // Status returns the current WebSocket connection status.
@@ -416,8 +439,15 @@ func (c *RpcClient) performHealthCheck() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
+	c.lifecycleLock.Lock()
+	caller := c.caller
+	c.lifecycleLock.Unlock()
+	if caller == nil {
+		return
+	}
+
 	var result interface{}
-	err := c.caller.CallContext(ctx, &result, c.healthCheckCmd)
+	err := caller.CallContext(ctx, &result, c.healthCheckCmd)
 	if err != nil {
 		// Connection appears to be lost
 		c.handleConnectionLoss(fmt.Errorf("health check failed: %w", err))
@@ -433,16 +463,19 @@ func (c *RpcClient) handleConnectionLoss(err error) {
 	c.setStatus(Stopped)
 
 	// Close the old client
+	c.lifecycleLock.Lock()
 	if c.client != nil {
 		c.client.Close()
 		c.client = nil
 	}
+	stopped := c.stopped
+	c.lifecycleLock.Unlock()
 
 	// Trigger connection lost callbacks
 	c.triggerConnectionLost(err)
 
-	// Start reconnection if enabled
-	if c.autoReconnect {
+	// Start reconnection if enabled and the client was not intentionally stopped
+	if c.autoReconnect && !stopped {
 		go c.startReconnect()
 	}
 }
@@ -456,27 +489,42 @@ func (c *RpcClient) startReconnect() {
 	}
 	defer c.reconnectLock.Unlock()
 
-	c.reconnectCtx, c.reconnectCtxCancel = context.WithCancel(context.Background())
-	defer c.reconnectCtxCancel()
+	c.lifecycleLock.Lock()
+	if c.stopped {
+		c.lifecycleLock.Unlock()
+		return
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	c.reconnectCtx = ctx
+	c.reconnectCtxCancel = cancel
+	c.currentAttempt = 0
+	c.lifecycleLock.Unlock()
+	defer cancel()
 
 	delay := c.reconnectDelay
-	c.currentAttempt = 0
 
 	for {
+		// Stop() latches c.stopped; check it directly so the loop terminates
+		// even if the channel/context signals were missed.
+		if c.isStopped() {
+			return
+		}
 		select {
 		case <-c.stopReconnectChan:
 			return
-		case <-c.reconnectCtx.Done():
+		case <-ctx.Done():
 			return
 		default:
 		}
 
 		// Check if we've exceeded max attempts
+		c.lifecycleLock.Lock()
 		if c.reconnectAttempts > 0 && c.currentAttempt >= c.reconnectAttempts {
+			c.lifecycleLock.Unlock()
 			return
 		}
-
 		c.currentAttempt++
+		c.lifecycleLock.Unlock()
 
 		// Attempt to reconnect
 		if err := c.connect(); err == nil {
@@ -489,7 +537,7 @@ func (c *RpcClient) startReconnect() {
 		timer := time.NewTimer(delay)
 		select {
 		case <-timer.C:
-		case <-c.reconnectCtx.Done():
+		case <-ctx.Done():
 			timer.Stop()
 			return
 		case <-c.stopReconnectChan:
@@ -503,10 +551,26 @@ func (c *RpcClient) startReconnect() {
 	}
 }
 
-// Restart manually triggers a reconnection
+// isStopped reports whether Stop() has latched the client.
+func (c *RpcClient) isStopped() bool {
+	c.lifecycleLock.Lock()
+	defer c.lifecycleLock.Unlock()
+	return c.stopped
+}
+
+// Restart manually triggers a reconnection.
+//
+// Restart is the only sanctioned way to reuse a client after Stop(): it clears
+// the stopped latch that Stop() set before re-establishing the connection.
 func (c *RpcClient) Restart() error {
 	c.Stop()
 	time.Sleep(100 * time.Millisecond) // Brief delay
+
+	// Clear the stopped latch so connect() will publish the new connection.
+	c.lifecycleLock.Lock()
+	c.stopped = false
+	c.lifecycleLock.Unlock()
+
 	return c.connect()
 }
 
@@ -538,6 +602,20 @@ func (c *RpcClient) Restart() error {
 // intentional shutdown rather than a connection failure.
 func (c *RpcClient) Stop() {
 	c.setStatus(Stopped)
+
+	// Latch stopped and tear down the connection atomically, so an in-flight
+	// reconnect's connect() observes the latch and abandons its connection
+	// instead of resurrecting the client (findings #32, #33).
+	c.lifecycleLock.Lock()
+	c.stopped = true
+	if c.client != nil {
+		c.client.Close()
+		c.client = nil
+	}
+	c.caller = nil
+	reconnectCancel := c.reconnectCtxCancel
+	c.lifecycleLock.Unlock()
+
 	c.closeNormalizedSubscriptions()
 
 	// Stop monitoring
@@ -549,20 +627,13 @@ func (c *RpcClient) Stop() {
 	}
 
 	// Stop reconnection
-	if c.reconnectCtxCancel != nil {
-		c.reconnectCtxCancel()
+	if reconnectCancel != nil {
+		reconnectCancel()
 	}
 	select {
 	case c.stopReconnectChan <- struct{}{}:
 	default:
 	}
-
-	// Close client
-	if c.client != nil {
-		c.client.Close()
-		c.client = nil
-	}
-	c.caller = nil
 
 	// Release connection lifecycle callbacks on intentional disconnect.
 	c.callbackLock.Lock()

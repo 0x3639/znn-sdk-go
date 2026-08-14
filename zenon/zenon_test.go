@@ -74,7 +74,10 @@ func TestSetHashAndSignature(t *testing.T) {
 		t.Fatalf("setHashAndSignature: %v", err)
 	}
 
-	wantHash := utils.GetTransactionHash(block)
+	wantHash, err := utils.GetTransactionHash(block)
+	if err != nil {
+		t.Fatalf("GetTransactionHash: %v", err)
+	}
 	if block.Hash != wantHash {
 		t.Errorf("block.Hash = %s, want %s", block.Hash, wantHash)
 	}

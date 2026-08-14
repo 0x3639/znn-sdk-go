@@ -170,6 +170,9 @@ func (l *LiquidityStakeList) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &aux); err != nil {
 		return err
 	}
+	if err := requireNoNilEntries("liquidity stake", aux.List); err != nil {
+		return err
+	}
 	l.TotalAmount = common.StringToBigInt(aux.TotalAmount)
 	l.TotalWeightedAmount = common.StringToBigInt(aux.TotalWeightedAmount)
 	l.Count = aux.Count

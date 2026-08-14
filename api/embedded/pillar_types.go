@@ -2,6 +2,7 @@ package embedded
 
 import (
 	"encoding/json"
+	"fmt"
 	"math/big"
 
 	"github.com/zenon-network/go-zenon/common"
@@ -97,6 +98,9 @@ func (p *PillarInfo) UnmarshalJSON(data []byte) error {
 	var aux pillarInfoJSON
 	if err := json.Unmarshal(data, &aux); err != nil {
 		return err
+	}
+	if aux.CurrentStats == nil {
+		return fmt.Errorf("nil currentStats in pillar node response")
 	}
 	p.Name = aux.Name
 	p.Rank = aux.Rank

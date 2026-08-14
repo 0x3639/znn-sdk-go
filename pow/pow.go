@@ -511,9 +511,18 @@ func CheckPoW(dataHash types.Hash, nonce uint64, difficulty uint64) bool {
 	return meetsDifficulty(dataHash, nonce, threshold)
 }
 
-// BenchmarkPoW performs a quick PoW generation benchmark
-// Returns the nonce found (hex) and the number of iterations performed
-func BenchmarkPoW(difficulty uint64) (nonce string, iterations uint64) {
+// BenchmarkPoW performs a quick PoW generation benchmark.
+// Returns the nonce found (hex) and the number of iterations performed.
+//
+// The difficulty is validated with the same policy as the generators: values
+// above MaxReasonableDifficulty return an error instead of entering an
+// uncancellable nonce-search loop that would spin a core until process exit.
+func BenchmarkPoW(difficulty uint64) (nonce string, iterations uint64, err error) {
+	difficulty, err = validateAndCapDifficulty(difficulty)
+	if err != nil {
+		return "", 0, err
+	}
+
 	// Use a fixed test hash for consistent benchmarking
 	testHash := types.Hash{}
 	copy(testHash[:], []byte("benchmark_test_hash_for_pow_"))
@@ -524,7 +533,7 @@ func BenchmarkPoW(difficulty uint64) (nonce string, iterations uint64) {
 
 	for {
 		if meetsDifficulty(testHash, nonceVal, threshold) {
-			return uint64ToHex(nonceVal), nonceVal
+			return uint64ToHex(nonceVal), nonceVal, nil
 		}
 
 		nonceVal++

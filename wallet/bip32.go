@@ -91,6 +91,13 @@ func DerivePath(path string, seed []byte) (*KeyData, error) {
 			return nil, fmt.Errorf("invalid path component: %s", component)
 		}
 
+		// Per the BIP32 path grammar an index must be < 2^31; values in
+		// [2^31, 2^32) written without an apostrophe would otherwise silently
+		// alias hardened indices (e.g. "m/2147483648" deriving "m/0'").
+		if index >= HardenedKeyStart {
+			return nil, fmt.Errorf("path component index out of range: %s", component)
+		}
+
 		// Convert to hardened index if needed
 		if hardened {
 			index += HardenedKeyStart

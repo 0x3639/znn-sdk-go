@@ -93,7 +93,18 @@ func (c *RpcClient) Subscribe(ctx context.Context, topic string, arguments ...in
 		return nil, err
 	}
 	subscription.setConnection(connection, subscriptionID)
+
+	// Re-check the client state under the same lock Stop() uses to snapshot the
+	// registry. A Stop() that ran during the handshake (after the entry check)
+	// would otherwise never see this subscription, leaking its goroutine and
+	// socket (finding #23). Registering and the stopped-check are atomic here.
 	c.subscriptionLock.Lock()
+	if c.IsClosed() {
+		c.subscriptionLock.Unlock()
+		cancel()
+		closeWebSocket(connection)
+		return nil, fmt.Errorf("RPC client is stopped")
+	}
 	c.subscriptions[subscription] = struct{}{}
 	c.subscriptionLock.Unlock()
 	go subscription.run(connection)
@@ -167,6 +178,19 @@ func (s *NormalizedSubscription) open() (*websocket.Conn, string, error) {
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to connect subscription transport: %w", err)
 	}
+	// WriteJSON/ReadJSON below are not context-aware, so a cancellation during
+	// the handshake (Unsubscribe / parent Stop) would otherwise block forever.
+	// Close the connection when the context is done to unblock the reader
+	// (finding #22); the deferred close stops the watcher once open returns.
+	handshakeDone := make(chan struct{})
+	defer close(handshakeDone)
+	go func() {
+		select {
+		case <-s.ctx.Done():
+			closeWebSocket(connection)
+		case <-handshakeDone:
+		}
+	}()
 	request := transport.NewRequest(1, "ledger.subscribe", transport.SubscriptionParams(s.topic, s.args...)...)
 	if err := connection.WriteJSON(request); err != nil {
 		closeWebSocket(connection)
@@ -289,8 +313,21 @@ func (s *NormalizedSubscription) reconnect() (*websocket.Conn, bool) {
 		}
 		connection, subscriptionID, err := s.open()
 		if err == nil {
+			// The subscription may have been cancelled (Unsubscribe / parent
+			// Stop) while open() was blocked in the handshake. The one-shot
+			// closers have already fired, so adopting this fresh socket would
+			// orphan it and hang the reader forever (finding #22). Abandon it.
+			if s.ctx.Err() != nil {
+				closeWebSocket(connection)
+				return nil, false
+			}
 			s.setConnection(connection, subscriptionID)
 			return connection, true
+		}
+		// A cancellation during the handshake surfaces as an open() error;
+		// terminate promptly instead of backing off and retrying.
+		if s.ctx.Err() != nil {
+			return nil, false
 		}
 		if s.client.reconnectAttempts > 0 && attempt == s.client.reconnectAttempts {
 			s.finishWithError(fmt.Errorf("subscription reconnect failed after %d attempts: %w", attempt, err))

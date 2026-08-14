@@ -105,17 +105,26 @@ func ExtractDecimals(amount string, decimals int) (*big.Int, error) {
 
 // AddDecimals converts big.Int to decimal string representation
 // Example: 150000000 with 8 decimals becomes "1.5"
+//
+// Negative amounts are formatted with a leading '-' (e.g. -5 with 8 decimals
+// becomes "-0.00000005"). A decimals value <= 0 returns the plain integer
+// string instead of slicing out of range.
 func AddDecimals(number *big.Int, decimals int) string {
 	if number.Sign() == 0 {
 		return "0"
 	}
 
-	// Convert to string
-	str := number.String()
+	// Convert magnitude to string; the sign is re-attached at the end so it
+	// can never end up embedded in the fraction (e.g. "0.000000-5").
+	sign := ""
+	if number.Sign() < 0 {
+		sign = "-"
+	}
+	str := new(big.Int).Abs(number).String()
 
-	// If decimals is 0, return as-is
-	if decimals == 0 {
-		return str
+	// If decimals is 0 (or invalid), return as-is
+	if decimals <= 0 {
+		return sign + str
 	}
 
 	// Pad with zeros if needed
@@ -131,5 +140,5 @@ func AddDecimals(number *big.Int, decimals int) string {
 	result = strings.TrimRight(result, "0")
 	result = strings.TrimRight(result, ".")
 
-	return result
+	return sign + result
 }

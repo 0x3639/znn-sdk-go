@@ -2,12 +2,20 @@ package api
 
 import (
 	"context"
+	"errors"
 	"sync"
 
 	"github.com/zenon-network/go-zenon/common/types"
 	"github.com/zenon-network/go-zenon/rpc/api/subscribe"
 	"github.com/zenon-network/go-zenon/rpc/server"
 )
+
+// ErrNotConnected is returned by subscription methods when the underlying
+// WebSocket client is absent — after RpcClient.Stop() (which detaches it via
+// SetClient(nil)) or before a client is attached. Subscribing must fail
+// cleanly with this error rather than panic, because callers can race a
+// subscribe against Stop().
+var ErrNotConnected = errors.New("subscriber: RPC client is not connected")
 
 // SubscriberApi opens real-time ledger subscriptions over a WebSocket client.
 //
@@ -81,6 +89,9 @@ func (sa *SubscriberApi) currentClient() *server.Client {
 func (sa *SubscriberApi) ToMomentums(ctx context.Context) (*server.ClientSubscription, chan []subscribe.Momentum, error) {
 	ch := make(chan []subscribe.Momentum)
 	client := sa.currentClient()
+	if client == nil {
+		return nil, nil, ErrNotConnected
+	}
 	subscription, err := client.Subscribe(ctx, "ledger", ch, "momentums")
 	if err != nil {
 		return nil, nil, err
@@ -128,6 +139,9 @@ func (sa *SubscriberApi) ToMomentums(ctx context.Context) (*server.ClientSubscri
 func (sa *SubscriberApi) ToAllAccountBlocks(ctx context.Context) (*server.ClientSubscription, chan []subscribe.AccountBlock, error) {
 	ch := make(chan []subscribe.AccountBlock)
 	client := sa.currentClient()
+	if client == nil {
+		return nil, nil, ErrNotConnected
+	}
 	subscription, err := client.Subscribe(ctx, "ledger", ch, "allAccountBlocks")
 	if err != nil {
 		return nil, nil, err
@@ -179,6 +193,9 @@ func (sa *SubscriberApi) ToAllAccountBlocks(ctx context.Context) (*server.Client
 func (sa *SubscriberApi) ToAccountBlocksByAddress(ctx context.Context, address types.Address) (*server.ClientSubscription, chan []subscribe.AccountBlock, error) {
 	ch := make(chan []subscribe.AccountBlock)
 	client := sa.currentClient()
+	if client == nil {
+		return nil, nil, ErrNotConnected
+	}
 	subscription, err := client.Subscribe(ctx, "ledger", ch, "accountBlocksByAddress", address.String())
 	if err != nil {
 		return nil, nil, err
@@ -232,6 +249,9 @@ func (sa *SubscriberApi) ToAccountBlocksByAddress(ctx context.Context, address t
 func (sa *SubscriberApi) ToUnreceivedAccountBlocksByAddress(ctx context.Context, address types.Address) (*server.ClientSubscription, chan []subscribe.AccountBlock, error) {
 	ch := make(chan []subscribe.AccountBlock)
 	client := sa.currentClient()
+	if client == nil {
+		return nil, nil, ErrNotConnected
+	}
 	subscription, err := client.Subscribe(ctx, "ledger", ch, "unreceivedAccountBlocksByAddress", address.String())
 	if err != nil {
 		return nil, nil, err

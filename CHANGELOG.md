@@ -4,6 +4,68 @@ Notable changes to the Zenon Go SDK are documented in this file.
 
 ## Unreleased
 
+## v0.3.0 - 2026-08-14
+
+Security hardening release remediating 36 findings from an external code review
+(2 High, 9 Medium, 25 Low) plus seven follow-up issues raised in review. Every
+fix ships with a regression test. **This release changes five exported function
+signatures — see Breaking Changes before upgrading.**
+
+### Breaking Changes
+
+- `utils.GetTransactionBytes` and `utils.GetTransactionHash` now return an
+  `error` alongside their result. They reject block amounts that are negative
+  or do not fit in 32 unsigned bytes, which previously produced colliding,
+  non-injective transaction hashes in the signing preimage.
+- `utils.BigIntToBytes` and `utils.BigIntToBytesSigned` now return
+  `([]byte, error)`. They reject negative or over-wide values (rather than
+  silently truncating or aliasing them) and out-of-range output widths.
+- `pow.BenchmarkPoW` now returns `(nonce string, iterations uint64, err error)`
+  and validates the requested difficulty before searching, instead of spinning
+  a core uncancellably on an out-of-range value.
+
+### Security
+
+- ABI decoding validates attacker-controlled offset and length words in
+  `DecodeList`, `BytesType.Decode`, and the array decoders with overflow-safe,
+  injective bounds checks, so hostile calldata returns an error instead of
+  panicking or triggering an unbounded allocation.
+- Wallet keystore names are confined to the managed directory: names containing
+  path separators or `..` are rejected, and symlinks / non-regular files are
+  refused by save, read, metadata, and listing operations (path-traversal and
+  symlink-traversal hardening).
+- Argon2 key-derivation costs read from an imported keystore are capped
+  (256 MiB memory, 10 iterations, 8 lanes) to prevent resource-exhaustion on
+  import.
+- Password validation counts characters rather than bytes and correctly
+  detects all-same-character passwords in multi-byte UTF-8.
+- BIP32 derivation rejects unhardened path indices at or above 2^31 instead of
+  aliasing them to hardened indices.
+- `KeyPair` is safe for concurrent use: lazy derivation, signing, verification,
+  and `Destroy` are serialized, and the accessors return defensive copies.
+- `KeyStore.DeriveAddressesByRange` bounds the requested span.
+- Embedded API decoders reject null list, map, and required-nested entries from
+  a hostile node response, and `SwapApi.GetAssets` now passes a pointer
+  destination so swap-asset queries decode.
+- The RPC client synchronizes its connection-lifecycle fields, makes `Stop()`
+  final (an in-flight reconnect can no longer resurrect a stopped client),
+  keeps the exported API objects stable across reconnects, and terminates a
+  subscription whose handshake is cancelled mid-flight.
+- Additional guards: `crypto.Digest` rejects negative sizes,
+  `ValidateTokenDomain` enforces the 128-character protocol maximum,
+  `utils.AddDecimals` formats negative amounts correctly and no longer panics
+  on negative decimals, and `utils.Arraycopy` bounds-checks its arguments.
+
+### Added
+
+- `api.SubscriberApi.SetClient` swaps the underlying WebSocket client on
+  reconnect while keeping the `SubscriberApi` instance stable.
+
+### Validation
+
+- Regression tests were added for every finding. The native test suite, race
+  tests, `go vet`, `gofmt`, and golangci-lint all pass.
+
 ## v0.2.1 - 2026-07-14
 
 This patch release corrects ABI decoding for arrays with dynamic element types

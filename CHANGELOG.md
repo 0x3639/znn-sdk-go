@@ -4,6 +4,20 @@ Notable changes to the Zenon Go SDK are documented in this file.
 
 ## Unreleased
 
+## v0.3.1 - 2026-08-14
+
+### Fixed
+
+- `api.SubscriberApi` subscription methods (`ToMomentums`,
+  `ToAllAccountBlocks`, `ToAccountBlocksByAddress`,
+  `ToUnreceivedAccountBlocksByAddress`) no longer panic with a nil pointer
+  dereference when the underlying WebSocket client is absent. `RpcClient.Stop()`
+  detaches the client via `SetClient(nil)` so post-Stop calls fail cleanly, but
+  the subscribe methods dereferenced the nil client — a subscribe racing
+  `Stop()` (e.g. a wallet auto-receive racing a node disconnect) crashed the
+  process. They now return the new exported sentinel `api.ErrNotConnected`,
+  restoring the pre-v0.3.0 error-not-panic behavior. Regression test included.
+
 ## v0.3.0 - 2026-08-14
 
 Security hardening release remediating 36 findings from an external code review

@@ -48,6 +48,24 @@ func TestBigIntToBytesRejectsNegativeNumBytes(t *testing.T) {
 	}
 }
 
+// Regression test for review finding #rev7: a huge numBytes must not overflow
+// numBytes*8 (wrapping to a small/zero width) and reach an impossible make().
+func TestBigIntToBytesRejectsHugeNumBytes(t *testing.T) {
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("BigInt byte encoder panicked on huge numBytes: %v", r)
+		}
+	}()
+
+	huge := 1 << 61
+	if _, err := BigIntToBytes(big.NewInt(0), huge); err == nil {
+		t.Error("BigIntToBytes(0, 1<<61) did not return an error")
+	}
+	if _, err := BigIntToBytesSigned(big.NewInt(0), huge); err == nil {
+		t.Error("BigIntToBytesSigned(0, 1<<61) did not return an error")
+	}
+}
+
 // Regression test for finding #26: BigIntToBytes aliased negative and
 // over-wide amounts (BigIntToBytes(-5, 32) == BigIntToBytes(251, 32)), so
 // distinct amounts produced identical unsigned encodings.

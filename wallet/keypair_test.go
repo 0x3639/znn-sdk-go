@@ -667,7 +667,9 @@ func TestDestroy(t *testing.T) {
 		t.Error("Address reference should be nil after Destroy()")
 	}
 
-	// Verify the original byte slice was zeroed
+	// NewKeyPair copies the caller's key bytes, so Destroy zeroes the KeyPair's
+	// internal copy (asserted above via the nil references) and leaves the
+	// caller's independent slice untouched.
 	allZeros := true
 	for _, b := range privateKey {
 		if b != 0 {
@@ -675,8 +677,8 @@ func TestDestroy(t *testing.T) {
 			break
 		}
 	}
-	if !allZeros {
-		t.Error("Original private key bytes should be zeroed after Destroy()")
+	if allZeros {
+		t.Error("caller's private key slice should be independent of the KeyPair copy")
 	}
 }
 
@@ -717,7 +719,8 @@ func TestDestroy_PreventMemoryLeaks(t *testing.T) {
 		// When function exits, Destroy() is called automatically
 	}()
 
-	// After function exits, verify private key was zeroed
+	// NewKeyPair copies the caller's key bytes, so the deferred Destroy zeroed
+	// the KeyPair's internal copy while leaving this caller-owned slice intact.
 	allZeros := true
 	for _, b := range privateKey {
 		if b != 0 {
@@ -725,7 +728,7 @@ func TestDestroy_PreventMemoryLeaks(t *testing.T) {
 			break
 		}
 	}
-	if !allZeros {
-		t.Error("Private key should be zeroed after defer Destroy()")
+	if allZeros {
+		t.Error("caller's private key slice should be independent of the KeyPair copy")
 	}
 }

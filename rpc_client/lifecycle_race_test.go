@@ -105,6 +105,110 @@ func TestRpcClientLifecycleFieldsRaceFree(t *testing.T) {
 	client.Stop()
 }
 
+// Review finding #rev4: exported API fields (LedgerApi, ...) were reassigned on
+// every reconnect while callers read them without a lock. They must be stable
+// (write-once) so concurrent reads during reconnect are race-free.
+func TestRpcClientAPIFieldsStableDuringReconnect(t *testing.T) {
+	upgrader := websocket.Upgrader{CheckOrigin: func(*http.Request) bool { return true }}
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		connection, err := upgrader.Upgrade(writer, request, nil)
+		if err != nil {
+			return
+		}
+		defer connection.Close()
+		time.Sleep(20 * time.Millisecond)
+	}))
+	defer server.Close()
+
+	options := DefaultClientOptions()
+	options.HealthCheckInterval = 0
+	options.ReconnectDelay = time.Millisecond
+	options.MaxReconnectDelay = time.Millisecond
+	client, err := NewRpcClientWithOptions("ws"+strings.TrimPrefix(server.URL, "http"), options)
+	if err != nil {
+		t.Fatalf("NewRpcClientWithOptions: %v", err)
+	}
+	defer client.Stop()
+
+	ledger := client.LedgerApi
+
+	var wg sync.WaitGroup
+	stop := make(chan struct{})
+	// Reader goroutines read the exported field concurrently.
+	for i := 0; i < 4; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for {
+				select {
+				case <-stop:
+					return
+				default:
+					if client.LedgerApi != ledger {
+						t.Errorf("LedgerApi field was reassigned")
+						return
+					}
+				}
+			}
+		}()
+	}
+	// Force repeated reconnects concurrently.
+	for i := 0; i < 20; i++ {
+		client.handleConnectionLoss(errors.New("churn"))
+		time.Sleep(time.Millisecond)
+	}
+	close(stop)
+	wg.Wait()
+}
+
+// Review finding #rev2: Restart calls Stop(), which deposits a value into the
+// buffered stopReconnectChan. If Restart does not drain it, the next
+// connection loss starts startReconnect(), immediately consumes the stale
+// signal, and exits without reconnecting. After a Restart, a later connection
+// loss must still trigger a successful reconnect.
+func TestReconnectWorksAfterRestart(t *testing.T) {
+	upgrader := websocket.Upgrader{CheckOrigin: func(*http.Request) bool { return true }}
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		connection, err := upgrader.Upgrade(writer, request, nil)
+		if err != nil {
+			return
+		}
+		defer connection.Close()
+		time.Sleep(50 * time.Millisecond)
+	}))
+	defer server.Close()
+
+	options := DefaultClientOptions()
+	options.HealthCheckInterval = 0
+	options.ReconnectDelay = time.Millisecond
+	options.MaxReconnectDelay = time.Millisecond
+	client, err := NewRpcClientWithOptions("ws"+strings.TrimPrefix(server.URL, "http"), options)
+	if err != nil {
+		t.Fatalf("NewRpcClientWithOptions: %v", err)
+	}
+	defer client.Stop()
+
+	if err := client.Restart(); err != nil {
+		t.Fatalf("Restart: %v", err)
+	}
+	if client.Status() != Running {
+		t.Fatalf("status after Restart = %v, want Running", client.Status())
+	}
+
+	// A connection loss after Restart must reconnect (not be swallowed by a
+	// stale stop signal).
+	client.handleConnectionLoss(errors.New("post-restart loss"))
+
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		if client.Status() == Running {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("client did not reconnect after Restart + connection loss: status = %v", client.Status())
+}
+
 // Finding #22: reconnect racing Unsubscribe must not orphan the fresh socket.
 func TestUnsubscribeDuringPendingReconnectHandshakeTerminates(t *testing.T) {
 	var requests atomic.Int32

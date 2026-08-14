@@ -15,6 +15,7 @@ func TestArgon2ParametersRejectExcessiveCostParameters(t *testing.T) {
 	}{
 		{"excessive memory cost", func(p *Argon2Params) { p.MemoryCost = 4294967295 }},
 		{"excessive time cost", func(p *Argon2Params) { p.TimeCost = 4294967295 }},
+		{"excessive parallelism", func(p *Argon2Params) { p.Parallelism = 255 }},
 	}
 
 	for _, test := range tests {

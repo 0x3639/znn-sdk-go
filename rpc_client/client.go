@@ -59,8 +59,12 @@ type RpcClient struct {
 	monitorCancel  context.CancelFunc
 	healthCheckCmd string
 
-	// API lock protects API field reassignment during reconnection
-	apiLock sync.RWMutex
+	// apiCaller is the stable caller shared by all exported API objects. The
+	// API objects are created once (apiInitOnce) and never reassigned; a
+	// reconnect only swaps this caller's inner target, so callers can read the
+	// exported API fields concurrently with a reconnect without a data race.
+	apiCaller   *swappableCaller
+	apiInitOnce sync.Once
 
 	// Embedded contract APIs
 	AcceleratorApi *embedded.AcceleratorApi
@@ -220,8 +224,13 @@ func NewRpcClientWithOptions(url string, opts ClientOptions) (*RpcClient, error)
 	return c, nil
 }
 
-// connect establishes the selected JSON-RPC transport and initializes APIs.
+// connect establishes the selected JSON-RPC transport and points the stable
+// API objects at it.
 func (c *RpcClient) connect() error {
+	// Create the exported API objects exactly once. They are never reassigned,
+	// so a concurrent reader of client.LedgerApi (etc.) never races a reconnect.
+	c.ensureAPIsInitialized()
+
 	c.setStatus(Connecting)
 
 	client, err := server.Dial(c.url)
@@ -231,9 +240,11 @@ func (c *RpcClient) connect() error {
 	}
 
 	// server.Dial can return after Stop() latched the client. Publish the new
-	// connection and read the stopped latch atomically so a late reconnect can
-	// never resurrect a stopped client; abandon the connection if it lost the
-	// race.
+	// connection, point the API objects at it, and transition to Running all
+	// while holding lifecycleLock and re-checking the stopped latch, so a late
+	// reconnect can never resurrect a stopped client. Abandon the connection if
+	// it lost the race.
+	caller := transport.NewNormalizingCaller(client)
 	c.lifecycleLock.Lock()
 	if c.stopped {
 		c.lifecycleLock.Unlock()
@@ -241,14 +252,13 @@ func (c *RpcClient) connect() error {
 		c.setStatus(Stopped)
 		return fmt.Errorf("rpc client stopped during connect")
 	}
-	caller := transport.NewNormalizingCaller(client)
 	c.client = client
 	c.caller = caller
 	c.currentAttempt = 0
-	c.lifecycleLock.Unlock()
-
-	c.initializeAPIs(client, caller)
+	c.apiCaller.set(caller)
+	c.SubscriberApi.SetClient(client)
 	c.setStatus(Running)
+	c.lifecycleLock.Unlock()
 
 	// Trigger connection established callbacks
 	c.triggerConnectionEstablished()
@@ -256,27 +266,26 @@ func (c *RpcClient) connect() error {
 	return nil
 }
 
-// initializeAPIs creates all API instances with thread-safe locking.
-// The client and caller are passed in (rather than read from the struct) so
-// that a concurrent Stop() niling those fields cannot race this method.
-func (c *RpcClient) initializeAPIs(client *server.Client, caller *transport.NormalizingCaller) {
-	c.apiLock.Lock()
-	defer c.apiLock.Unlock()
-
-	c.AcceleratorApi = embedded.NewAcceleratorApi(caller)
-	c.BridgeApi = embedded.NewBridgeApi(caller)
-	c.PillarApi = embedded.NewPillarApi(caller)
-	c.PlasmaApi = embedded.NewPlasmaApi(caller)
-	c.SentinelApi = embedded.NewSentinelApi(caller)
-	c.SporkApi = embedded.NewSporkApi(caller)
-	c.StakeApi = embedded.NewStakeApi(caller)
-	c.SwapApi = embedded.NewSwapApi(caller)
-	c.TokenApi = embedded.NewTokenApi(caller)
-	c.LiquidityApi = embedded.NewLiquidityApi(caller)
-	c.HtlcApi = embedded.NewHtlcApi(caller)
-	c.LedgerApi = api.NewLedgerApi(caller)
-	c.StatsApi = api.NewStatsApi(caller)
-	c.SubscriberApi = api.NewSubscriberApi(client)
+// ensureAPIsInitialized creates the stable API objects on first use. The
+// objects share c.apiCaller and are never reassigned afterwards.
+func (c *RpcClient) ensureAPIsInitialized() {
+	c.apiInitOnce.Do(func() {
+		c.apiCaller = &swappableCaller{}
+		c.AcceleratorApi = embedded.NewAcceleratorApi(c.apiCaller)
+		c.BridgeApi = embedded.NewBridgeApi(c.apiCaller)
+		c.PillarApi = embedded.NewPillarApi(c.apiCaller)
+		c.PlasmaApi = embedded.NewPlasmaApi(c.apiCaller)
+		c.SentinelApi = embedded.NewSentinelApi(c.apiCaller)
+		c.SporkApi = embedded.NewSporkApi(c.apiCaller)
+		c.StakeApi = embedded.NewStakeApi(c.apiCaller)
+		c.SwapApi = embedded.NewSwapApi(c.apiCaller)
+		c.TokenApi = embedded.NewTokenApi(c.apiCaller)
+		c.LiquidityApi = embedded.NewLiquidityApi(c.apiCaller)
+		c.HtlcApi = embedded.NewHtlcApi(c.apiCaller)
+		c.LedgerApi = api.NewLedgerApi(c.apiCaller)
+		c.StatsApi = api.NewStatsApi(c.apiCaller)
+		c.SubscriberApi = api.NewSubscriberApi(nil)
+	})
 }
 
 // Status returns the current WebSocket connection status.
@@ -566,9 +575,16 @@ func (c *RpcClient) Restart() error {
 	c.Stop()
 	time.Sleep(100 * time.Millisecond) // Brief delay
 
-	// Clear the stopped latch so connect() will publish the new connection.
+	// Clear the stopped latch so connect() will publish the new connection, and
+	// drain any stop signal Stop() left in the buffered channel. Otherwise the
+	// next connection loss would start startReconnect(), immediately consume the
+	// stale signal, and exit without reconnecting.
 	c.lifecycleLock.Lock()
 	c.stopped = false
+	select {
+	case <-c.stopReconnectChan:
+	default:
+	}
 	c.lifecycleLock.Unlock()
 
 	return c.connect()
@@ -613,6 +629,13 @@ func (c *RpcClient) Stop() {
 		c.client = nil
 	}
 	c.caller = nil
+	// Point the stable API objects at nothing so post-Stop calls fail cleanly.
+	if c.apiCaller != nil {
+		c.apiCaller.set(nil)
+	}
+	if c.SubscriberApi != nil {
+		c.SubscriberApi.SetClient(nil)
+	}
 	reconnectCancel := c.reconnectCtxCancel
 	c.lifecycleLock.Unlock()
 

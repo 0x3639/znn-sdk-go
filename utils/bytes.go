@@ -65,6 +65,11 @@ func EncodeBigInt(number *big.Int) []byte {
 	return result
 }
 
+// maxEncodedByteWidth bounds the requested output width of the big.Int byte
+// encoders. It is far above any real use (transaction amounts use 32 bytes),
+// yet small enough that numBytes*8 cannot overflow int on any platform.
+const maxEncodedByteWidth = 1 << 20
+
 // BigIntToBytes converts a non-negative big.Int to a fixed-size big-endian
 // byte array of exactly numBytes bytes.
 //
@@ -72,10 +77,10 @@ func EncodeBigInt(number *big.Int) []byte {
 // and representable in numBytes bytes. Negative or over-wide values are
 // rejected with an error rather than silently truncated or aliased (which
 // would let distinct amounts collide in a signed transaction preimage, see
-// CWE-682). numBytes must be positive.
+// CWE-682). numBytes must be positive and no larger than maxEncodedByteWidth.
 func BigIntToBytes(b *big.Int, numBytes int) ([]byte, error) {
-	if numBytes <= 0 {
-		return nil, fmt.Errorf("numBytes must be positive: %d", numBytes)
+	if numBytes <= 0 || numBytes > maxEncodedByteWidth {
+		return nil, fmt.Errorf("numBytes out of range: %d", numBytes)
 	}
 	if b == nil {
 		return nil, fmt.Errorf("value cannot be nil")
@@ -97,8 +102,8 @@ func BigIntToBytes(b *big.Int, numBytes int) ([]byte, error) {
 // i.e. within [-2^(8n-1), 2^(8n-1)-1]; out-of-range values are rejected
 // rather than truncated. numBytes must be positive.
 func BigIntToBytesSigned(b *big.Int, numBytes int) ([]byte, error) {
-	if numBytes <= 0 {
-		return nil, fmt.Errorf("numBytes must be positive: %d", numBytes)
+	if numBytes <= 0 || numBytes > maxEncodedByteWidth {
+		return nil, fmt.Errorf("numBytes out of range: %d", numBytes)
 	}
 	if b == nil {
 		return nil, fmt.Errorf("value cannot be nil")

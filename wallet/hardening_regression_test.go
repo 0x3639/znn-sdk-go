@@ -159,10 +159,10 @@ func TestDeriveAddressesByRangeRejectsExcessiveSpan(t *testing.T) {
 		}
 	}()
 
-	if _, err := store.DeriveAddressesByRange(0, math.MaxInt); err == nil {
+	if _, err = store.DeriveAddressesByRange(0, math.MaxInt); err == nil {
 		t.Error("DeriveAddressesByRange accepted a span of math.MaxInt")
 	}
-	if _, err := store.DeriveAddressesByRange(0, DefaultMaxIndex+1); err == nil {
+	if _, err = store.DeriveAddressesByRange(0, DefaultMaxIndex+1); err == nil {
 		t.Error("DeriveAddressesByRange accepted a span above DefaultMaxIndex")
 	}
 

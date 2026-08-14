@@ -109,7 +109,10 @@ func BigIntToBytesSigned(b *big.Int, numBytes int) ([]byte, error) {
 		return nil, fmt.Errorf("value cannot be nil")
 	}
 
-	bits := uint(numBytes * 8)
+	// numBytes is validated to be in [1, maxEncodedByteWidth] above, so the
+	// conversion is non-negative and numBytes*8 cannot overflow.
+	// #nosec G115 -- numBytes bounded to [1, maxEncodedByteWidth]
+	bits := uint(numBytes) * 8
 	minimum := new(big.Int).Neg(new(big.Int).Lsh(big.NewInt(1), bits-1))
 	maximum := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), bits-1), big.NewInt(1))
 	if b.Cmp(minimum) < 0 || b.Cmp(maximum) > 0 {

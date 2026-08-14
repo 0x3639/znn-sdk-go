@@ -52,7 +52,7 @@ func TestReadKeyStore_NameCannotEscapeWalletDir(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewKeyStoreManager() error = %v", err)
 	}
-	if _, err := other.CreateNew("password123", "victim-wallet"); err != nil {
+	if _, err = other.CreateNew("password123", "victim-wallet"); err != nil {
 		t.Fatalf("CreateNew() error = %v", err)
 	}
 
@@ -75,7 +75,7 @@ func TestGetKeystoreInfo_NameCannotEscapeWalletDir(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewKeyStoreManager() error = %v", err)
 	}
-	if _, err := other.CreateNew("password123", "victim-wallet"); err != nil {
+	if _, err = other.CreateNew("password123", "victim-wallet"); err != nil {
 		t.Fatalf("CreateNew() error = %v", err)
 	}
 
@@ -98,7 +98,7 @@ func TestFindKeyStore_NameCannotEscapeWalletDir(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewKeyStoreManager() error = %v", err)
 	}
-	if _, err := other.CreateNew("password123", "victim-wallet"); err != nil {
+	if _, err = other.CreateNew("password123", "victim-wallet"); err != nil {
 		t.Fatalf("CreateNew() error = %v", err)
 	}
 

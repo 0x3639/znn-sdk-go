@@ -27,21 +27,21 @@ func TestKeyStoreManager_RejectsSymlinkedEntries(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewKeyStoreManager: %v", err)
 	}
-	if _, err := other.CreateNew("password123", "victim"); err != nil {
+	if _, err = other.CreateNew("password123", "victim"); err != nil {
 		t.Fatalf("CreateNew: %v", err)
 	}
 	victimPath := filepath.Join(root, "other", "victim")
 
 	// Plant a symlink inside the wallet dir pointing at the victim.
 	link := filepath.Join(walletDir, "innocent")
-	if err := os.Symlink(victimPath, link); err != nil {
+	if err = os.Symlink(victimPath, link); err != nil {
 		t.Fatalf("Symlink: %v", err)
 	}
 
-	if _, err := manager.ReadKeyStore("password123", "innocent"); err == nil {
+	if _, err = manager.ReadKeyStore("password123", "innocent"); err == nil {
 		t.Error("ReadKeyStore followed a symlink out of the wallet directory")
 	}
-	if _, err := manager.GetKeystoreInfo("innocent"); err == nil {
+	if _, err = manager.GetKeystoreInfo("innocent"); err == nil {
 		t.Error("GetKeystoreInfo followed a symlink out of the wallet directory")
 	}
 
@@ -50,7 +50,7 @@ func TestKeyStoreManager_RejectsSymlinkedEntries(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewKeyStoreRandom: %v", err)
 	}
-	if err := manager.SaveKeyStore(store, "password123", "innocent"); err == nil {
+	if err = manager.SaveKeyStore(store, "password123", "innocent"); err == nil {
 		t.Error("SaveKeyStore followed a symlink out of the wallet directory")
 	}
 

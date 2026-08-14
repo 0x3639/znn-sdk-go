@@ -2,13 +2,20 @@ package api
 
 import (
 	"context"
+	"sync"
 
 	"github.com/zenon-network/go-zenon/common/types"
 	"github.com/zenon-network/go-zenon/rpc/api/subscribe"
 	"github.com/zenon-network/go-zenon/rpc/server"
 )
 
+// SubscriberApi opens real-time ledger subscriptions over a WebSocket client.
+//
+// The underlying client is guarded by a mutex so it can be swapped on
+// reconnect (via SetClient) while the SubscriberApi instance itself remains
+// stable and safe for concurrent use.
 type SubscriberApi struct {
+	mu     sync.RWMutex
 	client *server.Client
 }
 
@@ -16,6 +23,20 @@ func NewSubscriberApi(client *server.Client) *SubscriberApi {
 	return &SubscriberApi{
 		client: client,
 	}
+}
+
+// SetClient swaps the underlying WebSocket client (used on reconnect).
+func (sa *SubscriberApi) SetClient(client *server.Client) {
+	sa.mu.Lock()
+	sa.client = client
+	sa.mu.Unlock()
+}
+
+// currentClient returns the active WebSocket client under the read lock.
+func (sa *SubscriberApi) currentClient() *server.Client {
+	sa.mu.RLock()
+	defer sa.mu.RUnlock()
+	return sa.client
 }
 
 // ToMomentums subscribes to real-time momentum (block) production events.
@@ -59,7 +80,8 @@ func NewSubscriberApi(client *server.Client) *SubscriberApi {
 // Note: The subscription will stop when ctx is cancelled or Unsubscribe() is called.
 func (sa *SubscriberApi) ToMomentums(ctx context.Context) (*server.ClientSubscription, chan []subscribe.Momentum, error) {
 	ch := make(chan []subscribe.Momentum)
-	subscription, err := sa.client.Subscribe(ctx, "ledger", ch, "momentums")
+	client := sa.currentClient()
+	subscription, err := client.Subscribe(ctx, "ledger", ch, "momentums")
 	if err != nil {
 		return nil, nil, err
 	}
@@ -105,7 +127,8 @@ func (sa *SubscriberApi) ToMomentums(ctx context.Context) (*server.ClientSubscri
 // Consider using ToAccountBlocksByAddress for specific addresses instead.
 func (sa *SubscriberApi) ToAllAccountBlocks(ctx context.Context) (*server.ClientSubscription, chan []subscribe.AccountBlock, error) {
 	ch := make(chan []subscribe.AccountBlock)
-	subscription, err := sa.client.Subscribe(ctx, "ledger", ch, "allAccountBlocks")
+	client := sa.currentClient()
+	subscription, err := client.Subscribe(ctx, "ledger", ch, "allAccountBlocks")
 	if err != nil {
 		return nil, nil, err
 	}
@@ -155,7 +178,8 @@ func (sa *SubscriberApi) ToAllAccountBlocks(ctx context.Context) (*server.Client
 // This is ideal for monitoring a single wallet or application address.
 func (sa *SubscriberApi) ToAccountBlocksByAddress(ctx context.Context, address types.Address) (*server.ClientSubscription, chan []subscribe.AccountBlock, error) {
 	ch := make(chan []subscribe.AccountBlock)
-	subscription, err := sa.client.Subscribe(ctx, "ledger", ch, "accountBlocksByAddress", address.String())
+	client := sa.currentClient()
+	subscription, err := client.Subscribe(ctx, "ledger", ch, "accountBlocksByAddress", address.String())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -207,7 +231,8 @@ func (sa *SubscriberApi) ToAccountBlocksByAddress(ctx context.Context, address t
 // This is essential for automated payment processing and wallet auto-receive features.
 func (sa *SubscriberApi) ToUnreceivedAccountBlocksByAddress(ctx context.Context, address types.Address) (*server.ClientSubscription, chan []subscribe.AccountBlock, error) {
 	ch := make(chan []subscribe.AccountBlock)
-	subscription, err := sa.client.Subscribe(ctx, "ledger", ch, "unreceivedAccountBlocksByAddress", address.String())
+	client := sa.currentClient()
+	subscription, err := client.Subscribe(ctx, "ledger", ch, "unreceivedAccountBlocksByAddress", address.String())
 	if err != nil {
 		return nil, nil, err
 	}

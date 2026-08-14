@@ -3,6 +3,7 @@ package wallet
 import (
 	"fmt"
 	"unicode"
+	"unicode/utf8"
 )
 
 const (
@@ -56,7 +57,9 @@ func (s PasswordStrength) String() string {
 //	    fmt.Println("Password too weak:", err)
 //	}
 func ValidatePassword(password string) error {
-	if len(password) < MinPasswordLength {
+	// Count characters, not bytes: multi-byte UTF-8 passwords would otherwise
+	// satisfy the minimum with as few as two actual characters.
+	if utf8.RuneCountInString(password) < MinPasswordLength {
 		return fmt.Errorf("password must be at least %d characters long", MinPasswordLength)
 	}
 
@@ -89,14 +92,14 @@ func ValidatePassword(password string) error {
 //	strength := AnalyzePasswordStrength("MyP@ssw0rd123")
 //	fmt.Println("Strength:", strength.String())  // Output: "Very Strong"
 func AnalyzePasswordStrength(password string) PasswordStrength {
-	if len(password) < MinPasswordLength || isAllSameChar(password) {
+	if utf8.RuneCountInString(password) < MinPasswordLength || isAllSameChar(password) {
 		return PasswordWeak
 	}
 
 	charClasses := countCharacterClasses(password)
 
 	// Determine strength based on length and character diversity
-	if len(password) >= 12 && charClasses >= 3 {
+	if utf8.RuneCountInString(password) >= 12 && charClasses >= 3 {
 		return PasswordVeryStrong
 	}
 
@@ -113,7 +116,10 @@ func isAllSameChar(s string) bool {
 		return false
 	}
 
-	first := rune(s[0])
+	// Decode the first rune properly: rune(s[0]) would take only the first
+	// byte, which never matches a decoded multi-byte rune and silently
+	// disabled this check for non-ASCII passwords.
+	first, _ := utf8.DecodeRuneInString(s)
 	for _, r := range s {
 		if r != first {
 			return false

@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
+	"fmt"
 	"math/big"
 )
 
@@ -11,8 +12,20 @@ import (
 // Array Operations
 // =============================================================================
 
-// Arraycopy copies a slice from src to dest
+// Arraycopy copies length bytes from src[startPos:] to dest[destPos:].
+//
+// Arguments are bounds-checked: any negative index/length, a length that
+// overflows a start position, or a range that extends past either slice is a
+// safe no-op rather than a panic (CWE-129). Callers that must detect a bad
+// request should validate the arguments themselves.
 func Arraycopy(src []byte, startPos int, dest []byte, destPos int, length int) {
+	if length <= 0 || startPos < 0 || destPos < 0 {
+		return
+	}
+	// Guard the additions against int overflow before comparing to lengths.
+	if startPos > len(src)-length || destPos > len(dest)-length {
+		return
+	}
 	copy(dest[destPos:destPos+length], src[startPos:startPos+length])
 }
 
@@ -52,50 +65,67 @@ func EncodeBigInt(number *big.Int) []byte {
 	return result
 }
 
-// BigIntToBytes converts big.Int to fixed-size byte array
-func BigIntToBytes(b *big.Int, numBytes int) []byte {
-	bytes := make([]byte, numBytes)
-	biBytes := EncodeBigInt(b)
+// maxEncodedByteWidth bounds the requested output width of the big.Int byte
+// encoders. It is far above any real use (transaction amounts use 32 bytes),
+// yet small enough that numBytes*8 cannot overflow int on any platform.
+const maxEncodedByteWidth = 1 << 20
 
-	start := 0
-	if len(biBytes) == numBytes+1 {
-		start = 1
+// BigIntToBytes converts a non-negative big.Int to a fixed-size big-endian
+// byte array of exactly numBytes bytes.
+//
+// The encoding is injective over its domain: the value must be non-negative
+// and representable in numBytes bytes. Negative or over-wide values are
+// rejected with an error rather than silently truncated or aliased (which
+// would let distinct amounts collide in a signed transaction preimage, see
+// CWE-682). numBytes must be positive and no larger than maxEncodedByteWidth.
+func BigIntToBytes(b *big.Int, numBytes int) ([]byte, error) {
+	if numBytes <= 0 || numBytes > maxEncodedByteWidth {
+		return nil, fmt.Errorf("numBytes out of range: %d", numBytes)
 	}
-
-	length := len(biBytes)
-	if length > numBytes {
-		length = numBytes
+	if b == nil {
+		return nil, fmt.Errorf("value cannot be nil")
 	}
-
-	Arraycopy(biBytes, start, bytes, numBytes-length, length)
-	return bytes
+	if b.Sign() < 0 {
+		return nil, fmt.Errorf("value must be non-negative: %s", b)
+	}
+	// FillBytes panics if the value does not fit; reject that case up front.
+	if b.BitLen() > numBytes*8 {
+		return nil, fmt.Errorf("value %s does not fit in %d bytes", b, numBytes)
+	}
+	return b.FillBytes(make([]byte, numBytes)), nil
 }
 
-// BigIntToBytesSigned converts signed big.Int to fixed-size byte array
-func BigIntToBytesSigned(b *big.Int, numBytes int) []byte {
-	fillByte := byte(0x00)
-	if b.Sign() < 0 {
-		fillByte = 0xFF
+// BigIntToBytesSigned converts a signed big.Int to a fixed-size two's
+// complement big-endian byte array of exactly numBytes bytes.
+//
+// The value must be representable in numBytes bytes of two's complement,
+// i.e. within [-2^(8n-1), 2^(8n-1)-1]; out-of-range values are rejected
+// rather than truncated. numBytes must be positive.
+func BigIntToBytesSigned(b *big.Int, numBytes int) ([]byte, error) {
+	if numBytes <= 0 || numBytes > maxEncodedByteWidth {
+		return nil, fmt.Errorf("numBytes out of range: %d", numBytes)
+	}
+	if b == nil {
+		return nil, fmt.Errorf("value cannot be nil")
 	}
 
-	bytes := make([]byte, numBytes)
-	for i := 0; i < numBytes; i++ {
-		bytes[i] = fillByte
+	// numBytes is validated to be in [1, maxEncodedByteWidth] above, so the
+	// conversion is non-negative and numBytes*8 cannot overflow.
+	// #nosec G115 -- numBytes bounded to [1, maxEncodedByteWidth]
+	bits := uint(numBytes) * 8
+	minimum := new(big.Int).Neg(new(big.Int).Lsh(big.NewInt(1), bits-1))
+	maximum := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), bits-1), big.NewInt(1))
+	if b.Cmp(minimum) < 0 || b.Cmp(maximum) > 0 {
+		return nil, fmt.Errorf("value %s is out of range for a signed %d-byte integer", b, numBytes)
 	}
 
-	biBytes := EncodeBigInt(b)
-	start := 0
-	if len(biBytes) == numBytes+1 {
-		start = 1
+	if b.Sign() >= 0 {
+		return b.FillBytes(make([]byte, numBytes)), nil
 	}
 
-	length := len(biBytes)
-	if length > numBytes {
-		length = numBytes
-	}
-
-	Arraycopy(biBytes, start, bytes, numBytes-length, length)
-	return bytes
+	// Two's complement: 2^(numBytes*8) + b.
+	twosComp := new(big.Int).Add(new(big.Int).Lsh(big.NewInt(1), bits), b)
+	return twosComp.FillBytes(make([]byte, numBytes)), nil
 }
 
 // BytesToBigInt converts bytes to big.Int

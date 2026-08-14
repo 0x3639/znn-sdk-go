@@ -50,8 +50,12 @@ func Verify(signature []byte, message []byte, publicKey []byte) (bool, error) {
 }
 
 // Digest computes the SHA3-256 hash of data
-// The digestSize parameter allows customization of output length (default: 32 bytes)
+// The digestSize parameter allows customization of output length (default: 32 bytes).
+// A negative digestSize returns nil instead of panicking in make().
 func Digest(data []byte, digestSize int) []byte {
+	if digestSize < 0 {
+		return nil
+	}
 	if digestSize == 0 || digestSize == 32 {
 		// Standard SHA3-256
 		hash := sha3.Sum256(data)

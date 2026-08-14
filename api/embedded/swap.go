@@ -1,6 +1,8 @@
 package embedded
 
 import (
+	"fmt"
+
 	sdkembedded "github.com/0x3639/znn-sdk-go/embedded"
 	"github.com/0x3639/znn-sdk-go/transport"
 	"github.com/zenon-network/go-zenon/chain/nom"
@@ -42,8 +44,16 @@ func (sa *SwapApi) GetAssetsByKeyIdHash(keyIdHash types.Hash) (*SwapAssetEntry, 
 
 func (sa *SwapApi) GetAssets() (map[types.Hash]*SwapAssetEntrySimple, error) {
 	var ans map[types.Hash]*SwapAssetEntrySimple
-	if err := sa.client.Call(ans, "embedded.swap.getAssets"); err != nil {
+	// Pass &ans: json decoding requires a pointer destination, and the map is
+	// populated by reference (previously passing ans could never decode).
+	if err := sa.client.Call(&ans, "embedded.swap.getAssets"); err != nil {
 		return nil, err
+	}
+	// Reject null map values from a hostile node (CWE-476).
+	for key, entry := range ans {
+		if entry == nil {
+			return nil, fmt.Errorf("nil swap asset entry for key %s in node response", key)
+		}
 	}
 	return ans, nil
 }
@@ -51,6 +61,9 @@ func (sa *SwapApi) GetAssets() (map[types.Hash]*SwapAssetEntrySimple, error) {
 func (sa *SwapApi) GetLegacyPillars() ([]*SwapLegacyPillarEntry, error) {
 	var ans []*SwapLegacyPillarEntry
 	if err := sa.client.Call(&ans, "embedded.swap.getLegacyPillars"); err != nil {
+		return nil, err
+	}
+	if err := requireNoNilEntries("legacy pillar", ans); err != nil {
 		return nil, err
 	}
 	return ans, nil

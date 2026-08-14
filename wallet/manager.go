@@ -12,6 +12,29 @@ type KeyStoreManager struct {
 	WalletPath string
 }
 
+// validateKeyStoreName ensures a caller-supplied wallet name resolves to a
+// single file directly inside the managed wallet directory.
+//
+// Wallet names reach this package from CLIs and wallet backends, so they must
+// be treated as untrusted input: a name containing path separators or ".."
+// components would let filepath.Join escape the wallet directory and read or
+// overwrite arbitrary files (CWE-22).
+//
+// Returns an error if the name is empty, contains a path separator, or is a
+// relative path component ("." or "..").
+func validateKeyStoreName(name string) error {
+	if name == "" {
+		return fmt.Errorf("name cannot be empty")
+	}
+	if name == "." || name == ".." {
+		return fmt.Errorf("invalid keystore name: %q", name)
+	}
+	if strings.ContainsAny(name, `/\`) || name != filepath.Base(name) {
+		return fmt.Errorf("keystore name must not contain path separators: %q", name)
+	}
+	return nil
+}
+
 // NewKeyStoreManager creates a new keystore manager for managing encrypted wallet files
 // in the specified directory.
 //
@@ -51,6 +74,37 @@ func NewKeyStoreManager(walletPath string) (*KeyStoreManager, error) {
 	}, nil
 }
 
+// resolveKeyStorePath validates a caller-supplied keystore name and returns
+// its absolute path inside the managed wallet directory.
+//
+// It rejects names that escape the directory lexically (see
+// validateKeyStoreName) and, when the target already exists, rejects anything
+// that is not a regular file. This stops a planted symlink from redirecting a
+// read or write to a file outside the wallet directory (CWE-59/CWE-22), which
+// os.ReadFile/os.WriteFile would otherwise follow.
+//
+// A small time-of-check/time-of-use window remains between this Lstat and the
+// subsequent open; it is far narrower than the unchecked path and closes the
+// practical "planted symlink" vector.
+func (m *KeyStoreManager) resolveKeyStorePath(name string) (string, error) {
+	if err := validateKeyStoreName(name); err != nil {
+		return "", err
+	}
+	filePath := filepath.Join(m.WalletPath, name)
+	info, err := os.Lstat(filePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			// A new keystore is allowed; the parent directory is the managed one.
+			return filePath, nil
+		}
+		return "", fmt.Errorf("failed to inspect keystore file: %w", err)
+	}
+	if !info.Mode().IsRegular() {
+		return "", fmt.Errorf("keystore file %q is not a regular file", name)
+	}
+	return filePath, nil
+}
+
 // SaveKeyStore encrypts a keystore and saves it to a file in the managed directory.
 //
 // The keystore is encrypted using Argon2 key derivation with the provided password.
@@ -84,8 +138,9 @@ func (m *KeyStoreManager) SaveKeyStore(store *KeyStore, password, name string) e
 		return fmt.Errorf("invalid password: %w", err)
 	}
 
-	if name == "" {
-		return fmt.Errorf("name cannot be empty")
+	filePath, err := m.resolveKeyStorePath(name)
+	if err != nil {
+		return err
 	}
 
 	// Get base address for metadata
@@ -113,10 +168,7 @@ func (m *KeyStoreManager) SaveKeyStore(store *KeyStore, password, name string) e
 		return fmt.Errorf("failed to serialize keystore: %w", err)
 	}
 
-	// Construct file path
-	filePath := filepath.Join(m.WalletPath, name)
-
-	// Write to file
+	// Write to file (filePath was validated by resolveKeyStorePath above).
 	if err := os.WriteFile(filePath, jsonData, 0600); err != nil {
 		return fmt.Errorf("failed to write keystore file: %w", err)
 	}
@@ -160,15 +212,13 @@ func (m *KeyStoreManager) ReadKeyStore(password string, keyStoreFile string) (*K
 		return nil, fmt.Errorf("password cannot be empty")
 	}
 
-	if keyStoreFile == "" {
-		return nil, fmt.Errorf("keystore file cannot be empty")
+	filePath, err := m.resolveKeyStorePath(keyStoreFile)
+	if err != nil {
+		return nil, err
 	}
 
-	// Construct file path
-	filePath := filepath.Join(m.WalletPath, keyStoreFile)
-
 	// Read file
-	// #nosec G304 - filePath is constructed from controlled wallet directory
+	// #nosec G304 - keyStoreFile is confined to the wallet directory and rejected if a symlink by resolveKeyStorePath
 	jsonData, err := os.ReadFile(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read keystore file: %w", err)
@@ -192,8 +242,8 @@ func (m *KeyStoreManager) ReadKeyStore(password string, keyStoreFile string) (*K
 // FindKeyStore searches for a keystore file by name
 // Returns the filename if found, empty string if not found
 func (m *KeyStoreManager) FindKeyStore(name string) (string, error) {
-	if name == "" {
-		return "", fmt.Errorf("name cannot be empty")
+	if err := validateKeyStoreName(name); err != nil {
+		return "", err
 	}
 
 	// Try exact match first
@@ -226,9 +276,13 @@ func (m *KeyStoreManager) ListAllKeyStores() ([]string, error) {
 		return nil, fmt.Errorf("failed to read wallet directory: %w", err)
 	}
 
-	// Filter for regular files (no directories)
+	// Filter for regular files only: skip directories, dotfiles, and symlinks
+	// (a symlink could point outside the managed directory).
 	var keystores []string
 	for _, entry := range entries {
+		if entry.Type()&os.ModeSymlink != 0 {
+			continue
+		}
 		if !entry.IsDir() && !strings.HasPrefix(entry.Name(), ".") {
 			keystores = append(keystores, entry.Name())
 		}
@@ -336,15 +390,13 @@ func (m *KeyStoreManager) CreateFromMnemonic(mnemonic, passphrase, name string) 
 
 // GetKeystoreInfo reads metadata from a keystore file without decrypting
 func (m *KeyStoreManager) GetKeystoreInfo(keyStoreFile string) (map[string]interface{}, error) {
-	if keyStoreFile == "" {
-		return nil, fmt.Errorf("keystore file cannot be empty")
+	filePath, err := m.resolveKeyStorePath(keyStoreFile)
+	if err != nil {
+		return nil, err
 	}
 
-	// Construct file path
-	filePath := filepath.Join(m.WalletPath, keyStoreFile)
-
 	// Read file
-	// #nosec G304 - filePath is constructed from controlled wallet directory
+	// #nosec G304 - keyStoreFile is confined to the wallet directory and rejected if a symlink by resolveKeyStorePath
 	jsonData, err := os.ReadFile(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read keystore file: %w", err)

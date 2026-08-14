@@ -3,6 +3,7 @@ package wallet
 import (
 	"crypto/ed25519"
 	"runtime"
+	"sync"
 
 	"github.com/0x3639/znn-sdk-go/crypto"
 	"github.com/zenon-network/go-zenon/common/types"
@@ -25,18 +26,26 @@ func zeroBytes(b []byte) {
 	runtime.KeepAlive(b)
 }
 
-// KeyPair represents an Ed25519 key pair with address
+// KeyPair represents an Ed25519 key pair with address.
+//
+// A KeyPair is safe for concurrent use: the lazy derivation of the public
+// key and address, signing, and Destroy are all serialized by an internal
+// mutex.
 type KeyPair struct {
+	mu         sync.Mutex
 	privateKey []byte
 	publicKey  []byte
 	address    *types.Address
 }
 
-// NewKeyPair creates a new KeyPair from a private key
-// The public key and address will be derived lazily
+// NewKeyPair creates a new KeyPair from a private key.
+// The public key and address will be derived lazily.
+//
+// The private key bytes are copied, so the caller may reuse or zero its own
+// buffer without affecting the KeyPair's internal state.
 func NewKeyPair(privateKey []byte) *KeyPair {
 	return &KeyPair{
-		privateKey: privateKey,
+		privateKey: append([]byte(nil), privateKey...),
 	}
 }
 
@@ -50,13 +59,31 @@ func NewKeyPairFromSeed(seed []byte) (*KeyPair, error) {
 	return NewKeyPair(privateKey), nil
 }
 
-// GetPrivateKey returns the private key bytes
+// GetPrivateKey returns a copy of the private key bytes.
+//
+// A copy is returned so a concurrent Destroy cannot zero the caller's slice
+// and the caller cannot mutate the KeyPair's internal state.
 func (kp *KeyPair) GetPrivateKey() []byte {
-	return kp.privateKey
+	kp.mu.Lock()
+	defer kp.mu.Unlock()
+	return append([]byte(nil), kp.privateKey...)
 }
 
-// GetPublicKey returns the public key, deriving it if necessary
+// GetPublicKey returns a copy of the public key, deriving it if necessary.
 func (kp *KeyPair) GetPublicKey() ([]byte, error) {
+	kp.mu.Lock()
+	defer kp.mu.Unlock()
+	pubKey, err := kp.getPublicKeyLocked()
+	if err != nil {
+		return nil, err
+	}
+	return append([]byte(nil), pubKey...), nil
+}
+
+// getPublicKeyLocked derives and caches the public key, returning the internal
+// slice. The caller must hold kp.mu and must not expose the slice outside the
+// lock without copying it.
+func (kp *KeyPair) getPublicKeyLocked() ([]byte, error) {
 	if kp.publicKey == nil {
 		pubKey, err := crypto.GetPublicKey(kp.privateKey)
 		if err != nil {
@@ -67,10 +94,15 @@ func (kp *KeyPair) GetPublicKey() ([]byte, error) {
 	return kp.publicKey, nil
 }
 
-// GetAddress returns the Zenon address, deriving it if necessary
+// GetAddress returns the Zenon address, deriving it if necessary.
+//
+// A copy of the cached address is returned so the caller cannot mutate the
+// KeyPair's internal state.
 func (kp *KeyPair) GetAddress() (*types.Address, error) {
+	kp.mu.Lock()
+	defer kp.mu.Unlock()
 	if kp.address == nil {
-		pubKey, err := kp.GetPublicKey()
+		pubKey, err := kp.getPublicKeyLocked()
 		if err != nil {
 			return nil, err
 		}
@@ -79,17 +111,25 @@ func (kp *KeyPair) GetAddress() (*types.Address, error) {
 		addr := types.PubKeyToAddress(pubKey)
 		kp.address = &addr
 	}
-	return kp.address, nil
+	addrCopy := *kp.address
+	return &addrCopy, nil
 }
 
 // Sign signs a message with the private key
 func (kp *KeyPair) Sign(message []byte) ([]byte, error) {
+	kp.mu.Lock()
+	defer kp.mu.Unlock()
 	return crypto.Sign(message, kp.privateKey)
 }
 
-// Verify verifies a signature against a message using this keypair's public key
+// Verify verifies a signature against a message using this keypair's public key.
+//
+// The lock is held for the entire verification so a concurrent Destroy cannot
+// zero the key material mid-read.
 func (kp *KeyPair) Verify(signature []byte, message []byte) (bool, error) {
-	pubKey, err := kp.GetPublicKey()
+	kp.mu.Lock()
+	defer kp.mu.Unlock()
+	pubKey, err := kp.getPublicKeyLocked()
 	if err != nil {
 		return false, err
 	}
@@ -110,6 +150,9 @@ func (kp *KeyPair) Verify(signature []byte, message []byte) (bool, error) {
 //	defer kp.Destroy()  // Ensure cleanup even if function panics
 //	// ... use keypair for signing ...
 func (kp *KeyPair) Destroy() {
+	kp.mu.Lock()
+	defer kp.mu.Unlock()
+
 	// Zero out private key bytes using secure zeroing
 	if kp.privateKey != nil {
 		zeroBytes(kp.privateKey)

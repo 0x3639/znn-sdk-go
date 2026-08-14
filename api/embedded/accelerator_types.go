@@ -2,6 +2,7 @@ package embedded
 
 import (
 	"encoding/json"
+	"fmt"
 	"math/big"
 
 	"github.com/zenon-network/go-zenon/common"
@@ -167,6 +168,17 @@ func (p *Project) UnmarshalJSON(data []byte) error {
 	var aux projectJSON
 	if err := json.Unmarshal(data, &aux); err != nil {
 		return err
+	}
+	if aux.Votes == nil {
+		return fmt.Errorf("nil votes in project node response")
+	}
+	if err := requireNoNilEntries("phase", aux.Phases); err != nil {
+		return err
+	}
+	for i, phase := range aux.Phases {
+		if phase.Phase == nil {
+			return fmt.Errorf("nil phase.phase at index %d in project node response", i)
+		}
 	}
 	p.Id = aux.Id
 	p.Owner = aux.Owner

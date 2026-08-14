@@ -163,6 +163,13 @@ func (ks *KeyStore) DeriveAddressesByRange(left, right int) ([]*types.Address, e
 		return nil, fmt.Errorf("invalid range: [%d, %d)", left, right)
 	}
 
+	// Bound the span before sizing the allocation: a caller-supplied range
+	// like [0, math.MaxInt) would otherwise panic in make() or grind through
+	// billions of Ed25519 derivations (CWE-770).
+	if right-left > DefaultMaxIndex {
+		return nil, fmt.Errorf("range [%d, %d) exceeds maximum span of %d addresses", left, right, DefaultMaxIndex)
+	}
+
 	addresses := make([]*types.Address, 0, right-left)
 
 	for i := left; i < right; i++ {

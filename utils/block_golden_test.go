@@ -63,7 +63,7 @@ func dartReceiveBlock() *nom.AccountBlock {
 
 func TestGetTransactionHash_DartGoldenSend(t *testing.T) {
 	const expected = "3835082b4afb76971d58d6ad510e7e91f3bb0d41912fac4ec4cfef7bd7bbea73"
-	got := GetTransactionHash(dartSendBlock()).String()
+	got := mustTxHash(t, dartSendBlock()).String()
 	if got != expected {
 		t.Fatalf("send-block hash mismatch (Dart parity broken)\n  got:  %s\n  want: %s", got, expected)
 	}
@@ -71,7 +71,7 @@ func TestGetTransactionHash_DartGoldenSend(t *testing.T) {
 
 func TestGetTransactionHash_DartGoldenReceive(t *testing.T) {
 	const expected = "158a0a5a7b4d57f4d92e3c068db19125fcc31ff0f059de0df98c920b54a83cd2"
-	got := GetTransactionHash(dartReceiveBlock()).String()
+	got := mustTxHash(t, dartReceiveBlock()).String()
 	if got != expected {
 		t.Fatalf("receive-block hash mismatch (Dart parity broken)\n  got:  %s\n  want: %s", got, expected)
 	}
@@ -82,7 +82,7 @@ func TestGetTransactionHash_DartGoldenReceive(t *testing.T) {
 // minus the cached confirmation/token fields, so the hash must be identical.
 func TestGetTransactionHash_DartGoldenTemplate(t *testing.T) {
 	const expected = "3835082b4afb76971d58d6ad510e7e91f3bb0d41912fac4ec4cfef7bd7bbea73"
-	got := GetTransactionHash(dartSendBlock()).String()
+	got := mustTxHash(t, dartSendBlock()).String()
 	if got != expected {
 		t.Fatalf("template hash mismatch\n  got:  %s\n  want: %s", got, expected)
 	}

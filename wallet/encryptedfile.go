@@ -293,6 +293,26 @@ func (params *Argon2Params) matches(target crypto.Argon2Parameters) bool {
 		params.HashLength == target.KeyLength && params.Parallelism == target.Parallelism
 }
 
+// Upper bounds for the Argon2 cost parameters read from a keystore file.
+// The costs are attacker-controlled whenever a keystore is imported:
+// argon2.IDKey allocates MemoryCost KiB, loops TimeCost times, and spawns
+// Parallelism lanes, so a crafted key file with huge costs would exhaust
+// memory or CPU during a routine wallet import (CWE-400) — a real hazard on
+// desktop and especially memory-constrained mobile clients.
+//
+// The limits are modest multiples of the canonical 64 MiB / 1-iteration /
+// 4-lane defaults used by the Zenon SDKs: enough headroom for a deliberately
+// hardened keystore, but small enough that importing any accepted file stays
+// well within a phone's memory and completes promptly.
+const (
+	// MaxArgon2TimeCost is the maximum accepted Argon2 iteration count.
+	MaxArgon2TimeCost = 10
+	// MaxArgon2MemoryCost is the maximum accepted Argon2 memory cost in KiB (256 MiB).
+	MaxArgon2MemoryCost = 256 * 1024
+	// MaxArgon2Parallelism is the maximum accepted Argon2 lane count.
+	MaxArgon2Parallelism = 8
+)
+
 func (ef *EncryptedFile) argon2Parameters() (crypto.Argon2Parameters, error) {
 	defaults := crypto.DefaultArgon2Parameters()
 	stored := ef.Crypto.Argon2Params
@@ -316,6 +336,15 @@ func (ef *EncryptedFile) argon2Parameters() (crypto.Argon2Parameters, error) {
 	}
 	if params.KeyLength != 32 {
 		return crypto.Argon2Parameters{}, fmt.Errorf("invalid AES-256 key length: got %d, want 32", params.KeyLength)
+	}
+	if params.Iterations > MaxArgon2TimeCost {
+		return crypto.Argon2Parameters{}, fmt.Errorf("argon2 time cost %d exceeds maximum %d", params.Iterations, MaxArgon2TimeCost)
+	}
+	if params.Memory > MaxArgon2MemoryCost {
+		return crypto.Argon2Parameters{}, fmt.Errorf("argon2 memory cost %d KiB exceeds maximum %d KiB", params.Memory, MaxArgon2MemoryCost)
+	}
+	if params.Parallelism > MaxArgon2Parallelism {
+		return crypto.Argon2Parameters{}, fmt.Errorf("argon2 parallelism %d exceeds maximum %d", params.Parallelism, MaxArgon2Parallelism)
 	}
 	return params, nil
 }

@@ -151,7 +151,8 @@ func TestSubscribeWithNilContextAndMalformedNotification(t *testing.T) {
 	defer server.Close()
 	client := newSubscriptionTestClient(t, server, func(options *ClientOptions) { options.AutoReconnect = false })
 	defer client.Stop()
-	subscription, err := client.Subscribe(nil, "momentums")
+	//lint:ignore SA1012 nil context is the behavior under test (Subscribe must tolerate it)
+	subscription, err := client.Subscribe(nil, "momentums") //nolint:staticcheck
 	if err != nil {
 		t.Fatalf("Subscribe: %v", err)
 	}

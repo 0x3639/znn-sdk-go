@@ -44,7 +44,7 @@ go get github.com/0x3639/znn-sdk-go
 ```
 
 **Requirements:**
-- Go 1.18 or higher
+- Go 1.26 or higher
 - Access to a Zenon node (local or remote)
 
 ## Quick Start

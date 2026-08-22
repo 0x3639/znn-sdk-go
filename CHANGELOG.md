@@ -4,6 +4,14 @@ Notable changes to the Zenon Go SDK are documented in this file.
 
 ## Unreleased
 
+### Breaking Changes
+
+- Minimum Go version is now 1.26 (`go 1.26.0`, `toolchain go1.26.7`). Go 1.24
+  and 1.25 are end-of-life and carry reachable standard-library advisories in
+  the TLS/x509/net/http paths the RPC client uses. Consumers on an older
+  toolchain with the default `GOTOOLCHAIN=auto` will download 1.26
+  transparently.
+
 ## v0.4.0 - 2026-08-22
 
 Security hardening addressing 20 CodeRabbit findings (9 High, 9 Medium, 2 Low).

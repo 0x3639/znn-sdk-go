@@ -11,8 +11,8 @@ import (
 	"strconv"
 	"sync"
 
+	"crypto/sha3"
 	"github.com/zenon-network/go-zenon/common/types"
-	"golang.org/x/crypto/sha3"
 )
 
 const (

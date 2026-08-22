@@ -168,11 +168,63 @@ func (m *KeyStoreManager) SaveKeyStore(store *KeyStore, password, name string) e
 		return fmt.Errorf("failed to serialize keystore: %w", err)
 	}
 
-	// Write to file (filePath was validated by resolveKeyStorePath above).
-	if err := os.WriteFile(filePath, jsonData, 0600); err != nil {
+	// Write atomically (filePath was validated by resolveKeyStorePath above).
+	if err := writeFileAtomic(filePath, jsonData); err != nil {
 		return fmt.Errorf("failed to write keystore file: %w", err)
 	}
 
+	return nil
+}
+
+// writeFileAtomic writes data to path without ever following a symlink at
+// path.
+//
+// The Argon2 work between resolveKeyStorePath's Lstat and the final write is
+// long enough for a local attacker with write access to the wallet directory
+// to replace the validated entry with a symlink (CWE-367). os.WriteFile would
+// follow that link and truncate a file outside the wallet directory. Instead
+// the data is written to a freshly created (O_CREATE|O_EXCL, 0600) temporary
+// file in the same directory and then renamed over path. rename(2) replaces
+// the directory entry itself and never dereferences a symlink at the target,
+// so the worst an attacker can achieve is to have their planted link replaced
+// by the new keystore file.
+func writeFileAtomic(path string, data []byte) error {
+	dir := filepath.Dir(path)
+	tmp, err := os.CreateTemp(dir, "."+filepath.Base(path)+".tmp-*")
+	if err != nil {
+		return err
+	}
+	tmpName := tmp.Name()
+	cleanup := func() {
+		// #nosec G104 -- best-effort cleanup on an error path
+		tmp.Close() //nolint:errcheck
+		// #nosec G104 -- best-effort cleanup on an error path
+		os.Remove(tmpName) //nolint:errcheck
+	}
+	// os.CreateTemp uses 0600 already; make it explicit in case of a
+	// permissive umask on non-POSIX platforms.
+	if err := tmp.Chmod(0600); err != nil {
+		cleanup()
+		return err
+	}
+	if _, err := tmp.Write(data); err != nil {
+		cleanup()
+		return err
+	}
+	if err := tmp.Sync(); err != nil {
+		cleanup()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		// #nosec G104 -- best-effort cleanup on an error path
+		os.Remove(tmpName) //nolint:errcheck
+		return err
+	}
+	if err := os.Rename(tmpName, path); err != nil {
+		// #nosec G104 -- best-effort cleanup on an error path
+		os.Remove(tmpName) //nolint:errcheck
+		return err
+	}
 	return nil
 }
 

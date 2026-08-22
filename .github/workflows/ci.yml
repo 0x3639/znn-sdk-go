@@ -16,14 +16,15 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        go-version: ['1.24.x', '1.23.x']
+        # 1.24.x is the go.mod minimum; stable is the current release. (A
+        # 1.23.x entry would silently auto-switch to the go.mod toolchain.)
+        go-version: ['1.24.x', 'stable']
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
-
+      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
     - name: Set up Go
-      uses: actions/setup-go@v5
+      uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
       with:
         go-version: ${{ matrix.go-version }}
         cache: true
@@ -44,7 +45,7 @@ jobs:
 
     - name: Upload coverage to Codecov
       if: matrix.os == 'ubuntu-latest' && matrix.go-version == '1.24.x'
-      uses: codecov/codecov-action@v4
+      uses: codecov/codecov-action@b9fd7d16f6d7d1b5d2bec1a2887e65ceed900238 # v4.6.0
       with:
         files: ./coverage.txt
         flags: unittests
@@ -57,19 +58,22 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
-
+      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
     - name: Set up Go
-      uses: actions/setup-go@v5
+      uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
       with:
         go-version: '1.24.x'
         cache: true
 
     - name: Run golangci-lint
-      uses: golangci/golangci-lint-action@v7
+      uses: golangci/golangci-lint-action@9fae48acfc02a90574d7c304a1758ef9895495fa # v7.0.1
       with:
         version: v2.6.2
         args: --timeout=5m
+        # `config verify` downloads a JSON schema from golangci-lint.run and
+        # has caused spurious failures on network timeouts. An invalid config
+        # still fails the lint run itself.
+        verify: false
 
   fmt:
     name: Format Check
@@ -77,10 +81,9 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
-
+      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
     - name: Set up Go
-      uses: actions/setup-go@v5
+      uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
       with:
         go-version: '1.24.x'
 
@@ -98,10 +101,9 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
-
+      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
     - name: Set up Go
-      uses: actions/setup-go@v5
+      uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
       with:
         go-version: '1.24.x'
         cache: true
@@ -112,43 +114,49 @@ jobs:
   security:
     name: Security Scan
     runs-on: ubuntu-latest
+    # Scanners run on the contributor's revision, so this job gets only read
+    # access. SARIF upload (which needs security-events: write) lives in
+    # security.yml, scoped to a single job on trusted refs.
+    permissions:
+      contents: read
+    strategy:
+      matrix:
+        include:
+          # Declared minimum toolchain: enforce dependency advisories; stdlib
+          # advisories are the consumer's toolchain concern and only reported.
+          - go-version: '1.24.x'
+            skip-stdlib: '1'
+          # Current release: full enforcement including stdlib.
+          - go-version: 'stable'
+            skip-stdlib: '0'
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      with:
+        persist-credentials: false
 
     - name: Set up Go
-      uses: actions/setup-go@v5
+      uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
       with:
-        go-version: '1.24.x'
+        go-version: ${{ matrix.go-version }}
         cache: true
 
     - name: Run govulncheck
+      # Fails on any reachable advisory not explicitly accepted in
+      # .govulncheck-ignore (see scripts/govulncheck-gate.sh).
+      env:
+        GOVULNCHECK_SKIP_STDLIB: ${{ matrix.skip-stdlib }}
       run: |
-        go install golang.org/x/vuln/cmd/govulncheck@latest
-        # Don't fail CI for stdlib vulnerabilities (fixed by Go runtime updates)
-        govulncheck ./... || true
+        go install golang.org/x/vuln/cmd/govulncheck@v1.7.0
+        ./scripts/govulncheck-gate.sh
 
     - name: Run Gosec Security Scanner
+      # Fails the job on findings; suppress individual false positives with
+      # an annotated '#nosec' comment rather than globally.
       run: |
-        go install github.com/securego/gosec/v2/cmd/gosec@latest
-        gosec -no-fail -fmt sarif -out results.sarif ./...
-
-    - name: Ensure SARIF exists
-      if: always()
-      run: |
-        if [ ! -f results.sarif ]; then
-          echo '{"version":"2.1.0","$schema":"https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json","runs":[]}' > results.sarif
-        fi
-
-    - name: Upload SARIF file
-      # Note: SARIF upload requires security-events:write permission
-      # This is typically only available on the main repository, not forks
-      if: always()
-      uses: github/codeql-action/upload-sarif@v3
-      with:
-        sarif_file: results.sarif
-      continue-on-error: true
+        go install github.com/securego/gosec/v2/cmd/gosec@v2.28.0
+        gosec -quiet ./...
 
   build:
     name: Build
@@ -156,10 +164,9 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
-
+      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
     - name: Set up Go
-      uses: actions/setup-go@v5
+      uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
       with:
         go-version: '1.24.x'
         cache: true
@@ -185,10 +192,9 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
-
+      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
     - name: Set up Go
-      uses: actions/setup-go@v5
+      uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
       with:
         go-version: '1.24.x'
         cache: true

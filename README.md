@@ -373,14 +373,19 @@ template := client.TokenApi.IssueToken(...)
 // (Implementation in zenon/utils.go)
 
 // 3. Generate PoW or use plasma
-difficulty := 80000
-nonce := pow.GeneratePoW(template.Hash, difficulty)
+difficulty := uint64(80000)
+nonce, err := pow.GeneratePoW(utils.GetPoWData(template), difficulty)
+if err != nil {
+    return err
+}
 
 // 4. Sign transaction
 signature := keypair.Sign(template.Hash.Bytes())
 
 // 5. Publish
-err := client.LedgerApi.PublishRawTransaction(template)
+if err = client.LedgerApi.PublishRawTransaction(template); err != nil {
+    return err
+}
 ```
 
 ## PoW Generation
@@ -390,15 +395,25 @@ Generate proof-of-work for transactions:
 ### Synchronous PoW
 
 ```go
-import "github.com/0x3639/znn-sdk-go/pow"
+import (
+    "encoding/binary"
+    "encoding/hex"
+
+    "github.com/0x3639/znn-sdk-go/pow"
+)
 
 // Generate PoW (blocking)
 hash := types.HexToHashPanic("...")
 difficulty := uint64(80000)
-nonce := pow.GeneratePoW(hash, difficulty)
+nonce, err := pow.GeneratePoW(hash, difficulty)
+if err != nil {
+    return err // e.g. pow.ErrDifficultyTooHigh
+}
 
-// Verify PoW
-valid := pow.CheckPoW(hash, nonce, difficulty)
+// Verify PoW. GeneratePoW returns the nonce as a hex string of its 8
+// little-endian bytes; CheckPoW takes the uint64 value.
+nonceBytes, _ := hex.DecodeString(nonce)
+valid := pow.CheckPoW(hash, binary.LittleEndian.Uint64(nonceBytes), difficulty)
 ```
 
 ### Asynchronous PoW (Recommended)
@@ -724,7 +739,10 @@ First address: keystore.GetKeyPair(0)
 template := client.PlasmaApi.Fuse(myAddress, qsrAmount)
 
 // Solution 2: Generate PoW
-nonce := pow.GeneratePoW(hash, difficulty)
+nonce, err := pow.GeneratePoW(hash, difficulty)
+if err != nil {
+    return err
+}
 ```
 
 **Problem**: Transaction not confirmed

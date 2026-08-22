@@ -49,11 +49,18 @@ func Verify(signature []byte, message []byte, publicKey []byte) (bool, error) {
 	return ed25519.Verify(pubKey, message, signature), nil
 }
 
+// MaxDigestSize is the largest output length Digest will produce (in bytes).
+//
+// Larger requests return nil rather than allocating a caller-sized buffer,
+// so an untrusted digestSize cannot exhaust memory or CPU.
+const MaxDigestSize = 1024
+
 // Digest computes the SHA3-256 hash of data
 // The digestSize parameter allows customization of output length (default: 32 bytes).
-// A negative digestSize returns nil instead of panicking in make().
+// A negative digestSize or one above MaxDigestSize returns nil instead of
+// panicking in make() or allocating an attacker-chosen amount of memory.
 func Digest(data []byte, digestSize int) []byte {
-	if digestSize < 0 {
+	if digestSize < 0 || digestSize > MaxDigestSize {
 		return nil
 	}
 	if digestSize == 0 || digestSize == 32 {

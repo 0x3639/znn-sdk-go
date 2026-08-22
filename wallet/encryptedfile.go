@@ -98,7 +98,10 @@ func Encrypt(data []byte, password string, metadata map[string]interface{}) (*En
 
 	// Derive key using Argon2
 	params := crypto.DefaultArgon2Parameters()
-	key := crypto.DeriveKey([]byte(password), salt, params)
+	key, err := crypto.DeriveKey([]byte(password), salt, params)
+	if err != nil {
+		return nil, err
+	}
 
 	// Create AES-256-GCM cipher
 	block, err := aes.NewCipher(key)
@@ -178,7 +181,10 @@ func (ef *EncryptedFile) Decrypt(password string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	key := crypto.DeriveKey([]byte(password), salt, params)
+	key, err := crypto.DeriveKey([]byte(password), salt, params)
+	if err != nil {
+		return nil, err
+	}
 
 	return decryptAESGCM(key, nonce, ciphertext)
 }

@@ -13,23 +13,34 @@
 // Generate PoW for a transaction:
 //
 //	// Check required difficulty
-//	difficulty, err := client.PlasmaApi.GetRequiredPoWForAccountBlock(accountBlock)
+//	required, err := client.PlasmaApi.GetRequiredPoWForAccountBlock(accountBlock)
 //	if err != nil {
 //	    log.Fatal(err)
 //	}
 //
-//	// Generate PoW (blocking)
-//	nonce, err := pow.GeneratePoW(
-//	    accountBlock.Address.Bytes(),
-//	    accountBlock.Hash.Bytes(),
-//	    difficulty,
-//	)
+//	// The PoW data hash is SHA3-256(address || previousHash); it is NOT the
+//	// hash of accountBlock.Data.
+//	dataHash := utils.GetPoWData(accountBlock)
+//
+//	// The node controls RequiredDifficulty. Reject anything above the
+//	// protocol maximum before doing any work: the generators return an
+//	// error above MaxReasonableDifficulty, but values between the protocol
+//	// and reasonable maxima are capped to MaxProtocolDifficulty, so a nonce
+//	// generated for such a value would not validate against the advertised
+//	// difficulty. (zenon.Zenon.Send performs this check for you.)
+//	if required.RequiredDifficulty > pow.MaxProtocolDifficulty {
+//	    log.Fatalf("node requested difficulty %d above protocol maximum", required.RequiredDifficulty)
+//	}
+//
+//	// Generate PoW (blocking; never panics on hostile input)
+//	nonceBytes, err := pow.GeneratePowBytes(dataHash, required.RequiredDifficulty)
 //	if err != nil {
 //	    log.Fatal(err)
 //	}
 //
 //	// Set nonce on account block
-//	accountBlock.Nonce = nonce
+//	accountBlock.Difficulty = required.RequiredDifficulty
+//	copy(accountBlock.Nonce.Data[:], nonceBytes)
 //
 // # Asynchronous PoW Generation
 //

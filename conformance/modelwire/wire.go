@@ -3,6 +3,7 @@ package modelwire
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	sdkapi "github.com/0x3639/znn-sdk-go/api/embedded"
@@ -14,6 +15,30 @@ import (
 )
 
 type factory func() interface{}
+
+// Resource limits applied by RoundTrip (CWE-400).
+//
+// RoundTrip materializes the typed model, its re-encoded JSON, and two generic
+// JSON trees, and some models (for example ProjectList) re-encode minimal input
+// objects such as {"votes":{}} as much larger full objects. Bytes alone do not
+// bound that expansion, so the input's node count (objects + arrays) and the
+// expanded encoding are limited as well. Conformance fixtures are small; these
+// limits are generous for them.
+const (
+	// MaxInputSize is the largest fixture RoundTrip accepts, in bytes.
+	MaxInputSize = 256 << 10
+	// MaxInputNodes is the largest number of JSON objects and arrays
+	// (collection elements included) a fixture may contain.
+	MaxInputNodes = 4096
+	// MaxEncodedSize bounds the re-encoded typed model before the generic
+	// trees are built from it.
+	MaxEncodedSize = 4 << 20
+)
+
+// ErrInputTooLarge is returned (wrapped) by RoundTrip when the input exceeds
+// MaxInputSize or MaxInputNodes, or when the re-encoded model exceeds
+// MaxEncodedSize.
+var ErrInputTooLarge = errors.New("modelwire: input exceeds maximum size")
 
 type constructorAddress struct {
 	Core string `json:"core"`
@@ -122,8 +147,14 @@ var factories = map[string]factory{
 // RoundTrip returns a JSON-compatible value derived from the decoded Go model.
 // It preserves the stable fixture's declared wire shape while normalizing
 // big.Int values back to string form, as required by Zenon JSON-RPC. It returns
-// an error for an unknown model, invalid input, a model decoder failure, or a
-// missing declared wire field.
+// an error for an unknown model, invalid input, a model decoder failure, a
+// missing declared wire field, or input larger than MaxInputSize.
+//
+// Some registered models come from go-zenon and their UnmarshalJSON methods
+// dereference nullable pointers (for example BalanceInfo with a missing token,
+// or AccountBlockList with a null element). RoundTrip recovers any panic
+// raised by a model decoder or encoder and reports it as an error, so a
+// syntactically valid but hostile fixture cannot terminate the process.
 //
 // Example:
 //
@@ -131,18 +162,26 @@ var factories = map[string]factory{
 //
 // This helper is intended for conformance adapters and tests. Application code
 // should normally unmarshal RPC results directly through the API methods.
-func RoundTrip(model string, input json.RawMessage) (interface{}, error) {
+func RoundTrip(model string, input json.RawMessage) (result interface{}, err error) {
 	newModel, ok := factories[model]
 	if !ok {
 		return nil, fmt.Errorf("unsupported model %q", model)
 	}
-	instance := newModel()
-	if err := json.Unmarshal(input, instance); err != nil {
-		return nil, fmt.Errorf("decode %s: %w", model, err)
+	if len(input) > MaxInputSize {
+		return nil, fmt.Errorf("%w: %d bytes > %d", ErrInputTooLarge, len(input), MaxInputSize)
 	}
-	encoded, err := json.Marshal(instance)
+	// Counting '{' and '[' over-approximates the node count (string contents
+	// included), which is fine for a limit: it can only reject, never admit,
+	// a fixture the exact count would have rejected.
+	if nodes := bytes.Count(input, []byte("{")) + bytes.Count(input, []byte("[")); nodes > MaxInputNodes {
+		return nil, fmt.Errorf("%w: %d nodes > %d", ErrInputTooLarge, nodes, MaxInputNodes)
+	}
+	encoded, err := codecRoundTrip(model, newModel(), input)
 	if err != nil {
-		return nil, fmt.Errorf("encode %s: %w", model, err)
+		return nil, err
+	}
+	if len(encoded) > MaxEncodedSize {
+		return nil, fmt.Errorf("%w: expanded encoding %d bytes > %d", ErrInputTooLarge, len(encoded), MaxEncodedSize)
 	}
 	template, err := decodeJSON(input)
 	if err != nil {
@@ -153,6 +192,24 @@ func RoundTrip(model string, input json.RawMessage) (interface{}, error) {
 		return nil, err
 	}
 	return conformShape(template, actual, model)
+}
+
+// codecRoundTrip decodes input into instance and re-encodes it, converting any
+// panic from a registered model's (Un)MarshalJSON into an error.
+func codecRoundTrip(model string, instance interface{}, input json.RawMessage) (encoded []byte, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			encoded, err = nil, fmt.Errorf("model %s codec panicked: %v", model, r)
+		}
+	}()
+	if err = json.Unmarshal(input, instance); err != nil {
+		return nil, fmt.Errorf("decode %s: %w", model, err)
+	}
+	encoded, err = json.Marshal(instance)
+	if err != nil {
+		return nil, fmt.Errorf("encode %s: %w", model, err)
+	}
+	return encoded, nil
 }
 
 func decodeJSON(data []byte) (interface{}, error) {

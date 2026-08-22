@@ -3,6 +3,8 @@ package rpc_client
 import (
 	"context"
 	"fmt"
+	"net/url"
+	"strings"
 	"sync"
 	"time"
 
@@ -53,6 +55,12 @@ type RpcClient struct {
 	subscriptionLock sync.Mutex
 	subscriptions    map[*NormalizedSubscription]struct{}
 
+	// Transport hardening (see ClientOptions).
+	dialPolicy                  DialPolicy
+	maxHTTPResponseBytes        int64
+	httpTimeout                 time.Duration
+	maxSubscriptionMessageBytes int64
+
 	// Monitoring
 	monitorTicker  *time.Ticker
 	monitorCtx     context.Context
@@ -99,6 +107,27 @@ type ClientOptions struct {
 	HealthCheckInterval time.Duration
 	// HealthCheckCommand is the RPC command to use for health checks (default: "ledger.getFrontierMomentum")
 	HealthCheckCommand string
+
+	// DialPolicy authorizes every resolved destination the client connects to
+	// (initial dial, reconnects, subscription sockets, HTTP redirects). nil
+	// allows all destinations, which is appropriate for operator-configured
+	// node URLs. Set RejectNonPublicDestinations when the URL comes from an
+	// untrusted source (CWE-918).
+	DialPolicy DialPolicy
+
+	// MaxHTTPResponseBytes bounds each HTTP(S) JSON-RPC response body before
+	// it is decoded or buffered (default: DefaultMaxHTTPResponseBytes; <= 0
+	// uses the default).
+	MaxHTTPResponseBytes int64
+
+	// HTTPTimeout is the end-to-end timeout for one HTTP JSON-RPC call
+	// (default: DefaultHTTPTimeout; <= 0 uses the default).
+	HTTPTimeout time.Duration
+
+	// MaxSubscriptionMessageBytes bounds each frame read on the dedicated
+	// subscription WebSocket created by Subscribe (default:
+	// DefaultMaxSubscriptionMessageBytes; <= 0 uses the default).
+	MaxSubscriptionMessageBytes int64
 }
 
 // DefaultClientOptions returns default client options
@@ -110,6 +139,10 @@ func DefaultClientOptions() ClientOptions {
 		ReconnectAttempts:   0, // infinite
 		HealthCheckInterval: 30 * time.Second,
 		HealthCheckCommand:  "ledger.getFrontierMomentum",
+
+		MaxHTTPResponseBytes:        DefaultMaxHTTPResponseBytes,
+		HTTPTimeout:                 DefaultHTTPTimeout,
+		MaxSubscriptionMessageBytes: DefaultMaxSubscriptionMessageBytes,
 	}
 }
 
@@ -165,6 +198,9 @@ func NewRpcClient(url string) (*RpcClient, error) {
 //   - ReconnectAttempts: Max reconnection attempts, 0 for infinite (default: 0)
 //   - HealthCheckInterval: Interval for connection health checks (default: 30s, 0 to disable)
 //   - HealthCheckCommand: RPC command for health checks (default: "ledger.getFrontierMomentum")
+//   - DialPolicy: Authorizes resolved destinations; nil allows all (see RejectNonPublicDestinations)
+//   - MaxHTTPResponseBytes, HTTPTimeout: Bounds for HTTP(S) JSON-RPC responses
+//   - MaxSubscriptionMessageBytes: Bound for subscription WebSocket frames
 //
 // Returns an initialized RpcClient or an error if the initial connection fails.
 //
@@ -209,6 +245,20 @@ func NewRpcClientWithOptions(url string, opts ClientOptions) (*RpcClient, error)
 		onConnectionLost:        make([]ConnectionLostCallback, 0),
 		healthCheckCmd:          opts.HealthCheckCommand,
 		subscriptions:           make(map[*NormalizedSubscription]struct{}),
+
+		dialPolicy:                  opts.DialPolicy,
+		maxHTTPResponseBytes:        opts.MaxHTTPResponseBytes,
+		httpTimeout:                 opts.HTTPTimeout,
+		maxSubscriptionMessageBytes: opts.MaxSubscriptionMessageBytes,
+	}
+	if c.maxHTTPResponseBytes <= 0 {
+		c.maxHTTPResponseBytes = DefaultMaxHTTPResponseBytes
+	}
+	if c.httpTimeout <= 0 {
+		c.httpTimeout = DefaultHTTPTimeout
+	}
+	if c.maxSubscriptionMessageBytes <= 0 {
+		c.maxSubscriptionMessageBytes = DefaultMaxSubscriptionMessageBytes
 	}
 
 	// Connect initially
@@ -224,6 +274,30 @@ func NewRpcClientWithOptions(url string, opts ClientOptions) (*RpcClient, error)
 	return c, nil
 }
 
+// dial opens the go-zenon JSON-RPC transport for c.url, routing every TCP
+// connection through the dial policy and, for HTTP(S), bounding response
+// bodies and call duration.
+func (c *RpcClient) dial() (*server.Client, error) {
+	parsed, err := url.Parse(c.url)
+	if err != nil {
+		return nil, err
+	}
+	switch strings.ToLower(parsed.Scheme) {
+	case "http", "https":
+		// Note: HTTP transports connect lazily, so the dial policy is applied
+		// on the first call rather than here.
+		return server.DialHTTPWithClient(c.url, newHTTPClient(c.dialPolicy, c.maxHTTPResponseBytes, c.httpTimeout))
+	case "ws", "wss":
+		ctx, cancel := context.WithTimeout(context.Background(), c.httpTimeout)
+		defer cancel()
+		dialer, guard := newWebsocketDialer(c.dialPolicy)
+		client, err := server.DialWebsocketWithDialer(ctx, c.url, "", dialer)
+		return client, wrapDialError(err, guard)
+	default:
+		return nil, fmt.Errorf("unsupported scheme %q", parsed.Scheme)
+	}
+}
+
 // connect establishes the selected JSON-RPC transport and points the stable
 // API objects at it.
 func (c *RpcClient) connect() error {
@@ -233,7 +307,7 @@ func (c *RpcClient) connect() error {
 
 	c.setStatus(Connecting)
 
-	client, err := server.Dial(c.url)
+	client, err := c.dial()
 	if err != nil {
 		c.setStatus(Stopped)
 		return fmt.Errorf("failed to connect to %s: %w", c.url, err)

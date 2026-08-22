@@ -1,13 +1,16 @@
 package zenon
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/0x3639/znn-sdk-go/api/embedded"
 	"github.com/0x3639/znn-sdk-go/pow"
@@ -168,7 +171,7 @@ func TestSendFlowNonceAcceptedByNode(t *testing.T) {
 	block.Difficulty = 1000
 
 	dataHash := gozenonpow.GetAccountBlockHash(block)
-	nonce := pow.GeneratePowBytes(dataHash, block.Difficulty)
+	nonce, _ := pow.GeneratePowBytes(dataHash, block.Difficulty)
 	copy(block.Nonce.Data[:], nonce)
 
 	if !gozenonpow.CheckPoWNonce(block) {
@@ -444,5 +447,88 @@ func TestZenonSendWrapsPublishFailure(t *testing.T) {
 	block := client.LedgerApi.SendTemplate(types.PlasmaContract, types.ZnnTokenStandard, big.NewInt(1), nil)
 	if _, err := NewZenon(client).Send(block, testKeyPair(t)); err == nil || !strings.Contains(err.Error(), "failed to publish transaction") {
 		t.Fatalf("Send error = %v", err)
+	}
+}
+
+// CodeRabbit finding: node-directed PoW must be cancellable and bounded by an
+// application work budget.
+func TestZenonPrepareBlockWithContext_CancelAndBudget(t *testing.T) {
+	frontierHash := types.HexToHashPanic("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
+	momentumHash := types.HexToHashPanic("cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc")
+	fixture := &zenonRPCFixture{
+		frontier: &nodeapi.AccountBlock{AccountBlock: nom.AccountBlock{Height: 7, Hash: frontierHash, Amount: big.NewInt(0)}},
+		momentum: testMomentum(100, 9, momentumHash),
+		pow:      embedded.GetRequiredResult{AvailablePlasma: 11, BasePlasma: 22, RequiredDifficulty: pow.MaxProtocolDifficulty},
+		errors:   make(map[string]string),
+	}
+	client, cleanup := newZenonTestClient(t, fixture)
+	defer cleanup()
+	z := NewZenon(client)
+	kp := testKeyPair(t)
+
+	// Already-cancelled context: the nonce search must stop promptly.
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	template := client.LedgerApi.SendTemplate(types.PlasmaContract, types.QsrTokenStandard, big.NewInt(1), nil)
+	if _, err := z.PrepareBlockWithContext(ctx, template, kp); !errors.Is(err, pow.ErrCancelled) {
+		t.Fatalf("PrepareBlockWithContext with cancelled ctx: err = %v, want pow.ErrCancelled", err)
+	}
+	// CodeRabbit finding: a failed PoW must not leave difficulty set with an
+	// empty nonce, so the same template can be retried.
+	if template.Difficulty != 0 || template.FusedPlasma != 0 || template.Nonce != (nom.Nonce{}) {
+		t.Fatalf("failed PoW leaked fields: difficulty=%d fused=%d nonce=%x", template.Difficulty, template.FusedPlasma, template.Nonce.Data)
+	}
+	fixture.pow.RequiredDifficulty = 1
+	if _, err := z.PrepareBlockWithContext(context.Background(), template, kp); err != nil {
+		t.Fatalf("retry after cancelled PoW failed: %v", err)
+	}
+	fixture.pow.RequiredDifficulty = pow.MaxProtocolDifficulty
+
+	// Work budget below the node's request: fail before any PoW.
+	z.MaxDifficulty = 1000
+	var called bool
+	z.PowCallback = func(pow.PowStatus) { called = true }
+	template = client.LedgerApi.SendTemplate(types.PlasmaContract, types.QsrTokenStandard, big.NewInt(1), nil)
+	_, err := z.PrepareBlockWithContext(context.Background(), template, kp)
+	if err == nil || !strings.Contains(err.Error(), "above the maximum supported 1000") {
+		t.Fatalf("budget error = %v", err)
+	}
+	if called {
+		t.Fatal("PowCallback invoked despite budget rejection")
+	}
+}
+
+// Codex finding: the context-free Send/PrepareBlock must apply a finite default
+// PoW deadline.
+func TestZenonPrepareBlockAppliesDefaultPowTimeout(t *testing.T) {
+	frontierHash := types.HexToHashPanic("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
+	momentumHash := types.HexToHashPanic("cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc")
+	fixture := &zenonRPCFixture{
+		frontier: &nodeapi.AccountBlock{AccountBlock: nom.AccountBlock{Height: 7, Hash: frontierHash, Amount: big.NewInt(0)}},
+		momentum: testMomentum(100, 9, momentumHash),
+		pow:      embedded.GetRequiredResult{AvailablePlasma: 11, BasePlasma: 22, RequiredDifficulty: pow.MaxProtocolDifficulty},
+		errors:   make(map[string]string),
+	}
+	client, cleanup := newZenonTestClient(t, fixture)
+	defer cleanup()
+	z := NewZenon(client)
+	z.PowTimeout = time.Millisecond
+	template := client.LedgerApi.SendTemplate(types.PlasmaContract, types.QsrTokenStandard, big.NewInt(1), nil)
+	if _, err := z.PrepareBlock(template, testKeyPair(t)); !errors.Is(err, pow.ErrCancelled) {
+		t.Fatalf("PrepareBlock err = %v, want pow.ErrCancelled from PowTimeout", err)
+	}
+	if ctx, cancel := (&Zenon{}).powContext(); true {
+		deadline, ok := ctx.Deadline()
+		cancel()
+		if !ok || time.Until(deadline) > DefaultPowTimeout {
+			t.Fatalf("default powContext deadline = %v, %v", deadline, ok)
+		}
+	}
+	if ctx, cancel := (&Zenon{PowTimeout: -1}).powContext(); true {
+		_, ok := ctx.Deadline()
+		cancel()
+		if ok {
+			t.Fatal("negative PowTimeout should disable the deadline")
+		}
 	}
 }

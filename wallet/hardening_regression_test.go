@@ -3,6 +3,9 @@ package wallet
 import (
 	"bytes"
 	"math"
+	"os"
+	"path/filepath"
+	"runtime"
 	"sync"
 	"testing"
 )
@@ -172,5 +175,69 @@ func TestDeriveAddressesByRangeRejectsExcessiveSpan(t *testing.T) {
 	}
 	if len(addresses) != 3 {
 		t.Fatalf("DeriveAddressesByRange(0, 3) returned %d addresses", len(addresses))
+	}
+}
+
+func TestFindAddress_RejectsHugeMaxAccounts(t *testing.T) {
+	store, err := NewKeyStoreRandom()
+	if err != nil {
+		t.Fatal(err)
+	}
+	addr, _ := store.GetBaseAddress()
+	if _, err := store.FindAddress(*addr, DefaultMaxIndex+1); err == nil {
+		t.Error("FindAddress accepted maxAccounts above DefaultMaxIndex")
+	}
+}
+
+// TestSaveKeyStore_DoesNotFollowSymlinkPlantedAfterCheck simulates the
+// time-of-check/time-of-use race: a symlink at the target is replaced by the
+// new keystore file rather than followed.
+func TestSaveKeyStore_ReplacesSymlinkInsteadOfFollowing(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		// Creating symlinks needs elevated privileges and POSIX permission
+		// bits are not representable on Windows; the companion
+		// TestKeyStoreManager_RejectsSymlinkedEntries skips for the same reason.
+		t.Skip("symlink semantics and POSIX permissions differ on windows")
+	}
+	dir := t.TempDir()
+	outside := filepath.Join(t.TempDir(), "victim")
+	if err := os.WriteFile(outside, []byte("sensitive"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	target := filepath.Join(dir, "wallet")
+	if err := os.WriteFile(target, []byte("{}"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	// Bypass resolveKeyStorePath to emulate the link being planted after the
+	// Lstat check succeeded.
+	if err := os.Remove(target); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, target); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeFileAtomic(target, []byte("new keystore")); err != nil {
+		t.Fatal(err)
+	}
+	victim, err := os.ReadFile(outside)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(victim) != "sensitive" {
+		t.Fatalf("file outside wallet directory was overwritten: %q", victim)
+	}
+	info, err := os.Lstat(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !info.Mode().IsRegular() {
+		t.Fatalf("target is not a regular file after write: %v", info.Mode())
+	}
+	if info.Mode().Perm() != 0600 {
+		t.Fatalf("target perm = %o, want 0600", info.Mode().Perm())
+	}
+	entries, _ := os.ReadDir(dir)
+	if len(entries) != 1 {
+		t.Fatalf("temporary file left behind: %v", entries)
 	}
 }

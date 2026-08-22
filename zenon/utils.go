@@ -1,6 +1,8 @@
 package zenon
 
 import (
+	"context"
+	"encoding/hex"
 	"fmt"
 	"math/big"
 
@@ -165,33 +167,59 @@ func (z *Zenon) requiredPoW(transaction *nom.AccountBlock) (*embedded.GetRequire
 // plasma alone with a zero difficulty and nonce.
 //
 // Reference: znn_sdk_dart/lib/src/utils/block.dart:_setDifficulty
-func (z *Zenon) setDifficulty(transaction *nom.AccountBlock) error {
+func (z *Zenon) setDifficulty(ctx context.Context, transaction *nom.AccountBlock) error {
 	resp, err := z.requiredPoW(transaction)
 	if err != nil {
 		return fmt.Errorf("failed to query required PoW: %w", err)
 	}
 
 	if resp.RequiredDifficulty != 0 {
-		// Guard against a malformed or hostile node response: pow.GeneratePowBytes
-		// panics when the difficulty exceeds the safety cap. Surface it as an error
-		// so Send/PrepareBlock fail cleanly instead of crashing the process.
-		if resp.RequiredDifficulty > pow.MaxReasonableDifficulty {
+		// The node controls RequiredDifficulty. Enforce the application's work
+		// budget before starting any nonce search so a hostile or malfunctioning
+		// node cannot pin the CPU for minutes (CWE-400). The pow package
+		// additionally rejects anything above MaxReasonableDifficulty.
+		budget := z.MaxDifficulty
+		if budget == 0 || budget > pow.MaxProtocolDifficulty {
+			budget = pow.MaxProtocolDifficulty
+		}
+		if resp.RequiredDifficulty > budget {
 			return fmt.Errorf("node requested PoW difficulty %d above the maximum supported %d",
-				resp.RequiredDifficulty, pow.MaxReasonableDifficulty)
+				resp.RequiredDifficulty, budget)
 		}
 
-		transaction.FusedPlasma = resp.AvailablePlasma
-		transaction.Difficulty = resp.RequiredDifficulty
+		// Stage the PoW fields on a copy and commit them only once a nonce has
+		// been generated. Returning early (cancellation, overload, decode
+		// failure) must not leave the caller's template with a non-zero
+		// difficulty and an empty nonce, which checkAndSetFields would reject
+		// on retry.
+		staged := *transaction
+		staged.FusedPlasma = resp.AvailablePlasma
+		staged.Difficulty = resp.RequiredDifficulty
 
 		if z.PowCallback != nil {
 			z.PowCallback(pow.Generating)
 		}
 
 		// Use go-zenon's canonical data hash so the generated nonce is guaranteed
-		// to satisfy the node's pow.CheckPoWNonce.
-		dataHash := gozenonpow.GetAccountBlockHash(transaction)
-		nonceBytes := pow.GeneratePowBytes(dataHash, transaction.Difficulty)
-		copy(transaction.Nonce.Data[:], nonceBytes)
+		// to satisfy the node's pow.CheckPoWNonce. Run through the cancellable,
+		// worker-limited async path so ctx deadlines apply and concurrent sends
+		// share the pool's CPU limit.
+		dataHash := gozenonpow.GetAccountBlockHash(&staged)
+		result := <-pow.GeneratePowAsync(ctx, dataHash, staged.Difficulty)
+		if result.Error != nil {
+			return fmt.Errorf("failed to generate PoW: %w", result.Error)
+		}
+		nonce, err := hex.DecodeString(result.Nonce)
+		if err != nil {
+			return fmt.Errorf("failed to decode PoW nonce %q: %w", result.Nonce, err)
+		}
+		if len(nonce) != len(staged.Nonce.Data) {
+			return fmt.Errorf("unexpected PoW nonce length %d", len(nonce))
+		}
+
+		transaction.FusedPlasma = staged.FusedPlasma
+		transaction.Difficulty = staged.Difficulty
+		copy(transaction.Nonce.Data[:], nonce)
 
 		if z.PowCallback != nil {
 			z.PowCallback(pow.Done)

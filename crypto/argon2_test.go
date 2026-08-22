@@ -2,6 +2,7 @@ package crypto
 
 import (
 	"bytes"
+	"errors"
 	"testing"
 )
 
@@ -42,7 +43,7 @@ func TestDeriveKey_BasicUsage(t *testing.T) {
 	salt := []byte("0123456789abcdef") // 16 bytes
 	params := DefaultArgon2Parameters()
 
-	key := DeriveKey(password, salt, params)
+	key := mustDerive(t)(DeriveKey(password, salt, params))
 
 	if len(key) != int(params.KeyLength) {
 		t.Errorf("len(key) = %d, want %d", len(key), params.KeyLength)
@@ -54,8 +55,8 @@ func TestDeriveKey_SameInputsSameOutput(t *testing.T) {
 	salt := []byte("0123456789abcdef")
 	params := DefaultArgon2Parameters()
 
-	key1 := DeriveKey(password, salt, params)
-	key2 := DeriveKey(password, salt, params)
+	key1 := mustDerive(t)(DeriveKey(password, salt, params))
+	key2 := mustDerive(t)(DeriveKey(password, salt, params))
 
 	if !bytes.Equal(key1, key2) {
 		t.Error("DeriveKey should produce the same output for the same inputs")
@@ -66,8 +67,8 @@ func TestDeriveKey_DifferentPasswordsDifferentOutputs(t *testing.T) {
 	salt := []byte("0123456789abcdef")
 	params := DefaultArgon2Parameters()
 
-	key1 := DeriveKey([]byte("password1"), salt, params)
-	key2 := DeriveKey([]byte("password2"), salt, params)
+	key1 := mustDerive(t)(DeriveKey([]byte("password1"), salt, params))
+	key2 := mustDerive(t)(DeriveKey([]byte("password2"), salt, params))
 
 	if bytes.Equal(key1, key2) {
 		t.Error("DeriveKey should produce different outputs for different passwords")
@@ -78,8 +79,8 @@ func TestDeriveKey_DifferentSaltsDifferentOutputs(t *testing.T) {
 	password := []byte("test-password")
 	params := DefaultArgon2Parameters()
 
-	key1 := DeriveKey(password, []byte("0123456789abcdef"), params)
-	key2 := DeriveKey(password, []byte("fedcba9876543210"), params)
+	key1 := mustDerive(t)(DeriveKey(password, []byte("0123456789abcdef"), params))
+	key2 := mustDerive(t)(DeriveKey(password, []byte("fedcba9876543210"), params))
 
 	if bytes.Equal(key1, key2) {
 		t.Error("DeriveKey should produce different outputs for different salts")
@@ -91,7 +92,7 @@ func TestDeriveKey_EmptyPassword(t *testing.T) {
 	salt := []byte("0123456789abcdef")
 	params := DefaultArgon2Parameters()
 
-	key := DeriveKey(password, salt, params)
+	key := mustDerive(t)(DeriveKey(password, salt, params))
 
 	if len(key) != int(params.KeyLength) {
 		t.Errorf("len(key) = %d, want %d", len(key), params.KeyLength)
@@ -108,7 +109,7 @@ func TestDeriveKey_CustomParameters(t *testing.T) {
 		KeyLength:   64, // 64 bytes
 	}
 
-	key := DeriveKey(password, salt, params)
+	key := mustDerive(t)(DeriveKey(password, salt, params))
 
 	if len(key) != 64 {
 		t.Errorf("len(key) = %d, want 64", len(key))
@@ -123,11 +124,11 @@ func TestDeriveKeyDefault(t *testing.T) {
 	password := []byte("test-password")
 	salt := []byte("0123456789abcdef")
 
-	key := DeriveKeyDefault(password, salt)
+	key := mustDerive(t)(DeriveKeyDefault(password, salt))
 
 	// Should match default parameters
 	params := DefaultArgon2Parameters()
-	expectedKey := DeriveKey(password, salt, params)
+	expectedKey := mustDerive(t)(DeriveKey(password, salt, params))
 
 	if !bytes.Equal(key, expectedKey) {
 		t.Error("DeriveKeyDefault should use default parameters")
@@ -138,7 +139,7 @@ func TestDeriveKeyDefault_OutputLength(t *testing.T) {
 	password := []byte("test-password")
 	salt := []byte("0123456789abcdef")
 
-	key := DeriveKeyDefault(password, salt)
+	key := mustDerive(t)(DeriveKeyDefault(password, salt))
 
 	if len(key) != 32 {
 		t.Errorf("len(key) = %d, want 32", len(key))
@@ -160,8 +161,8 @@ func TestDeriveKey_KnownVector(t *testing.T) {
 		KeyLength:   32,
 	}
 
-	key1 := DeriveKey(password, salt, params)
-	key2 := DeriveKey(password, salt, params)
+	key1 := mustDerive(t)(DeriveKey(password, salt, params))
+	key2 := mustDerive(t)(DeriveKey(password, salt, params))
 
 	// Should be deterministic
 	if !bytes.Equal(key1, key2) {
@@ -185,7 +186,7 @@ func BenchmarkDeriveKey(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		DeriveKey(password, salt, params)
+		_, _ = DeriveKey(password, salt, params)
 	}
 }
 
@@ -195,6 +196,38 @@ func BenchmarkDeriveKeyDefault(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		DeriveKeyDefault(password, salt)
+		_, _ = DeriveKeyDefault(password, salt)
+	}
+}
+
+func mustDerive(t *testing.T) func([]byte, error) []byte {
+	return func(key []byte, err error) []byte {
+		t.Helper()
+		if err != nil {
+			t.Fatalf("DeriveKey returned error: %v", err)
+		}
+		return key
+	}
+}
+
+func TestDeriveKey_RejectsInvalidParameters(t *testing.T) {
+	salt := []byte("0123456789abcdef")
+	cases := map[string]Argon2Parameters{
+		"zero iterations":  {Memory: 1024, Iterations: 0, Parallelism: 1, KeyLength: 32},
+		"zero parallelism": {Memory: 1024, Iterations: 1, Parallelism: 0, KeyLength: 32},
+		"huge memory":      {Memory: MaxArgon2Memory + 1, Iterations: 1, Parallelism: 1, KeyLength: 32},
+		"huge iterations":  {Memory: 1024, Iterations: MaxArgon2Iterations + 1, Parallelism: 1, KeyLength: 32},
+		"huge key length":  {Memory: 1024, Iterations: 1, Parallelism: 1, KeyLength: MaxArgon2KeyLength + 1},
+		"tiny key length":  {Memory: 1024, Iterations: 1, Parallelism: 1, KeyLength: 8},
+		"huge parallelism": {Memory: 1024, Iterations: 1, Parallelism: MaxArgon2Parallelism + 1, KeyLength: 32},
+		"work budget":      {Memory: MaxArgon2Memory, Iterations: MaxArgon2Iterations, Parallelism: 1, KeyLength: 32},
+	}
+	for name, params := range cases {
+		if _, err := DeriveKey([]byte("pw"), salt, params); !errors.Is(err, ErrInvalidArgon2Parameters) {
+			t.Errorf("%s: expected ErrInvalidArgon2Parameters, got %v", name, err)
+		}
+	}
+	if _, err := DeriveKey([]byte("pw"), []byte("short"), DefaultArgon2Parameters()); !errors.Is(err, ErrInvalidArgon2Parameters) {
+		t.Errorf("short salt: expected ErrInvalidArgon2Parameters, got %v", err)
 	}
 }

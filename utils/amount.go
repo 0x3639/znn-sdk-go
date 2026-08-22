@@ -10,6 +10,14 @@ import (
 // Amount Utilities
 // =============================================================================
 
+// MaxDecimals is the largest decimal precision accepted by ExtractDecimals and
+// AddDecimals.
+//
+// Zenon token standards use at most 18 decimals; 32 leaves generous headroom
+// while preventing an untrusted decimals value from requesting an enormous
+// string or big.Int allocation (CWE-400).
+const MaxDecimals = 32
+
 // ExtractDecimals parses a decimal string amount and converts it to a big.Int
 // in base units according to the specified number of decimal places.
 //
@@ -55,6 +63,9 @@ import (
 func ExtractDecimals(amount string, decimals int) (*big.Int, error) {
 	if decimals < 0 {
 		return nil, fmt.Errorf("decimals cannot be negative: %d", decimals)
+	}
+	if decimals > MaxDecimals {
+		return nil, fmt.Errorf("decimals %d exceeds maximum %d", decimals, MaxDecimals)
 	}
 	if amount == "" {
 		if decimals == 0 {
@@ -107,8 +118,9 @@ func ExtractDecimals(amount string, decimals int) (*big.Int, error) {
 // Example: 150000000 with 8 decimals becomes "1.5"
 //
 // Negative amounts are formatted with a leading '-' (e.g. -5 with 8 decimals
-// becomes "-0.00000005"). A decimals value <= 0 returns the plain integer
-// string instead of slicing out of range.
+// becomes "-0.00000005"). A decimals value <= 0 or above MaxDecimals returns
+// the plain integer string instead of slicing out of range or allocating an
+// attacker-sized padding string.
 func AddDecimals(number *big.Int, decimals int) string {
 	if number.Sign() == 0 {
 		return "0"
@@ -122,8 +134,8 @@ func AddDecimals(number *big.Int, decimals int) string {
 	}
 	str := new(big.Int).Abs(number).String()
 
-	// If decimals is 0 (or invalid), return as-is
-	if decimals <= 0 {
+	// If decimals is 0 (or invalid / above MaxDecimals), return as-is
+	if decimals <= 0 || decimals > MaxDecimals {
 		return sign + str
 	}
 

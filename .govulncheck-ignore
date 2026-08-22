@@ -1,0 +1,11 @@
+# Known, reviewed vulnerability advisories that govulncheck reports as reachable
+# but that cannot currently be fixed in this repository. One OSV ID per line;
+# '#' starts a comment. Each entry must say why it is accepted and when it
+# should be revisited. CI fails on any reachable advisory NOT listed here.
+#
+# github.com/ethereum/go-ethereum v1.13.15 is pinned transitively by
+# github.com/zenon-network/go-zenon. The affected code paths (devp2p/RLPx,
+# EVM tracing) are not exercised by this SDK; revisit when go-zenon upgrades.
+GO-2026-4314
+GO-2026-4315
+GO-2026-4508

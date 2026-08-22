@@ -70,6 +70,10 @@ jobs:
       with:
         version: v2.6.2
         args: --timeout=5m
+        # `config verify` downloads a JSON schema from golangci-lint.run and
+        # has caused spurious failures on network timeouts. An invalid config
+        # still fails the lint run itself.
+        verify: false
 
   fmt:
     name: Format Check

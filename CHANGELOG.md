@@ -4,6 +4,8 @@ Notable changes to the Zenon Go SDK are documented in this file.
 
 ## Unreleased
 
+## v0.4.0 - 2026-08-22
+
 Security hardening addressing 20 CodeRabbit findings (9 High, 9 Medium, 2 Low).
 Every code fix ships with a regression test. **Five exported signatures change —
 see Breaking Changes.**
@@ -68,8 +70,25 @@ see Breaking Changes.**
   (`scripts/govulncheck-gate.sh`, which also fails on scanner crashes, package
   load errors, or empty output); `gosec` runs without `-no-fail`. Workflows
   use least-privilege job permissions (`security-events: write` only on the
-  SARIF-upload job), `persist-credentials: false`, and pin third-party actions
-  and tools to immutable commits/versions.
+  SARIF-upload job), `persist-credentials: false`, and pin every third-party
+  action and tool to an immutable commit/version. The govulncheck gate runs on
+  both the go.mod minimum toolchain (dependency advisories enforced, stdlib
+  advisories reported) and the current stable release (fully enforced).
+
+### Fixed
+
+- `pow.GeneratePowAsync`/`GeneratePowBigIntAsync` bind each request to the
+  worker pool it was admitted to, and `pow.SetMaxPoWWorkers` is now safe to
+  call concurrently with generation; previously a resize mid-request could
+  pair a slot reserved in one pool with a release on another (deadlock and
+  slot leak).
+- `zenon.Zenon.Send`/`PrepareBlock` leave the template untouched when PoW is
+  cancelled, overloaded, or fails, so the same block can be retried; previously
+  a non-zero difficulty with an empty nonce was left behind and rejected on
+  retry.
+- README and package documentation examples check the errors returned by the
+  changed APIs, compute the PoW data hash with `utils.GetPoWData`, and convert
+  the hex nonce correctly for `pow.CheckPoW`.
 
 ## v0.3.1 - 2026-08-14
 

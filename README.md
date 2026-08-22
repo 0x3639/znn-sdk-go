@@ -395,7 +395,12 @@ Generate proof-of-work for transactions:
 ### Synchronous PoW
 
 ```go
-import "github.com/0x3639/znn-sdk-go/pow"
+import (
+    "encoding/binary"
+    "encoding/hex"
+
+    "github.com/0x3639/znn-sdk-go/pow"
+)
 
 // Generate PoW (blocking)
 hash := types.HexToHashPanic("...")
@@ -405,8 +410,10 @@ if err != nil {
     return err // e.g. pow.ErrDifficultyTooHigh
 }
 
-// Verify PoW
-valid := pow.CheckPoW(hash, nonce, difficulty)
+// Verify PoW. GeneratePoW returns the nonce as a hex string of its 8
+// little-endian bytes; CheckPoW takes the uint64 value.
+nonceBytes, _ := hex.DecodeString(nonce)
+valid := pow.CheckPoW(hash, binary.LittleEndian.Uint64(nonceBytes), difficulty)
 ```
 
 ### Asynchronous PoW (Recommended)

@@ -19,11 +19,7 @@
 //	}
 //
 //	// Generate PoW (blocking)
-//	nonce, err := pow.GeneratePoW(
-//	    accountBlock.Address.Bytes(),
-//	    accountBlock.Hash.Bytes(),
-//	    difficulty,
-//	)
+//	nonce, err := pow.GeneratePoW(dataHash, difficulty)
 //	if err != nil {
 //	    log.Fatal(err)
 //	}

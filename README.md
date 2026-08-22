@@ -374,7 +374,7 @@ template := client.TokenApi.IssueToken(...)
 
 // 3. Generate PoW or use plasma
 difficulty := 80000
-nonce := pow.GeneratePoW(template.Hash, difficulty)
+nonce, err := pow.GeneratePoW(template.Hash, difficulty)
 
 // 4. Sign transaction
 signature := keypair.Sign(template.Hash.Bytes())
@@ -395,7 +395,7 @@ import "github.com/0x3639/znn-sdk-go/pow"
 // Generate PoW (blocking)
 hash := types.HexToHashPanic("...")
 difficulty := uint64(80000)
-nonce := pow.GeneratePoW(hash, difficulty)
+nonce, err := pow.GeneratePoW(hash, difficulty)
 
 // Verify PoW
 valid := pow.CheckPoW(hash, nonce, difficulty)
@@ -724,7 +724,7 @@ First address: keystore.GetKeyPair(0)
 template := client.PlasmaApi.Fuse(myAddress, qsrAmount)
 
 // Solution 2: Generate PoW
-nonce := pow.GeneratePoW(hash, difficulty)
+nonce, err := pow.GeneratePoW(hash, difficulty)
 ```
 
 **Problem**: Transaction not confirmed

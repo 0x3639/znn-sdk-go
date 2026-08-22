@@ -43,7 +43,7 @@
 //
 // Used for keystore encryption (typically handled by wallet package):
 //
-//	derivedKey := crypto.DeriveKey(password, salt, iterations, memory, threads, keyLen)
+//	derivedKey, err := crypto.DeriveKey(password, salt, crypto.DefaultArgon2Parameters())
 //
 // # Address Derivation
 //

@@ -37,7 +37,9 @@
 package zenon
 
 import (
+	"context"
 	"fmt"
+	"time"
 
 	"github.com/0x3639/znn-sdk-go/pow"
 	"github.com/0x3639/znn-sdk-go/rpc_client"
@@ -59,7 +61,27 @@ type Zenon struct {
 	// plasma (no PoW required). Use it to surface progress to users, since PoW
 	// generation is synchronous and can take noticeable time at high difficulty.
 	PowCallback func(pow.PowStatus)
+
+	// PowTimeout bounds Proof-of-Work generation for Send and PrepareBlock,
+	// which have no caller-supplied context. Zero selects DefaultPowTimeout; a
+	// negative value disables the deadline (explicit opt-in to unbounded work).
+	// SendWithContext/PrepareBlockWithContext use the caller's context instead.
+	PowTimeout time.Duration
+
+	// MaxDifficulty, when non-zero, is the largest PoW difficulty this Zenon is
+	// willing to compute. The node controls the required difficulty, so this is
+	// an application-level work budget: Send/PrepareBlock fail with an error
+	// instead of starting a nonce search when the node asks for more. When zero,
+	// difficulties up to pow.MaxProtocolDifficulty are accepted (higher values
+	// are always rejected).
+	MaxDifficulty uint64
 }
+
+// DefaultPowTimeout is the Proof-of-Work deadline applied by Send and
+// PrepareBlock when Zenon.PowTimeout is zero. Protocol-maximum difficulty
+// typically completes well within it on commodity hardware, while a hostile
+// node cannot pin a worker indefinitely.
+const DefaultPowTimeout = 5 * time.Minute
 
 // NewZenon creates a Zenon send-flow helper bound to the given RPC client.
 //
@@ -102,15 +124,52 @@ func (z *Zenon) Client() *rpc_client.RpcClient {
 // independently.
 //
 // Note: PoW generation is synchronous and can be slow at high difficulty. Set
-// PowCallback to observe progress. For transactions covered by fused plasma, no
-// PoW is generated.
+// PowCallback to observe progress. PoW is bounded by PowTimeout
+// (DefaultPowTimeout when zero); use SendWithContext to supply your own
+// deadline. For transactions covered by fused plasma, no PoW is generated.
 //
 // Example:
 //
 //	template := client.TokenApi.IssueToken(...)
 //	published, err := z.Send(template, keyPair)
 func (z *Zenon) Send(transaction *nom.AccountBlock, keyPair *wallet.KeyPair) (*nom.AccountBlock, error) {
-	if _, err := z.PrepareBlock(transaction, keyPair); err != nil {
+	ctx, cancel := z.powContext()
+	defer cancel()
+	return z.SendWithContext(ctx, transaction, keyPair)
+}
+
+// powContext returns the context Send and PrepareBlock use for PoW, applying
+// PowTimeout (or DefaultPowTimeout) unless the timeout is negative.
+func (z *Zenon) powContext() (context.Context, context.CancelFunc) {
+	timeout := z.PowTimeout
+	if timeout == 0 {
+		timeout = DefaultPowTimeout
+	}
+	if timeout < 0 {
+		return context.WithCancel(context.Background())
+	}
+	return context.WithTimeout(context.Background(), timeout)
+}
+
+// SendWithContext is like Send but honors ctx during Proof-of-Work generation.
+//
+// The node dictates the required difficulty, and a nonce search at the protocol
+// maximum can run for minutes. Pass a context with a deadline or cancellation
+// to bound that work; pow.ErrCancelled is returned (wrapped) when ctx is done
+// before a nonce is found. PoW runs through the pow package's worker pool, so
+// concurrent sends share the configured CPU limit.
+//
+// Parameters:
+//   - ctx: Bounds PoW generation. It is not currently applied to RPC calls.
+//   - transaction, keyPair: As for Send.
+//
+// Example:
+//
+//	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+//	defer cancel()
+//	published, err := z.SendWithContext(ctx, template, keyPair)
+func (z *Zenon) SendWithContext(ctx context.Context, transaction *nom.AccountBlock, keyPair *wallet.KeyPair) (*nom.AccountBlock, error) {
+	if _, err := z.PrepareBlockWithContext(ctx, transaction, keyPair); err != nil {
 		return nil, err
 	}
 
@@ -145,10 +204,21 @@ func (z *Zenon) Send(transaction *nom.AccountBlock, keyPair *wallet.KeyPair) (*n
 //	// ... later ...
 //	err = client.LedgerApi.PublishRawTransaction(signed)
 func (z *Zenon) PrepareBlock(transaction *nom.AccountBlock, keyPair *wallet.KeyPair) (*nom.AccountBlock, error) {
+	ctx, cancel := z.powContext()
+	defer cancel()
+	return z.PrepareBlockWithContext(ctx, transaction, keyPair)
+}
+
+// PrepareBlockWithContext is like PrepareBlock but honors ctx during
+// Proof-of-Work generation. See SendWithContext for details.
+func (z *Zenon) PrepareBlockWithContext(ctx context.Context, transaction *nom.AccountBlock, keyPair *wallet.KeyPair) (*nom.AccountBlock, error) {
+	if ctx == nil {
+		return nil, fmt.Errorf("nil context")
+	}
 	if err := z.checkAndSetFields(transaction, keyPair); err != nil {
 		return nil, err
 	}
-	if err := z.setDifficulty(transaction); err != nil {
+	if err := z.setDifficulty(ctx, transaction); err != nil {
 		return nil, err
 	}
 	if err := z.setHashAndSignature(transaction, keyPair); err != nil {

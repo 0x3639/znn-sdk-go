@@ -38,6 +38,13 @@ const (
 	// - SetMaxPoWWorkers() function
 	// - POW_MAX_WORKERS environment variable
 	DefaultMaxPoWWorkers = 8
+
+	// DefaultPendingPoWMultiplier bounds how many asynchronous PoW requests may
+	// wait for a worker slot: pending capacity = maxWorkers × this multiplier.
+	// Requests beyond active+pending capacity are rejected immediately with
+	// ErrPoolOverloaded instead of accumulating goroutines and channels
+	// without limit (CWE-400).
+	DefaultPendingPoWMultiplier = 4
 )
 
 var (
@@ -46,6 +53,15 @@ var (
 
 	// ErrDifficultyTooHigh is returned when difficulty exceeds the reasonable maximum
 	ErrDifficultyTooHigh = errors.New("difficulty exceeds reasonable maximum (possible DoS attack)")
+
+	// ErrInvalidDifficulty is returned when a *big.Int difficulty is nil or
+	// negative.
+	ErrInvalidDifficulty = errors.New("invalid difficulty")
+
+	// ErrPoolOverloaded is returned by GeneratePowAsync and GeneratePowBigIntAsync
+	// when both the active worker slots and the bounded pending queue are full.
+	// Callers should back off and retry rather than resubmitting immediately.
+	ErrPoolOverloaded = errors.New("pow worker pool overloaded: too many pending requests")
 )
 
 // workerPool manages concurrent PoW generation operations.
@@ -53,6 +69,32 @@ var (
 // preventing CPU exhaustion when multiple transactions are submitted concurrently.
 type workerPool struct {
 	semaphore chan struct{}
+	// pending bounds the total number of admitted-but-not-finished requests
+	// (active + waiting). Its capacity is a multiple of the worker count.
+	pending chan struct{}
+}
+
+func newWorkerPool(maxWorkers int) *workerPool {
+	return &workerPool{
+		semaphore: make(chan struct{}, maxWorkers),
+		pending:   make(chan struct{}, maxWorkers*DefaultPendingPoWMultiplier),
+	}
+}
+
+// admit reserves a pending slot without blocking. It returns false when the
+// pool is overloaded; the caller must then reject the request immediately.
+func (p *workerPool) admit() bool {
+	select {
+	case p.pending <- struct{}{}:
+		return true
+	default:
+		return false
+	}
+}
+
+// leave frees a pending slot reserved by admit.
+func (p *workerPool) leave() {
+	<-p.pending
 }
 
 var (
@@ -73,9 +115,7 @@ func initWorkerPool() {
 			}
 		}
 
-		pool = &workerPool{
-			semaphore: make(chan struct{}, maxWorkers),
-		}
+		pool = newWorkerPool(maxWorkers)
 	})
 }
 
@@ -121,9 +161,7 @@ func SetMaxPoWWorkers(maxWorkers int) {
 
 	poolOnce.Do(func() {}) // Ensure poolOnce is marked as initialized
 
-	pool = &workerPool{
-		semaphore: make(chan struct{}, maxWorkers),
-	}
+	pool = newWorkerPool(maxWorkers)
 }
 
 // GetMaxPoWWorkers returns the current maximum number of concurrent PoW workers.
@@ -203,6 +241,14 @@ func validateAndCapDifficulty(difficulty uint64) (uint64, error) {
 
 // validateAndCapDifficultyBigInt is like validateAndCapDifficulty but for *big.Int
 func validateAndCapDifficultyBigInt(difficulty *big.Int) (*big.Int, error) {
+	if difficulty == nil {
+		return nil, fmt.Errorf("%w: nil difficulty", ErrInvalidDifficulty)
+	}
+	// Negative difficulty is never valid; IsUint64 would also reject it, but
+	// report it distinctly.
+	if difficulty.Sign() < 0 {
+		return nil, fmt.Errorf("%w: negative difficulty %s", ErrInvalidDifficulty, difficulty)
+	}
 	// Check if difficulty fits in uint64
 	if !difficulty.IsUint64() {
 		return nil, fmt.Errorf("%w: difficulty too large for uint64",
@@ -233,64 +279,61 @@ func validateAndCapDifficultyBigInt(difficulty *big.Int) (*big.Int, error) {
 //
 // Here dataHash is SHA3-256(address || previousHash) for the account block.
 //
-// Note: This function panics if difficulty exceeds MaxReasonableDifficulty.
-// For error handling, use GeneratePowWithContext instead.
-func GeneratePoW(dataHash types.Hash, difficulty uint64) string {
-	if difficulty == 0 {
-		return "0000000000000000"
-	}
-
-	// Validate and cap difficulty
-	cappedDifficulty, err := validateAndCapDifficulty(difficulty)
-	if err != nil {
-		panic(err) // Panic for synchronous API consistency
-	}
-
-	difficultyBig := new(big.Int).SetUint64(cappedDifficulty)
-	threshold := GetThresholdByDifficulty(difficultyBig)
-	nonce := uint64(0)
-
-	for {
-		if meetsDifficulty(dataHash, nonce, threshold) {
-			return uint64ToHex(nonce)
-		}
-
-		nonce++
-	}
+// Returns ErrDifficultyTooHigh if difficulty exceeds MaxReasonableDifficulty.
+// This function never panics on hostile input; it is equivalent to
+// GeneratePowWithContext with a background context and therefore cannot be
+// cancelled. Prefer GeneratePowWithContext when a deadline is needed.
+//
+// Example:
+//
+//	nonce, err := pow.GeneratePoW(dataHash, difficulty)
+//	if err != nil {
+//	    return err
+//	}
+func GeneratePoW(dataHash types.Hash, difficulty uint64) (string, error) {
+	return GeneratePowWithContext(context.Background(), dataHash, difficulty)
 }
 
-// GeneratePowBigInt is like GeneratePoW but accepts difficulty as *big.Int
+// GeneratePowBigInt is like GeneratePoW but accepts difficulty as *big.Int.
 //
-// Note: This function panics if difficulty exceeds MaxReasonableDifficulty.
-// For error handling, use GeneratePowBigIntWithContext instead.
-func GeneratePowBigInt(dataHash types.Hash, difficulty *big.Int) string {
-	if difficulty.Cmp(big.NewInt(0)) == 0 {
-		return "0000000000000000"
-	}
-
-	// Validate and cap difficulty
-	cappedDifficulty, err := validateAndCapDifficultyBigInt(difficulty)
-	if err != nil {
-		panic(err) // Panic for synchronous API consistency
-	}
-
-	threshold := GetThresholdByDifficulty(cappedDifficulty)
-	nonce := uint64(0)
-
-	for {
-		if meetsDifficulty(dataHash, nonce, threshold) {
-			return uint64ToHex(nonce)
-		}
-
-		nonce++
-	}
+// Returns ErrInvalidDifficulty for a nil or negative difficulty and
+// ErrDifficultyTooHigh if it does not fit in uint64 or exceeds
+// MaxReasonableDifficulty. It never panics on hostile input.
+func GeneratePowBigInt(dataHash types.Hash, difficulty *big.Int) (string, error) {
+	return GeneratePowBigIntWithContext(context.Background(), dataHash, difficulty)
 }
 
 // GeneratePowBytes is like GeneratePoW but returns the nonce as the 8-byte
 // little-endian slice ready to copy into AccountBlock.Nonce.
-func GeneratePowBytes(dataHash types.Hash, difficulty uint64) []byte {
-	hexStr := GeneratePoW(dataHash, difficulty)
-	return hexToBytes(hexStr)
+//
+// Returns ErrDifficultyTooHigh if difficulty exceeds MaxReasonableDifficulty.
+func GeneratePowBytes(dataHash types.Hash, difficulty uint64) ([]byte, error) {
+	return GeneratePowBytesWithContext(context.Background(), dataHash, difficulty)
+}
+
+// GeneratePowBytesWithContext is the non-panicking, cancellable form of
+// GeneratePowBytes. It returns the nonce as the 8-byte little-endian slice
+// ready to copy into AccountBlock.Nonce.
+//
+// Parameters:
+//   - ctx: Cancels the nonce search; ErrCancelled is returned when it is done.
+//   - dataHash: SHA3-256(address || previousHash) for the account block.
+//   - difficulty: Required difficulty, typically from the node.
+//
+// Returns ErrDifficultyTooHigh if difficulty exceeds MaxReasonableDifficulty and
+// ErrCancelled if ctx is cancelled before a nonce is found.
+//
+// Example:
+//
+//	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+//	defer cancel()
+//	nonce, err := pow.GeneratePowBytesWithContext(ctx, dataHash, difficulty)
+func GeneratePowBytesWithContext(ctx context.Context, dataHash types.Hash, difficulty uint64) ([]byte, error) {
+	hexStr, err := GeneratePowWithContext(ctx, dataHash, difficulty)
+	if err != nil {
+		return nil, err
+	}
+	return hexToBytes(hexStr), nil
 }
 
 // GeneratePowWithContext generates PoW with context support for cancellation
@@ -336,7 +379,10 @@ func GeneratePowWithContext(ctx context.Context, dataHash types.Hash, difficulty
 //
 // Returns ErrDifficultyTooHigh if difficulty exceeds MaxReasonableDifficulty.
 func GeneratePowBigIntWithContext(ctx context.Context, dataHash types.Hash, difficulty *big.Int) (string, error) {
-	if difficulty.Cmp(big.NewInt(0)) == 0 {
+	if difficulty == nil {
+		return "", fmt.Errorf("%w: nil difficulty", ErrInvalidDifficulty)
+	}
+	if difficulty.Sign() == 0 {
 		return "0000000000000000", nil
 	}
 
@@ -396,6 +442,11 @@ func GeneratePowBigIntWithContext(ctx context.Context, dataHash types.Hash, diff
 //	}
 //	// Use result.Nonce
 //
+// Admission is bounded: at most maxWorkers×DefaultPendingPoWMultiplier requests
+// may be active or waiting at once. Beyond that the returned channel yields
+// ErrPoolOverloaded immediately, so a burst of requests cannot accumulate an
+// unbounded number of goroutines.
+//
 // For concurrent operations (automatically queued if >8 simultaneous):
 //
 //	results := make([]<-chan PowResult, 20)
@@ -410,8 +461,17 @@ func GeneratePowAsync(ctx context.Context, dataHash types.Hash, difficulty uint6
 	initWorkerPool()
 	resultChan := make(chan PowResult, 1)
 
+	// Bounded admission: reject immediately when active+pending capacity is
+	// exhausted, before allocating a goroutine for the request (CWE-400).
+	if !pool.admit() {
+		resultChan <- PowResult{Error: ErrPoolOverloaded}
+		close(resultChan)
+		return resultChan
+	}
+
 	go func() {
 		defer close(resultChan)
+		defer pool.leave()
 
 		// Acquire worker slot (blocks if pool is full)
 		if err := pool.acquire(ctx); err != nil {
@@ -453,8 +513,17 @@ func GeneratePowBigIntAsync(ctx context.Context, dataHash types.Hash, difficulty
 	initWorkerPool()
 	resultChan := make(chan PowResult, 1)
 
+	// Bounded admission: reject immediately when active+pending capacity is
+	// exhausted, before allocating a goroutine for the request (CWE-400).
+	if !pool.admit() {
+		resultChan <- PowResult{Error: ErrPoolOverloaded}
+		close(resultChan)
+		return resultChan
+	}
+
 	go func() {
 		defer close(resultChan)
+		defer pool.leave()
 
 		// Acquire worker slot (blocks if pool is full)
 		if err := pool.acquire(ctx); err != nil {

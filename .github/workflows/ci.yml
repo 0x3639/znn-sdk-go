@@ -112,10 +112,17 @@ jobs:
   security:
     name: Security Scan
     runs-on: ubuntu-latest
+    # Scanners run on the contributor's revision, so this job gets only read
+    # access. SARIF upload (which needs security-events: write) lives in
+    # security.yml, scoped to a single job on trusted refs.
+    permissions:
+      contents: read
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      with:
+        persist-credentials: false
 
     - name: Set up Go
       uses: actions/setup-go@v5
@@ -124,31 +131,18 @@ jobs:
         cache: true
 
     - name: Run govulncheck
+      # Fails on any reachable advisory not explicitly accepted in
+      # .govulncheck-ignore (see scripts/govulncheck-gate.sh).
       run: |
-        go install golang.org/x/vuln/cmd/govulncheck@latest
-        # Don't fail CI for stdlib vulnerabilities (fixed by Go runtime updates)
-        govulncheck ./... || true
+        go install golang.org/x/vuln/cmd/govulncheck@v1.7.0
+        ./scripts/govulncheck-gate.sh
 
     - name: Run Gosec Security Scanner
+      # Fails the job on findings; suppress individual false positives with
+      # an annotated '#nosec' comment rather than globally.
       run: |
-        go install github.com/securego/gosec/v2/cmd/gosec@latest
-        gosec -no-fail -fmt sarif -out results.sarif ./...
-
-    - name: Ensure SARIF exists
-      if: always()
-      run: |
-        if [ ! -f results.sarif ]; then
-          echo '{"version":"2.1.0","$schema":"https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json","runs":[]}' > results.sarif
-        fi
-
-    - name: Upload SARIF file
-      # Note: SARIF upload requires security-events:write permission
-      # This is typically only available on the main repository, not forks
-      if: always()
-      uses: github/codeql-action/upload-sarif@v3
-      with:
-        sarif_file: results.sarif
-      continue-on-error: true
+        go install github.com/securego/gosec/v2/cmd/gosec@v2.28.0
+        gosec -quiet ./...
 
   build:
     name: Build

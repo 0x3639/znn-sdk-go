@@ -4,6 +4,73 @@ Notable changes to the Zenon Go SDK are documented in this file.
 
 ## Unreleased
 
+Security hardening addressing 20 CodeRabbit findings (9 High, 9 Medium, 2 Low).
+Every code fix ships with a regression test. **Five exported signatures change —
+see Breaking Changes.**
+
+### Breaking Changes
+
+- `crypto.DeriveKey` and `crypto.DeriveKeyDefault` now return `([]byte, error)`.
+  Argon2 parameters are validated with the new `crypto.ValidateArgon2Parameters`
+  before any work is performed; zero iterations/parallelism (which panicked
+  inside Argon2), oversized memory (> 256 MiB), iterations (> 16),
+  parallelism, key-length, short-salt, or a memory×iterations product above
+  `crypto.MaxArgon2WorkKiB` (1 GiB-pass) return
+  `crypto.ErrInvalidArgon2Parameters`.
+- `pow.GeneratePoW`, `pow.GeneratePowBigInt`, and `pow.GeneratePowBytes` now
+  return an error instead of panicking when the difficulty exceeds
+  `pow.MaxReasonableDifficulty`. They are equivalent to the `*WithContext`
+  variants with a background context. All `*BigInt*` generators return the new
+  `pow.ErrInvalidDifficulty` for a nil or negative difficulty instead of
+  panicking.
+
+### Security
+
+- `crypto.Digest` returns nil for `digestSize > crypto.MaxDigestSize` (1024)
+  instead of allocating a caller-sized buffer.
+- `pow.GeneratePowAsync`/`GeneratePowBigIntAsync` apply bounded admission: at
+  most `maxWorkers × pow.DefaultPendingPoWMultiplier` requests may be active or
+  queued; further requests receive `pow.ErrPoolOverloaded` immediately instead
+  of spawning an unbounded number of goroutines.
+- New `pow.GeneratePowBytesWithContext` provides a cancellable form of
+  `GeneratePowBytes`.
+- `zenon.Zenon` gains `SendWithContext`/`PrepareBlockWithContext`, a
+  `MaxDifficulty` work budget, and a `PowTimeout` applied by the context-free
+  `Send`/`PrepareBlock` (`zenon.DefaultPowTimeout` = 5 min; negative disables).
+  PoW runs through the cancellable, worker-limited pool path; a node
+  requesting difficulty above the budget (or `pow.MaxProtocolDifficulty`)
+  fails before any nonce search starts.
+- `rpc_client.ClientOptions` gains `DialPolicy` (applied to every resolved
+  destination for initial dials, reconnects, subscription sockets, and HTTP
+  redirects; environment proxies are disabled while a policy is active so a
+  proxy cannot reach the destination on the client's behalf;
+  `rpc_client.RejectNonPublicDestinations` is provided for untrusted URLs), `MaxHTTPResponseBytes` (default 16 MiB, enforced on success
+  and error bodies), `HTTPTimeout` (default 60s), and
+  `MaxSubscriptionMessageBytes` (default 15 MiB, applied via `SetReadLimit`
+  before the first read on every subscription socket).
+- `wallet.KeyStoreManager.SaveKeyStore` writes through an exclusive temporary
+  file and `rename(2)`, so a symlink planted between the path check and the
+  write is replaced rather than followed (CWE-367).
+- `wallet.KeyStore.FindAddress` rejects `maxAccounts > DefaultMaxIndex`.
+- `utils.ExtractDecimals` returns an error and `utils.AddDecimals` returns the
+  plain integer string for `decimals > utils.MaxDecimals` (32).
+- ABI: every fixed-width decoder obtains its word through one overflow-safe
+  bounds check (negative or overflowing offsets return errors); `GetType`
+  enforces `MaxTypeNameLength`, `MaxArrayNesting`, and `MaxStaticArraySize`;
+  array `Decode`/`DecodeTuple` verify the element count fits the encoded head
+  before allocating.
+- `conformance/modelwire.RoundTrip` rejects inputs above `MaxInputSize`
+  (256 KiB) or `MaxInputNodes` (4096 objects/arrays), rejects expanded
+  encodings above `MaxEncodedSize` (4 MiB), and converts panics from dependency decoders (e.g. `BalanceInfo` with a
+  missing token, `AccountBlockList` with a null element) into errors.
+- CI: scanner failures are no longer suppressed. `govulncheck` fails on any
+  reachable advisory not listed in `.govulncheck-ignore`
+  (`scripts/govulncheck-gate.sh`, which also fails on scanner crashes, package
+  load errors, or empty output); `gosec` runs without `-no-fail`. Workflows
+  use least-privilege job permissions (`security-events: write` only on the
+  SARIF-upload job), `persist-credentials: false`, and pin third-party actions
+  and tools to immutable commits/versions.
+
 ## v0.3.1 - 2026-08-14
 
 ### Fixed

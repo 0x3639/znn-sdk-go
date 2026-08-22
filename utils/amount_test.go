@@ -246,3 +246,15 @@ func TestAmountRoundTrip(t *testing.T) {
 		}
 	}
 }
+
+func TestDecimalsBounded(t *testing.T) {
+	if _, err := ExtractDecimals("1.5", MaxDecimals+1); err == nil {
+		t.Error("ExtractDecimals accepted decimals above MaxDecimals")
+	}
+	if got := AddDecimals(big.NewInt(15), MaxDecimals+1); got != "15" {
+		t.Errorf("AddDecimals above MaxDecimals = %q, want plain integer", got)
+	}
+	if _, err := ExtractDecimals("1.5", MaxDecimals); err != nil {
+		t.Errorf("ExtractDecimals rejected MaxDecimals: %v", err)
+	}
+}

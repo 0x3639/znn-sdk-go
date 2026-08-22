@@ -10,17 +10,25 @@ on:
     - cron: '0 0 * * 1'
   workflow_dispatch: # Allow manual triggering
 
+# Least privilege by default. Only the gosec job, which uploads SARIF, is
+# granted security-events: write (see below). Every checkout uses
+# persist-credentials: false so third-party tools never see the workflow
+# token through the git configuration.
 permissions:
   contents: read
-  security-events: write # For uploading SARIF results
 
 jobs:
   gosec:
     name: GoSec Security Scan
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write # For uploading SARIF results (this job only)
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -32,22 +40,30 @@ jobs:
         run: go mod download
 
       - name: Run Gosec Security Scanner
-        uses: securego/gosec@master
+        # Pinned to the v2.28.0 release commit. Dependabot/Renovate should bump
+        # the SHA and the trailing version comment together.
+        uses: securego/gosec@9e75c0576c9878035d4221392108d458abe10fc3 # v2.28.0
         with:
           args: '-fmt sarif -out gosec-results.sarif ./...'
 
       - name: Upload SARIF file
+        # Forked PRs are not granted security-events: write; skip rather than
+        # silently swallowing an authorization failure.
+        if: always() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: gosec-results.sarif
-        if: always() # Upload results even if scan finds issues
 
   staticcheck:
     name: Staticcheck
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -59,7 +75,7 @@ jobs:
         run: go mod download
 
       - name: Install staticcheck
-        run: go install honnef.co/go/tools/cmd/staticcheck@latest
+        run: go install honnef.co/go/tools/cmd/staticcheck@v0.8.1
 
       - name: Run staticcheck
         run: staticcheck ./...
@@ -67,9 +83,13 @@ jobs:
   govulncheck:
     name: Go Vulnerability Check
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -81,18 +101,23 @@ jobs:
         run: go mod download
 
       - name: Install govulncheck
-        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+        run: go install golang.org/x/vuln/cmd/govulncheck@v1.7.0
 
       - name: Run govulncheck
-        # Don't fail CI for stdlib vulnerabilities (fixed by Go runtime updates)
-        run: govulncheck ./... || true
+        # Fails on any reachable advisory not explicitly accepted in
+        # .govulncheck-ignore.
+        run: ./scripts/govulncheck-gate.sh
 
   nancy:
     name: Nancy Dependency Check
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -107,8 +132,9 @@ jobs:
         run: go list -json -deps ./... > go.list
 
       - name: Run Nancy (OSS Index)
-        uses: sonatype-nexus-community/nancy-github-action@main
-        continue-on-error: true # Don't fail build on vulnerability findings
+        # Pinned to the v1.0.2 release commit.
+        uses: sonatype-nexus-community/nancy-github-action@aae196481b961d446f4bff9012e4e3b63d7921a4 # v1.0.2
+        continue-on-error: true # Advisory only; govulncheck is the enforced gate
         with:
           nancyCommand: sleuth --loud
 

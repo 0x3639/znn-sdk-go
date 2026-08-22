@@ -130,7 +130,7 @@ func TestGeneratePoW_WithCappedDifficulty(t *testing.T) {
 
 	// Generation still succeeds at a sane difficulty.
 	hash := types.HexToHashPanic("0000000000000000000000000000000000000000000000000000000000000001")
-	if nonce := GeneratePoW(hash, 1000); nonce == "" {
+	if nonce, _ := GeneratePoW(hash, 1000); nonce == "" {
 		t.Error("GeneratePoW should return a nonce")
 	}
 }
@@ -138,14 +138,13 @@ func TestGeneratePoW_WithCappedDifficulty(t *testing.T) {
 func TestGeneratePoW_PanicsOnTooHighDifficulty(t *testing.T) {
 	hash := types.HexToHashPanic("0000000000000000000000000000000000000000000000000000000000000001")
 
-	defer func() {
-		if r := recover(); r == nil {
-			t.Error("GeneratePoW should panic on difficulty > MaxReasonableDifficulty")
-		}
-	}()
-
-	// This should panic
-	_ = GeneratePoW(hash, MaxReasonableDifficulty+1)
+	// Must return an error, never panic (CodeRabbit finding #6).
+	if _, err := GeneratePoW(hash, MaxReasonableDifficulty+1); !errors.Is(err, ErrDifficultyTooHigh) {
+		t.Errorf("GeneratePoW error = %v, want ErrDifficultyTooHigh", err)
+	}
+	if _, err := GeneratePowBytes(hash, MaxReasonableDifficulty+1); !errors.Is(err, ErrDifficultyTooHigh) {
+		t.Errorf("GeneratePowBytes error = %v, want ErrDifficultyTooHigh", err)
+	}
 }
 
 func TestGeneratePowWithContext_RejectsHighDifficulty(t *testing.T) {
@@ -193,7 +192,7 @@ func TestGeneratePowBigInt_WithValidation(t *testing.T) {
 
 	// Within range - should work
 	difficulty := big.NewInt(1000000)
-	nonce := GeneratePowBigInt(hash, difficulty)
+	nonce, _ := GeneratePowBigInt(hash, difficulty)
 	if nonce == "" {
 		t.Error("GeneratePowBigInt should return a nonce")
 	}
@@ -202,15 +201,10 @@ func TestGeneratePowBigInt_WithValidation(t *testing.T) {
 func TestGeneratePowBigInt_PanicsOnTooHigh(t *testing.T) {
 	hash := types.HexToHashPanic("0000000000000000000000000000000000000000000000000000000000000001")
 
-	defer func() {
-		if r := recover(); r == nil {
-			t.Error("GeneratePowBigInt should panic on too high difficulty")
-		}
-	}()
-
-	// This should panic
 	difficulty := big.NewInt(0).SetUint64(MaxReasonableDifficulty + 1)
-	_ = GeneratePowBigInt(hash, difficulty)
+	if _, err := GeneratePowBigInt(hash, difficulty); !errors.Is(err, ErrDifficultyTooHigh) {
+		t.Errorf("GeneratePowBigInt error = %v, want ErrDifficultyTooHigh", err)
+	}
 }
 
 func TestGeneratePowBigIntWithContext_RejectsHighDifficulty(t *testing.T) {

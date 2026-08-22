@@ -188,15 +188,25 @@ func EncodeIntBig(bigInt *big.Int) []byte {
 	return bigIntToBytesSigned(bigInt, Int32Size)
 }
 
+// wordAt returns the 32-byte word of encoded starting at offset.
+//
+// The bounds check is overflow-safe: offset may be attacker-controlled, so a
+// naive len(encoded) < offset+Int32Size comparison could wrap around (or be
+// bypassed by a negative offset) and reach a panicking slice expression. Every
+// decoder must obtain its word through this helper.
+func wordAt(encoded []byte, offset int, what string) ([]byte, error) {
+	if offset < 0 || offset > len(encoded)-Int32Size {
+		return nil, fmt.Errorf("insufficient bytes for decoding %s", what)
+	}
+	return encoded[offset : offset+Int32Size], nil
+}
+
 // DecodeInt decodes a signed integer from encoded bytes at offset
 func DecodeInt(encoded []byte, offset int) (*big.Int, error) {
-	// The comparison must be overflow-safe: offset may be attacker-controlled,
-	// so offset+Int32Size could wrap around and bypass a naive length check.
-	if offset < 0 || offset > len(encoded)-Int32Size {
-		return nil, fmt.Errorf("insufficient bytes for decoding int")
+	bytes, err := wordAt(encoded, offset, "int")
+	if err != nil {
+		return nil, err
 	}
-
-	bytes := encoded[offset : offset+Int32Size]
 
 	// Convert bytes to big.Int (handling sign)
 	bigInt := new(big.Int).SetBytes(bytes)
@@ -381,11 +391,10 @@ func EncodeUintBig(bigInt *big.Int) ([]byte, error) {
 
 // DecodeUint decodes an unsigned integer from encoded bytes at offset
 func DecodeUint(encoded []byte, offset int) (*big.Int, error) {
-	if len(encoded) < offset+Int32Size {
-		return nil, fmt.Errorf("insufficient bytes for decoding uint")
+	bytes, err := wordAt(encoded, offset, "uint")
+	if err != nil {
+		return nil, err
 	}
-
-	bytes := encoded[offset : offset+Int32Size]
 	return decodeBigInt(bytes), nil
 }
 
@@ -520,12 +529,13 @@ func (at *AddressType) Encode(value interface{}) ([]byte, error) {
 
 // Decode decodes an address value from encoded bytes at offset
 func (at *AddressType) Decode(encoded []byte, offset int) (interface{}, error) {
-	if len(encoded) < offset+Int32Size {
-		return nil, fmt.Errorf("insufficient bytes for decoding address")
+	word, err := wordAt(encoded, offset, "address")
+	if err != nil {
+		return nil, err
 	}
 
 	// Address bytes are at offset+12 (skip 12 padding bytes) and are 20 bytes long
-	addrBytes := encoded[offset+12 : offset+Int32Size]
+	addrBytes := word[12:]
 
 	addr, err := types.BytesToAddress(addrBytes)
 	if err != nil {
@@ -590,12 +600,11 @@ func (ht *HashType) Encode(value interface{}) ([]byte, error) {
 
 // Decode decodes a hash value from encoded bytes at offset
 func (ht *HashType) Decode(encoded []byte, offset int) (interface{}, error) {
-	if len(encoded) < offset+Int32Size {
-		return nil, fmt.Errorf("insufficient bytes for decoding hash")
-	}
-
 	// Extract 32 bytes for the hash
-	hashBytes := encoded[offset : offset+Int32Size]
+	hashBytes, err := wordAt(encoded, offset, "hash")
+	if err != nil {
+		return nil, err
+	}
 
 	hash, err := types.BytesToHash(hashBytes)
 	if err != nil {
@@ -688,10 +697,10 @@ func (bt *FixedBytesType) Encode(value interface{}) ([]byte, error) {
 
 // Decode decodes a fixed byte value and rejects non-zero right padding.
 func (bt *FixedBytesType) Decode(encoded []byte, offset int) (interface{}, error) {
-	if len(encoded) < offset+Int32Size {
-		return nil, fmt.Errorf("insufficient bytes for decoding %s", bt.name)
+	word, err := wordAt(encoded, offset, bt.name)
+	if err != nil {
+		return nil, err
 	}
-	word := encoded[offset : offset+Int32Size]
 	if !bytes.Equal(word[bt.size:], make([]byte, Int32Size-bt.size)) {
 		return nil, fmt.Errorf("invalid %s encoding: non-zero right padding", bt.name)
 	}
@@ -752,12 +761,13 @@ func (tst *TokenStandardType) Encode(value interface{}) ([]byte, error) {
 
 // Decode decodes a token standard value from encoded bytes at offset
 func (tst *TokenStandardType) Decode(encoded []byte, offset int) (interface{}, error) {
-	if len(encoded) < offset+Int32Size {
-		return nil, fmt.Errorf("insufficient bytes for decoding token standard")
+	word, err := wordAt(encoded, offset, "token standard")
+	if err != nil {
+		return nil, err
 	}
 
 	// ZTS bytes are at offset+22 (skip 22 padding bytes) and are 10 bytes long
-	ztsBytes := encoded[offset+22 : offset+Int32Size]
+	ztsBytes := word[22:]
 
 	zts, err := types.BytesToZTS(ztsBytes)
 	if err != nil {
@@ -936,8 +946,26 @@ func (st *StringType) Decode(encoded []byte, offset int) (interface{}, error) {
 // GetType - Type Factory Function
 // =============================================================================
 
+// Limits applied by GetType to untrusted type declarations (CWE-674). Array
+// parsing is recursive and re-slices the declaration at each dimension, so an
+// unbounded declaration could force deep recursion and quadratic allocation.
+const (
+	// MaxTypeNameLength is the longest type declaration GetType accepts.
+	MaxTypeNameLength = 256
+	// MaxArrayNesting is the maximum number of array dimensions GetType accepts.
+	MaxArrayNesting = 8
+	// MaxStaticArraySize is the largest static array dimension accepted.
+	MaxStaticArraySize = 1 << 16
+)
+
 // GetType creates an ABI type from a type name string
 func GetType(typeName string) (AbiType, error) {
+	if len(typeName) > MaxTypeNameLength {
+		return nil, fmt.Errorf("type name exceeds %d characters", MaxTypeNameLength)
+	}
+	if depth := strings.Count(typeName, "["); depth > MaxArrayNesting {
+		return nil, fmt.Errorf("array nesting depth %d exceeds maximum %d", depth, MaxArrayNesting)
+	}
 	if strings.Contains(typeName, "[") {
 		return getArrayType(typeName)
 	}
@@ -1028,6 +1056,9 @@ func NewStaticArrayType(typeName string) (*StaticArrayType, error) {
 	size, err := strconv.Atoi(sizeStr)
 	if err != nil || size <= 0 {
 		return nil, fmt.Errorf("invalid array size: %s", sizeStr)
+	}
+	if size > MaxStaticArraySize {
+		return nil, fmt.Errorf("array size %d exceeds maximum %d", size, MaxStaticArraySize)
 	}
 
 	// Extract element type name
@@ -1145,6 +1176,9 @@ func (sat *StaticArrayType) Decode(encoded []byte, offset int) (interface{}, err
 		return sat.DecodeTuple(encoded, offset, sat.size)
 	}
 
+	if err := checkTupleHead(encoded, offset, sat.size, sat.elementType.GetFixedSize()); err != nil {
+		return nil, err
+	}
 	result := make([]interface{}, sat.size)
 
 	for i := 0; i < sat.size; i++ {
@@ -1160,6 +1194,9 @@ func (sat *StaticArrayType) Decode(encoded []byte, offset int) (interface{}, err
 
 // DecodeTuple decodes array elements from a tuple encoding
 func (sat *StaticArrayType) DecodeTuple(encoded []byte, origOffset int, length int) ([]interface{}, error) {
+	if err := checkTupleHead(encoded, origOffset, length, tupleHeadSize(sat.elementType)); err != nil {
+		return nil, err
+	}
 	offset := origOffset
 	result := make([]interface{}, length)
 
@@ -1349,6 +1386,38 @@ func (dat *DynamicArrayType) EncodeTuple(values []interface{}) ([]byte, error) {
 }
 
 // Decode decodes a dynamic array from encoded data
+// tupleHeadSize returns the number of head bytes each element of a tuple
+// occupies: one offset word for dynamic elements, the fixed size otherwise.
+func tupleHeadSize(elementType AbiType) int {
+	if elementType.IsDynamicType() {
+		return Int32Size
+	}
+	return elementType.GetFixedSize()
+}
+
+// checkTupleHead verifies, before any result slice is allocated, that a tuple
+// of `length` elements whose heads are `headSize` bytes each fits in the
+// encoded data starting at offset. Both length and offset may be
+// attacker-controlled (via a schema dimension or the exported DecodeTuple
+// APIs), so the comparison is overflow-safe and negative values are rejected
+// (CWE-400).
+func checkTupleHead(encoded []byte, offset, length, headSize int) error {
+	if offset < 0 || offset > len(encoded) {
+		return fmt.Errorf("invalid tuple offset %d", offset)
+	}
+	if length < 0 {
+		return fmt.Errorf("invalid tuple length %d", length)
+	}
+	if headSize <= 0 {
+		headSize = Int32Size
+	}
+	// Divide rather than multiply so a huge length cannot overflow int.
+	if length > (len(encoded)-offset)/headSize {
+		return fmt.Errorf("tuple of %d elements exceeds available data", length)
+	}
+	return nil
+}
+
 // decodeArrayLength decodes and bounds-checks the length prefix of a dynamic
 // array, returning the element count and the offset where element data begins.
 //
@@ -1383,6 +1452,9 @@ func (dat *DynamicArrayType) Decode(encoded []byte, origOffset int) (interface{}
 
 // DecodeTuple decodes array elements from a tuple encoding
 func (dat *DynamicArrayType) DecodeTuple(encoded []byte, origOffset int, length int) ([]interface{}, error) {
+	if err := checkTupleHead(encoded, origOffset, length, tupleHeadSize(dat.elementType)); err != nil {
+		return nil, err
+	}
 	offset := origOffset
 	result := make([]interface{}, length)
 

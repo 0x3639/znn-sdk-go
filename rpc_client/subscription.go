@@ -174,10 +174,16 @@ type websocketNotification struct {
 }
 
 func (s *NormalizedSubscription) open() (*websocket.Conn, string, error) {
-	connection, _, err := websocket.DefaultDialer.DialContext(s.ctx, s.client.url, nil)
+	dialer, guard := newWebsocketDialer(s.client.dialPolicy)
+	connection, _, err := dialer.DialContext(s.ctx, s.client.url, nil)
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to connect subscription transport: %w", err)
+		return nil, "", fmt.Errorf("failed to connect subscription transport: %w", wrapDialError(err, guard))
 	}
+	// Bound every frame before the first read so a hostile node cannot make
+	// the client allocate memory proportional to an arbitrarily large
+	// handshake response or notification (CWE-400). ReadJSON fails with
+	// websocket.ErrReadLimit when exceeded and the connection is closed.
+	connection.SetReadLimit(s.client.maxSubscriptionMessageBytes)
 	// WriteJSON/ReadJSON below are not context-aware, so a cancellation during
 	// the handshake (Unsubscribe / parent Stop) would otherwise block forever.
 	// Close the connection when the context is done to unblock the reader

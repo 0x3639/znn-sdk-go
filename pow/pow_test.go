@@ -175,7 +175,7 @@ func TestPoWAcceptedByNode(t *testing.T) {
 		}
 		dataHash := gzpow.GetAccountBlockHash(block)
 
-		nonceBytes := GeneratePowBytes(dataHash, difficulty)
+		nonceBytes, _ := GeneratePowBytes(dataHash, difficulty)
 		if len(nonceBytes) != 8 {
 			t.Fatalf("GeneratePowBytes length = %d, want 8", len(nonceBytes))
 		}
@@ -203,7 +203,7 @@ func TestCheckPoW_ValidNonce(t *testing.T) {
 	copy(testHash[:], []byte("test_for_valid_nonce"))
 
 	// Generate a valid nonce
-	nonce := nonceFromHex(GeneratePoW(testHash, 1000))
+	nonce := nonceFromHex(mustNonce(t)(GeneratePoW(testHash, 1000)))
 
 	// Check that it's valid
 	if !CheckPoW(testHash, nonce, 1000) {
@@ -227,7 +227,7 @@ func TestCheckPoW_InvalidNonce(t *testing.T) {
 
 func TestGeneratePoW_ZeroDifficulty(t *testing.T) {
 	testHash := types.Hash{}
-	nonce := GeneratePoW(testHash, 0)
+	nonce, _ := GeneratePoW(testHash, 0)
 
 	if nonce != "0000000000000000" {
 		t.Errorf("GeneratePoW() with zero difficulty = %s, want 0000000000000000", nonce)
@@ -238,7 +238,7 @@ func TestGeneratePoW_LowDifficulty(t *testing.T) {
 	testHash := types.Hash{}
 	copy(testHash[:], []byte("test_low_difficulty"))
 
-	nonce := GeneratePoW(testHash, 10)
+	nonce, _ := GeneratePoW(testHash, 10)
 
 	// Should return a valid hex string
 	if len(nonce) != 16 {
@@ -255,7 +255,7 @@ func TestGeneratePoW_MediumDifficulty(t *testing.T) {
 	testHash := types.Hash{}
 	copy(testHash[:], []byte("test_medium_difficulty"))
 
-	nonce := GeneratePoW(testHash, 1000)
+	nonce, _ := GeneratePoW(testHash, 1000)
 
 	// Verify it's valid
 	if !CheckPoW(testHash, nonceFromHex(nonce), 1000) {
@@ -267,8 +267,8 @@ func TestGeneratePoW_Deterministic(t *testing.T) {
 	testHash := types.Hash{}
 	copy(testHash[:], []byte("test_deterministic"))
 
-	nonce1 := GeneratePoW(testHash, 100)
-	nonce2 := GeneratePoW(testHash, 100)
+	nonce1, _ := GeneratePoW(testHash, 100)
+	nonce2, _ := GeneratePoW(testHash, 100)
 
 	if nonce1 != nonce2 {
 		t.Error("GeneratePoW() should be deterministic for same input")
@@ -281,8 +281,8 @@ func TestGeneratePoW_DifferentHashes(t *testing.T) {
 	copy(hash1[:], []byte("hash1"))
 	copy(hash2[:], []byte("hash2"))
 
-	nonce1 := GeneratePoW(hash1, 100)
-	nonce2 := GeneratePoW(hash2, 100)
+	nonce1, _ := GeneratePoW(hash1, 100)
+	nonce2, _ := GeneratePoW(hash2, 100)
 
 	// Different hashes should (usually) produce different nonces
 	// Note: This could theoretically fail, but very unlikely
@@ -297,7 +297,7 @@ func TestGeneratePoW_DifferentHashes(t *testing.T) {
 
 func TestGeneratePowBigInt_ZeroDifficulty(t *testing.T) {
 	testHash := types.Hash{}
-	nonce := GeneratePowBigInt(testHash, big.NewInt(0))
+	nonce, _ := GeneratePowBigInt(testHash, big.NewInt(0))
 
 	if nonce != "0000000000000000" {
 		t.Errorf("GeneratePowBigInt() with zero difficulty = %s, want 0000000000000000", nonce)
@@ -308,7 +308,7 @@ func TestGeneratePowBigInt_Valid(t *testing.T) {
 	testHash := types.Hash{}
 	copy(testHash[:], []byte("test_bigint"))
 
-	nonce := GeneratePowBigInt(testHash, big.NewInt(500))
+	nonce, _ := GeneratePowBigInt(testHash, big.NewInt(500))
 
 	// Verify it's valid
 	if !CheckPoW(testHash, nonceFromHex(nonce), 500) {
@@ -321,8 +321,8 @@ func TestGeneratePowBigInt_MatchesGeneratePoW(t *testing.T) {
 	copy(testHash[:], []byte("test_match"))
 
 	difficulty := uint64(200)
-	nonce1 := GeneratePoW(testHash, difficulty)
-	nonce2 := GeneratePowBigInt(testHash, big.NewInt(int64(difficulty)))
+	nonce1, _ := GeneratePoW(testHash, difficulty)
+	nonce2, _ := GeneratePowBigInt(testHash, big.NewInt(int64(difficulty)))
 
 	if nonce1 != nonce2 {
 		t.Error("GeneratePowBigInt() should match GeneratePoW() for same difficulty")
@@ -337,7 +337,7 @@ func TestGeneratePowBytes_ReturnsBytes(t *testing.T) {
 	testHash := types.Hash{}
 	copy(testHash[:], []byte("test_bytes"))
 
-	nonceBytes := GeneratePowBytes(testHash, 50)
+	nonceBytes, _ := GeneratePowBytes(testHash, 50)
 
 	if len(nonceBytes) != 8 {
 		t.Errorf("GeneratePowBytes() length = %d, want 8", len(nonceBytes))
@@ -415,7 +415,7 @@ func BenchmarkGeneratePoW_Difficulty10(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		GeneratePoW(testHash, 10)
+		_, _ = GeneratePoW(testHash, 10)
 	}
 }
 
@@ -425,7 +425,7 @@ func BenchmarkGeneratePoW_Difficulty100(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		GeneratePoW(testHash, 100)
+		_, _ = GeneratePoW(testHash, 100)
 	}
 }
 
@@ -435,7 +435,7 @@ func BenchmarkGeneratePoW_Difficulty1000(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		GeneratePoW(testHash, 1000)
+		_, _ = GeneratePoW(testHash, 1000)
 	}
 }
 
@@ -899,4 +899,14 @@ func TestWorkerPool_BigIntAsync_WithPool(t *testing.T) {
 	}
 
 	t.Logf("Successfully completed %d BigInt PoW operations with worker pool", numOps)
+}
+
+func mustNonce(t *testing.T) func(string, error) string {
+	return func(nonce string, err error) string {
+		t.Helper()
+		if err != nil {
+			t.Fatalf("PoW generation failed: %v", err)
+		}
+		return nonce
+	}
 }

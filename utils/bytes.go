@@ -58,6 +58,7 @@ func EncodeBigInt(number *big.Int) []byte {
 	byteMask := big.NewInt(0xff)
 	for i := 0; i < size; i++ {
 		b := new(big.Int).And(temp, byteMask)
+		// #nosec G115 -- b is masked to 0xff above, so the conversion cannot overflow
 		result[size-i-1] = byte(b.Int64())
 		temp.Rsh(temp, 8)
 	}

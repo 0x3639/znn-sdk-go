@@ -21,7 +21,7 @@ func Example() {
 	fmt.Println("Generating PoW...")
 
 	// Generate PoW (blocking operation)
-	nonce := pow.GeneratePoW(dataHash, difficulty)
+	nonce, _ := pow.GeneratePoW(dataHash, difficulty)
 
 	fmt.Printf("PoW generated successfully\n")
 	fmt.Printf("Nonce: %s\n", nonce)
@@ -124,7 +124,7 @@ func Example_difficultyComparison() {
 	lowDifficulty := uint64(100000)
 
 	start := time.Now()
-	pow.GeneratePoW(dataHash, lowDifficulty)
+	_, _ = pow.GeneratePoW(dataHash, lowDifficulty)
 	lowTime := time.Since(start)
 
 	fmt.Printf("Low difficulty (%d): ~instant\n", lowDifficulty)
@@ -133,7 +133,7 @@ func Example_difficultyComparison() {
 	mediumDifficulty := uint64(1000000)
 
 	start = time.Now()
-	pow.GeneratePoW(dataHash, mediumDifficulty)
+	_, _ = pow.GeneratePoW(dataHash, mediumDifficulty)
 	medTime := time.Since(start)
 
 	fmt.Printf("Medium difficulty (%d): takes longer\n", mediumDifficulty)
@@ -148,7 +148,7 @@ func Example_zeroDifficulty() {
 	dataHash := types.HexToHashPanic("0000000000000000000000000000000000000000000000000000000000000001")
 
 	// Zero difficulty returns immediately
-	nonce := pow.GeneratePoW(dataHash, 0)
+	nonce, _ := pow.GeneratePoW(dataHash, 0)
 
 	fmt.Println("Zero difficulty PoW")
 	fmt.Printf("Nonce: %s\n", nonce)
@@ -166,7 +166,7 @@ func Example_bytes() {
 	difficulty := uint64(1000000)
 
 	// Generate as bytes
-	nonceBytes := pow.GeneratePowBytes(dataHash, difficulty)
+	nonceBytes, _ := pow.GeneratePowBytes(dataHash, difficulty)
 
 	fmt.Println("PoW generated as bytes")
 	fmt.Printf("Nonce length: %d bytes\n", len(nonceBytes))

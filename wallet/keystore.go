@@ -206,9 +206,12 @@ type FindResponse struct {
 //
 // Parameters:
 //   - address: The Zenon address to search for
-//   - maxAccounts: Maximum number of indices to check (0 uses DefaultMaxIndex)
+//   - maxAccounts: Maximum number of indices to check (0 uses DefaultMaxIndex;
+//     values above DefaultMaxIndex are rejected)
 //
 // Returns FindResponse containing the account index and keypair, or ErrAddressNotFound.
+// Returns an error if maxAccounts exceeds DefaultMaxIndex, so a caller-supplied
+// bound cannot force an unbounded number of key derivations.
 //
 // Example:
 //
@@ -228,6 +231,9 @@ type FindResponse struct {
 func (ks *KeyStore) FindAddress(address types.Address, maxAccounts int) (*FindResponse, error) {
 	if maxAccounts <= 0 {
 		maxAccounts = DefaultMaxIndex
+	}
+	if maxAccounts > DefaultMaxIndex {
+		return nil, fmt.Errorf("maxAccounts %d exceeds maximum of %d", maxAccounts, DefaultMaxIndex)
 	}
 
 	for i := 0; i < maxAccounts; i++ {

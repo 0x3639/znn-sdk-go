@@ -1,17 +1,11 @@
 #!/usr/bin/env bash
 # Runs govulncheck and fails on any *reachable* advisory that is not listed in
-# .govulncheck-ignore.
-#
-# Standard-library advisories are a property of the toolchain that compiles
-# the code, which for a library is the consumer's toolchain, not go.mod's
-# minimum. CI therefore runs this gate twice:
-#   - on the declared minimum toolchain with GOVULNCHECK_SKIP_STDLIB=1, which
-#     enforces module (dependency) advisories and only reports stdlib ones;
-#   - on the current stable toolchain with full enforcement.
+# .govulncheck-ignore. Standard-library advisories depend on the toolchain in
+# use, so CI runs this on both the go.mod minimum and the current stable
+# release; keep the minimum on a supported Go line.
 set -euo pipefail
 
 ignore_file="${1:-.govulncheck-ignore}"
-skip_stdlib="${GOVULNCHECK_SKIP_STDLIB:-0}"
 out="$(mktemp)"
 trap 'rm -f "$out"' EXIT
 
@@ -35,19 +29,7 @@ fi
 
 # "finding" objects whose first trace frame names a function are the ones
 # where the vulnerable symbol is actually called (reachable).
-reachable_all="$(jq -r 'select(.finding != null) | .finding | select(.trace[0].function != null) | .osv' "$out" | sort -u)"
-# OSV entries whose affected module is the standard library.
-stdlib_ids="$(jq -r 'select(.osv != null) | .osv | select([.affected[].package.name] | index("stdlib")) | .id' "$out" | sort -u)"
-if [ "$skip_stdlib" = "1" ]; then
-  reachable="$(comm -23 <(echo "$reachable_all") <(echo "$stdlib_ids") | sed '/^$/d' || true)"
-  skipped="$(comm -12 <(echo "$reachable_all") <(echo "$stdlib_ids") | sed '/^$/d' || true)"
-  if [ -n "$skipped" ]; then
-    echo "::warning::reachable standard-library advisories (not enforced on the minimum toolchain; fixed by a newer Go release):"
-    echo "$skipped"
-  fi
-else
-  reachable="$reachable_all"
-fi
+reachable="$(jq -r 'select(.finding != null) | .finding | select(.trace[0].function != null) | .osv' "$out" | sort -u)"
 accepted="$(grep -vE '^\s*(#|$)' "$ignore_file" | awk '{print $1}' | sort -u || true)"
 
 unexpected="$(comm -23 <(echo "$reachable") <(echo "$accepted") | sed '/^$/d' || true)"

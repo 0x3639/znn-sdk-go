@@ -16,9 +16,9 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        # 1.24.x is the go.mod minimum; stable is the current release. (A
-        # 1.23.x entry would silently auto-switch to the go.mod toolchain.)
-        go-version: ['1.24.x', 'stable']
+        # 1.26.x is the go.mod minimum; stable is the current release. (An
+        # older entry would silently auto-switch to the go.mod toolchain.)
+        go-version: ['1.26.x', 'stable']
 
     steps:
     - name: Checkout code
@@ -36,15 +36,15 @@ jobs:
       run: go mod verify
 
     - name: Run tests
-      if: matrix.os != 'ubuntu-latest' || matrix.go-version != '1.24.x'
+      if: matrix.os != 'ubuntu-latest' || matrix.go-version != '1.26.x'
       run: go test -v ./...
 
     - name: Run tests with coverage
-      if: matrix.os == 'ubuntu-latest' && matrix.go-version == '1.24.x'
+      if: matrix.os == 'ubuntu-latest' && matrix.go-version == '1.26.x'
       run: go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
 
     - name: Upload coverage to Codecov
-      if: matrix.os == 'ubuntu-latest' && matrix.go-version == '1.24.x'
+      if: matrix.os == 'ubuntu-latest' && matrix.go-version == '1.26.x'
       uses: codecov/codecov-action@b9fd7d16f6d7d1b5d2bec1a2887e65ceed900238 # v4.6.0
       with:
         files: ./coverage.txt
@@ -62,13 +62,14 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
       with:
-        go-version: '1.24.x'
+        go-version: '1.26.x'
         cache: true
 
     - name: Run golangci-lint
       uses: golangci/golangci-lint-action@9fae48acfc02a90574d7c304a1758ef9895495fa # v7.0.1
       with:
-        version: v2.6.2
+        # Must be built with a Go at least as new as go.mod targets.
+        version: v2.13.1
         args: --timeout=5m
         # `config verify` downloads a JSON schema from golangci-lint.run and
         # has caused spurious failures on network timeouts. An invalid config
@@ -85,7 +86,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
       with:
-        go-version: '1.24.x'
+        go-version: '1.26.x'
 
     - name: Check formatting
       run: |
@@ -105,7 +106,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
       with:
-        go-version: '1.24.x'
+        go-version: '1.26.x'
         cache: true
 
     - name: Run go vet
@@ -121,14 +122,9 @@ jobs:
       contents: read
     strategy:
       matrix:
-        include:
-          # Declared minimum toolchain: enforce dependency advisories; stdlib
-          # advisories are the consumer's toolchain concern and only reported.
-          - go-version: '1.24.x'
-            skip-stdlib: '1'
-          # Current release: full enforcement including stdlib.
-          - go-version: 'stable'
-            skip-stdlib: '0'
+        # Declared minimum (a supported release) and the current release;
+        # advisories are fully enforced on both.
+        go-version: ['1.26.x', 'stable']
 
     steps:
     - name: Checkout code
@@ -145,8 +141,6 @@ jobs:
     - name: Run govulncheck
       # Fails on any reachable advisory not explicitly accepted in
       # .govulncheck-ignore (see scripts/govulncheck-gate.sh).
-      env:
-        GOVULNCHECK_SKIP_STDLIB: ${{ matrix.skip-stdlib }}
       run: |
         go install golang.org/x/vuln/cmd/govulncheck@v1.7.0
         ./scripts/govulncheck-gate.sh
@@ -168,7 +162,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
       with:
-        go-version: '1.24.x'
+        go-version: '1.26.x'
         cache: true
 
     - name: Build all packages
@@ -196,7 +190,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
       with:
-        go-version: '1.24.x'
+        go-version: '1.26.x'
         cache: true
 
     - name: Run integration tests

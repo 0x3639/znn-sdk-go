@@ -5,6 +5,8 @@ import (
 	"crypto/sha256"
 	"fmt"
 
+	stdsha3 "crypto/sha3"
+
 	"golang.org/x/crypto/sha3"
 )
 
@@ -65,7 +67,7 @@ func Digest(data []byte, digestSize int) []byte {
 	}
 	if digestSize == 0 || digestSize == 32 {
 		// Standard SHA3-256
-		hash := sha3.Sum256(data)
+		hash := stdsha3.Sum256(data)
 		return hash[:]
 	}
 

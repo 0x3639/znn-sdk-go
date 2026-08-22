@@ -12,6 +12,11 @@ see Breaking Changes.**
 
 ### Breaking Changes
 
+- Minimum Go version is now 1.26 (`go 1.26.0`, `toolchain go1.26.7`). Go 1.24
+  and 1.25 are end-of-life and carry reachable standard-library advisories in
+  the TLS/x509/net/http paths the RPC client uses. Consumers on an older
+  toolchain with the default `GOTOOLCHAIN=auto` will download 1.26
+  transparently.
 - `crypto.DeriveKey` and `crypto.DeriveKeyDefault` now return `([]byte, error)`.
   Argon2 parameters are validated with the new `crypto.ValidateArgon2Parameters`
   before any work is performed; zero iterations/parallelism (which panicked

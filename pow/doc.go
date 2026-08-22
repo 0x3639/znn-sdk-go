@@ -13,19 +13,25 @@
 // Generate PoW for a transaction:
 //
 //	// Check required difficulty
-//	difficulty, err := client.PlasmaApi.GetRequiredPoWForAccountBlock(accountBlock)
+//	required, err := client.PlasmaApi.GetRequiredPoWForAccountBlock(accountBlock)
 //	if err != nil {
 //	    log.Fatal(err)
 //	}
 //
-//	// Generate PoW (blocking)
-//	nonce, err := pow.GeneratePoW(dataHash, difficulty)
+//	// The PoW data hash is SHA3-256(address || previousHash); it is NOT the
+//	// hash of accountBlock.Data.
+//	dataHash := utils.GetPoWData(accountBlock)
+//
+//	// Generate PoW (blocking; returns an error instead of panicking when the
+//	// node-supplied difficulty is out of range)
+//	nonceBytes, err := pow.GeneratePowBytes(dataHash, required.RequiredDifficulty)
 //	if err != nil {
 //	    log.Fatal(err)
 //	}
 //
 //	// Set nonce on account block
-//	accountBlock.Nonce = nonce
+//	accountBlock.Difficulty = required.RequiredDifficulty
+//	copy(accountBlock.Nonce.Data[:], nonceBytes)
 //
 // # Asynchronous PoW Generation
 //

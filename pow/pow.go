@@ -98,7 +98,13 @@ func (p *workerPool) leave() {
 }
 
 var (
+	// pool is the global worker pool. It is only read or replaced under
+	// poolMu; every request captures one *workerPool via currentPool and uses
+	// that same instance for admit/acquire/release/leave, so a concurrent
+	// SetMaxPoWWorkers can never pair a slot reserved in one pool with a
+	// release on another.
 	pool     *workerPool
+	poolMu   sync.RWMutex
 	poolOnce sync.Once
 )
 
@@ -115,8 +121,23 @@ func initWorkerPool() {
 			}
 		}
 
-		pool = newWorkerPool(maxWorkers)
+		setPool(newWorkerPool(maxWorkers))
 	})
+}
+
+// currentPool returns the pool instance a request must bind to for its whole
+// lifetime, initializing the global pool on first use.
+func currentPool() *workerPool {
+	initWorkerPool()
+	poolMu.RLock()
+	defer poolMu.RUnlock()
+	return pool
+}
+
+func setPool(p *workerPool) {
+	poolMu.Lock()
+	pool = p
+	poolMu.Unlock()
 }
 
 // acquire blocks until a worker slot is available or context is cancelled.
@@ -152,8 +173,10 @@ func (p *workerPool) release() {
 //	// Allow 16 concurrent operations (for high-performance servers)
 //	pow.SetMaxPoWWorkers(16)
 //
-// Note: This function is NOT thread-safe and should only be called during
-// application initialization, before any PoW generation begins.
+// This function is safe to call concurrently with PoW generation: requests
+// already admitted keep using the pool they were admitted to, and only new
+// requests see the new limit. It is still recommended to configure the pool
+// during application initialization.
 func SetMaxPoWWorkers(maxWorkers int) {
 	if maxWorkers <= 0 {
 		maxWorkers = DefaultMaxPoWWorkers
@@ -161,7 +184,7 @@ func SetMaxPoWWorkers(maxWorkers int) {
 
 	poolOnce.Do(func() {}) // Ensure poolOnce is marked as initialized
 
-	pool = newWorkerPool(maxWorkers)
+	setPool(newWorkerPool(maxWorkers))
 }
 
 // GetMaxPoWWorkers returns the current maximum number of concurrent PoW workers.
@@ -174,6 +197,8 @@ func SetMaxPoWWorkers(maxWorkers int) {
 //
 //	fmt.Printf("Max concurrent PoW workers: %d\n", pow.GetMaxPoWWorkers())
 func GetMaxPoWWorkers() int {
+	poolMu.RLock()
+	defer poolMu.RUnlock()
 	if pool == nil {
 		return DefaultMaxPoWWorkers
 	}
@@ -458,12 +483,12 @@ func GeneratePowBigIntWithContext(ctx context.Context, dataHash types.Hash, diff
 //	    // Process result
 //	}
 func GeneratePowAsync(ctx context.Context, dataHash types.Hash, difficulty uint64) <-chan PowResult {
-	initWorkerPool()
+	p := currentPool()
 	resultChan := make(chan PowResult, 1)
 
 	// Bounded admission: reject immediately when active+pending capacity is
 	// exhausted, before allocating a goroutine for the request (CWE-400).
-	if !pool.admit() {
+	if !p.admit() {
 		resultChan <- PowResult{Error: ErrPoolOverloaded}
 		close(resultChan)
 		return resultChan
@@ -471,17 +496,17 @@ func GeneratePowAsync(ctx context.Context, dataHash types.Hash, difficulty uint6
 
 	go func() {
 		defer close(resultChan)
-		defer pool.leave()
+		defer p.leave()
 
 		// Acquire worker slot (blocks if pool is full)
-		if err := pool.acquire(ctx); err != nil {
+		if err := p.acquire(ctx); err != nil {
 			resultChan <- PowResult{
 				Nonce: "",
 				Error: err,
 			}
 			return
 		}
-		defer pool.release()
+		defer p.release()
 
 		nonce, err := GeneratePowWithContext(ctx, dataHash, difficulty)
 		resultChan <- PowResult{
@@ -510,12 +535,12 @@ func GeneratePowAsync(ctx context.Context, dataHash types.Hash, difficulty uint6
 //	}
 //	// Use result.Nonce
 func GeneratePowBigIntAsync(ctx context.Context, dataHash types.Hash, difficulty *big.Int) <-chan PowResult {
-	initWorkerPool()
+	p := currentPool()
 	resultChan := make(chan PowResult, 1)
 
 	// Bounded admission: reject immediately when active+pending capacity is
 	// exhausted, before allocating a goroutine for the request (CWE-400).
-	if !pool.admit() {
+	if !p.admit() {
 		resultChan <- PowResult{Error: ErrPoolOverloaded}
 		close(resultChan)
 		return resultChan
@@ -523,17 +548,17 @@ func GeneratePowBigIntAsync(ctx context.Context, dataHash types.Hash, difficulty
 
 	go func() {
 		defer close(resultChan)
-		defer pool.leave()
+		defer p.leave()
 
 		// Acquire worker slot (blocks if pool is full)
-		if err := pool.acquire(ctx); err != nil {
+		if err := p.acquire(ctx); err != nil {
 			resultChan <- PowResult{
 				Nonce: "",
 				Error: err,
 			}
 			return
 		}
-		defer pool.release()
+		defer p.release()
 
 		nonce, err := GeneratePowBigIntWithContext(ctx, dataHash, difficulty)
 		resultChan <- PowResult{

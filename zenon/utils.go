@@ -187,8 +187,14 @@ func (z *Zenon) setDifficulty(ctx context.Context, transaction *nom.AccountBlock
 				resp.RequiredDifficulty, budget)
 		}
 
-		transaction.FusedPlasma = resp.AvailablePlasma
-		transaction.Difficulty = resp.RequiredDifficulty
+		// Stage the PoW fields on a copy and commit them only once a nonce has
+		// been generated. Returning early (cancellation, overload, decode
+		// failure) must not leave the caller's template with a non-zero
+		// difficulty and an empty nonce, which checkAndSetFields would reject
+		// on retry.
+		staged := *transaction
+		staged.FusedPlasma = resp.AvailablePlasma
+		staged.Difficulty = resp.RequiredDifficulty
 
 		if z.PowCallback != nil {
 			z.PowCallback(pow.Generating)
@@ -198,8 +204,8 @@ func (z *Zenon) setDifficulty(ctx context.Context, transaction *nom.AccountBlock
 		// to satisfy the node's pow.CheckPoWNonce. Run through the cancellable,
 		// worker-limited async path so ctx deadlines apply and concurrent sends
 		// share the pool's CPU limit.
-		dataHash := gozenonpow.GetAccountBlockHash(transaction)
-		result := <-pow.GeneratePowAsync(ctx, dataHash, transaction.Difficulty)
+		dataHash := gozenonpow.GetAccountBlockHash(&staged)
+		result := <-pow.GeneratePowAsync(ctx, dataHash, staged.Difficulty)
 		if result.Error != nil {
 			return fmt.Errorf("failed to generate PoW: %w", result.Error)
 		}
@@ -207,9 +213,12 @@ func (z *Zenon) setDifficulty(ctx context.Context, transaction *nom.AccountBlock
 		if err != nil {
 			return fmt.Errorf("failed to decode PoW nonce %q: %w", result.Nonce, err)
 		}
-		if len(nonce) != len(transaction.Nonce.Data) {
+		if len(nonce) != len(staged.Nonce.Data) {
 			return fmt.Errorf("unexpected PoW nonce length %d", len(nonce))
 		}
+
+		transaction.FusedPlasma = staged.FusedPlasma
+		transaction.Difficulty = staged.Difficulty
 		copy(transaction.Nonce.Data[:], nonce)
 
 		if z.PowCallback != nil {

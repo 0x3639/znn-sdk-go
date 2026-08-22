@@ -20,10 +20,9 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
-
+      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
     - name: Set up Go
-      uses: actions/setup-go@v5
+      uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
       with:
         go-version: ${{ matrix.go-version }}
         cache: true
@@ -44,7 +43,7 @@ jobs:
 
     - name: Upload coverage to Codecov
       if: matrix.os == 'ubuntu-latest' && matrix.go-version == '1.24.x'
-      uses: codecov/codecov-action@v4
+      uses: codecov/codecov-action@b9fd7d16f6d7d1b5d2bec1a2887e65ceed900238 # v4.6.0
       with:
         files: ./coverage.txt
         flags: unittests
@@ -57,16 +56,15 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
-
+      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
     - name: Set up Go
-      uses: actions/setup-go@v5
+      uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
       with:
         go-version: '1.24.x'
         cache: true
 
     - name: Run golangci-lint
-      uses: golangci/golangci-lint-action@v7
+      uses: golangci/golangci-lint-action@9fae48acfc02a90574d7c304a1758ef9895495fa # v7.0.1
       with:
         version: v2.6.2
         args: --timeout=5m
@@ -77,10 +75,9 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
-
+      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
     - name: Set up Go
-      uses: actions/setup-go@v5
+      uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
       with:
         go-version: '1.24.x'
 
@@ -98,10 +95,9 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
-
+      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
     - name: Set up Go
-      uses: actions/setup-go@v5
+      uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
       with:
         go-version: '1.24.x'
         cache: true
@@ -120,14 +116,17 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       with:
         persist-credentials: false
 
     - name: Set up Go
-      uses: actions/setup-go@v5
+      uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
       with:
-        go-version: '1.24.x'
+        # Vulnerability scanning must run on a supported toolchain: stdlib
+        # advisories are fixed only in current patch releases, so scanning
+        # with an end-of-life Go line reports unfixable findings.
+        go-version: 'stable'
         cache: true
 
     - name: Run govulncheck
@@ -150,10 +149,9 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
-
+      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
     - name: Set up Go
-      uses: actions/setup-go@v5
+      uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
       with:
         go-version: '1.24.x'
         cache: true
@@ -179,10 +177,9 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
-
+      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
     - name: Set up Go
-      uses: actions/setup-go@v5
+      uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
       with:
         go-version: '1.24.x'
         cache: true

@@ -44,6 +44,9 @@
 // Used for keystore encryption (typically handled by wallet package):
 //
 //	derivedKey, err := crypto.DeriveKey(password, salt, crypto.DefaultArgon2Parameters())
+//	if err != nil {
+//	    return err // parameters or salt out of the accepted range
+//	}
 //
 // # Address Derivation
 //

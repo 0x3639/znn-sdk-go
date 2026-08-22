@@ -473,6 +473,16 @@ func TestZenonPrepareBlockWithContext_CancelAndBudget(t *testing.T) {
 	if _, err := z.PrepareBlockWithContext(ctx, template, kp); !errors.Is(err, pow.ErrCancelled) {
 		t.Fatalf("PrepareBlockWithContext with cancelled ctx: err = %v, want pow.ErrCancelled", err)
 	}
+	// CodeRabbit finding: a failed PoW must not leave difficulty set with an
+	// empty nonce, so the same template can be retried.
+	if template.Difficulty != 0 || template.FusedPlasma != 0 || template.Nonce != (nom.Nonce{}) {
+		t.Fatalf("failed PoW leaked fields: difficulty=%d fused=%d nonce=%x", template.Difficulty, template.FusedPlasma, template.Nonce.Data)
+	}
+	fixture.pow.RequiredDifficulty = 1
+	if _, err := z.PrepareBlockWithContext(context.Background(), template, kp); err != nil {
+		t.Fatalf("retry after cancelled PoW failed: %v", err)
+	}
+	fixture.pow.RequiredDifficulty = pow.MaxProtocolDifficulty
 
 	// Work budget below the node's request: fail before any PoW.
 	z.MaxDifficulty = 1000

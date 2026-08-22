@@ -5,6 +5,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sync"
 	"testing"
 )
@@ -192,6 +193,12 @@ func TestFindAddress_RejectsHugeMaxAccounts(t *testing.T) {
 // time-of-check/time-of-use race: a symlink at the target is replaced by the
 // new keystore file rather than followed.
 func TestSaveKeyStore_ReplacesSymlinkInsteadOfFollowing(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		// Creating symlinks needs elevated privileges and POSIX permission
+		// bits are not representable on Windows; the companion
+		// TestKeyStoreManager_RejectsSymlinkedEntries skips for the same reason.
+		t.Skip("symlink semantics and POSIX permissions differ on windows")
+	}
 	dir := t.TempDir()
 	outside := filepath.Join(t.TempDir(), "victim")
 	if err := os.WriteFile(outside, []byte("sensitive"), 0600); err != nil {

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/zenon-network/go-zenon/common/types"
 )
@@ -75,5 +76,39 @@ func TestGeneratePowBigInt_NilAndNegativeDifficulty(t *testing.T) {
 	}
 	if _, err := GeneratePowBigInt(hash, big.NewInt(-1)); !errors.Is(err, ErrInvalidDifficulty) {
 		t.Errorf("GeneratePowBigInt(-1) err = %v", err)
+	}
+}
+
+// CodeRabbit finding: a request must stay bound to the pool it was admitted
+// to even if SetMaxPoWWorkers replaces the global pool mid-flight. Run with
+// -race; a mismatched leave would block forever.
+func TestSetMaxPoWWorkers_ConcurrentWithGeneration(t *testing.T) {
+	t.Cleanup(func() { SetMaxPoWWorkers(DefaultMaxPoWWorkers) })
+	SetMaxPoWWorkers(2)
+	hash := types.HexToHashPanic("0000000000000000000000000000000000000000000000000000000000000002")
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for i := 0; i < 50; i++ {
+			SetMaxPoWWorkers(1 + i%4)
+			_ = GetMaxPoWWorkers()
+		}
+	}()
+
+	results := make([]<-chan PowResult, 0, 40)
+	for i := 0; i < 40; i++ {
+		results = append(results, GeneratePowAsync(context.Background(), hash, 1000))
+	}
+	<-done
+	for _, c := range results {
+		select {
+		case res := <-c:
+			if res.Error != nil && !errors.Is(res.Error, ErrPoolOverloaded) {
+				t.Fatalf("unexpected error: %v", res.Error)
+			}
+		case <-time.After(10 * time.Second):
+			t.Fatal("request never completed: pool slot mismatch")
+		}
 	}
 }

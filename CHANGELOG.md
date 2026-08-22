@@ -4,6 +4,10 @@ Notable changes to the Zenon Go SDK are documented in this file.
 
 ## Unreleased
 
+## v0.5.0 - 2026-08-22
+
+Toolchain floor bump. No API changes.
+
 ### Breaking Changes
 
 - Minimum Go version is now 1.26 (`go 1.26.0`, `toolchain go1.26.7`). Go 1.24
@@ -11,6 +15,17 @@ Notable changes to the Zenon Go SDK are documented in this file.
   the TLS/x509/net/http paths the RPC client uses. Consumers on an older
   toolchain with the default `GOTOOLCHAIN=auto` will download 1.26
   transparently.
+
+### Changed
+
+- `crypto.Digest` and the PoW hasher use the standard library `crypto/sha3`
+  for SHA3-256 instead of the `golang.org/x/crypto/sha3` forwarding wrapper.
+  Output is identical.
+- `github.com/gorilla/websocket` is declared as a direct dependency (it was
+  already imported directly by `rpc_client`).
+- CI: test and govulncheck matrices run on the go.mod minimum (1.26.x) and the
+  current stable release, with vulnerability advisories fully enforced on both;
+  golangci-lint upgraded to v2.13.1.
 
 ## v0.4.0 - 2026-08-22
 

@@ -22,8 +22,17 @@
 //	// hash of accountBlock.Data.
 //	dataHash := utils.GetPoWData(accountBlock)
 //
-//	// Generate PoW (blocking; returns an error instead of panicking when the
-//	// node-supplied difficulty is out of range)
+//	// The node controls RequiredDifficulty. Reject anything above the
+//	// protocol maximum before doing any work: the generators return an
+//	// error above MaxReasonableDifficulty, but values between the protocol
+//	// and reasonable maxima are capped to MaxProtocolDifficulty, so a nonce
+//	// generated for such a value would not validate against the advertised
+//	// difficulty. (zenon.Zenon.Send performs this check for you.)
+//	if required.RequiredDifficulty > pow.MaxProtocolDifficulty {
+//	    log.Fatalf("node requested difficulty %d above protocol maximum", required.RequiredDifficulty)
+//	}
+//
+//	// Generate PoW (blocking; never panics on hostile input)
 //	nonceBytes, err := pow.GeneratePowBytes(dataHash, required.RequiredDifficulty)
 //	if err != nil {
 //	    log.Fatal(err)

@@ -85,6 +85,16 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    strategy:
+      matrix:
+        include:
+          # Declared minimum toolchain: enforce dependency advisories; stdlib
+          # advisories are the consumer's toolchain concern and only reported.
+          - go-version: '1.24.x'
+            skip-stdlib: '1'
+          # Current release: full enforcement including stdlib.
+          - go-version: 'stable'
+            skip-stdlib: '0'
     steps:
       - name: Checkout code
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -94,10 +104,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
-          # Vulnerability scanning must run on a supported toolchain: stdlib
-          # advisories are fixed only in current patch releases, so scanning
-          # with an end-of-life Go line reports unfixable findings.
-          go-version: 'stable'
+          go-version: ${{ matrix.go-version }}
           cache: true
 
       - name: Download dependencies
@@ -109,6 +116,8 @@ jobs:
       - name: Run govulncheck
         # Fails on any reachable advisory not explicitly accepted in
         # .govulncheck-ignore.
+        env:
+          GOVULNCHECK_SKIP_STDLIB: ${{ matrix.skip-stdlib }}
         run: ./scripts/govulncheck-gate.sh
 
   nancy:

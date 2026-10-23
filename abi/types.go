@@ -3,6 +3,7 @@ package abi
 import (
 	"bytes"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"math/big"
 	"reflect"
@@ -1172,24 +1173,9 @@ func (sat *StaticArrayType) EncodeTuple(values []interface{}) ([]byte, error) {
 
 // Decode decodes a static array from encoded data
 func (sat *StaticArrayType) Decode(encoded []byte, offset int) (interface{}, error) {
-	if sat.elementType.IsDynamicType() {
-		return sat.DecodeTuple(encoded, offset, sat.size)
-	}
-
-	if err := checkTupleHead(encoded, offset, sat.size, sat.elementType.GetFixedSize()); err != nil {
-		return nil, err
-	}
-	result := make([]interface{}, sat.size)
-
-	for i := 0; i < sat.size; i++ {
-		decoded, err := sat.elementType.Decode(encoded, offset+i*sat.elementType.GetFixedSize())
-		if err != nil {
-			return nil, fmt.Errorf("failed to decode element %d: %w", i, err)
-		}
-		result[i] = decoded
-	}
-
-	return result, nil
+	// Both element classes share DecodeTuple so the head check and the
+	// decode budget apply uniformly.
+	return sat.DecodeTuple(encoded, offset, sat.size)
 }
 
 // DecodeTuple decodes array elements from a tuple encoding
@@ -1197,24 +1183,18 @@ func (sat *StaticArrayType) DecodeTuple(encoded []byte, origOffset int, length i
 	if err := checkTupleHead(encoded, origOffset, length, tupleHeadSize(sat.elementType)); err != nil {
 		return nil, err
 	}
+	if err := checkArrayStride(sat.GetName(), sat.elementType, length); err != nil {
+		return nil, err
+	}
 	offset := origOffset
 	result := make([]interface{}, length)
+	budget := newTailBudget(encoded, origOffset)
 
 	for i := 0; i < length; i++ {
 		if sat.elementType.IsDynamicType() {
-			// For dynamic types, read offset and decode from there
-			offsetBig, err := DecodeInt(encoded, offset)
+			decoded, err := decodeDynamicElement(sat.elementType, encoded, origOffset, offset, i, &budget)
 			if err != nil {
-				return nil, fmt.Errorf("failed to decode offset for element %d: %w", i, err)
-			}
-			elemOffset, err := elementDataOffset(encoded, origOffset, offsetBig)
-			if err != nil {
-				return nil, fmt.Errorf("invalid offset for element %d: %w", i, err)
-			}
-
-			decoded, err := sat.elementType.Decode(encoded, elemOffset)
-			if err != nil {
-				return nil, fmt.Errorf("failed to decode element %d: %w", i, err)
+				return nil, err
 			}
 			result[i] = decoded
 		} else {
@@ -1222,6 +1202,9 @@ func (sat *StaticArrayType) DecodeTuple(encoded []byte, origOffset int, length i
 			decoded, err := sat.elementType.Decode(encoded, offset)
 			if err != nil {
 				return nil, fmt.Errorf("failed to decode element %d: %w", i, err)
+			}
+			if err := budget.consume(decoded, i); err != nil {
+				return nil, err
 			}
 			result[i] = decoded
 		}
@@ -1418,6 +1401,112 @@ func checkTupleHead(encoded []byte, offset, length, headSize int) error {
 	return nil
 }
 
+// decodedSize charges a decoded value against a tailBudget. The charge never
+// exceeds the bytes a canonical encoding of the value occupies, so it can
+// only reject overlapping encodings:
+//   - bytes/string longer than a word: the length word plus the content (the
+//     tail is padded to at least that);
+//   - bytes of at most one word: one word. FixedBytesType (bytes1..bytes32)
+//     also decodes to []byte and occupies exactly one word, and a dynamic
+//     bytes that short occupies two, so one word is the safe charge for both;
+//   - every other leaf: one 32-byte word;
+//   - arrays: the sum of their elements, each charged at least one word, since
+//     every element occupies at least a head word or an inline word. Empty
+//     leaves and empty arrays therefore still cost a word, which is what
+//     bounds the result-slice storage of nested aliasing (an n×n matrix of
+//     aliased empty values would otherwise charge nothing).
+func decodedSize(v interface{}) int {
+	switch x := v.(type) {
+	case []byte:
+		if len(x) <= Int32Size {
+			return Int32Size
+		}
+		return Int32Size + len(x)
+	case string:
+		return Int32Size + len(x)
+	case []interface{}:
+		total := 0
+		for _, element := range x {
+			size := decodedSize(element)
+			if size < Int32Size {
+				size = Int32Size
+			}
+			total += size
+		}
+		return total
+	default:
+		return Int32Size
+	}
+}
+
+// ErrUnsupportedArrayShape is returned (wrapped) when an array holds more
+// than one static array of dynamic elements, such as bytes[][1][] or
+// string[][2] in this SDK's outer-dimension-first spelling (string[2][], a
+// static array of two string[], is fine). Such a wrapper is encoded inline,
+// as go-zenon's ABI packs it, and this SDK gives it a fixed size of zero
+// (go-zenon's getTypeSize reports one word, which is no more consistent with
+// the variable-length inline packing), so an array of them has no
+// well-defined element stride: every element would decode the same offset
+// and return duplicated values. No embedded contract uses this shape. A
+// single wrapper, or a wrapper used directly (string[2]), decodes normally.
+var ErrUnsupportedArrayShape = errors.New("array of static arrays of dynamic elements has no well-defined stride")
+
+// checkArrayStride rejects the ambiguous shape described by
+// ErrUnsupportedArrayShape before any element is decoded.
+func checkArrayStride(arrayName string, elementType AbiType, length int) error {
+	if length > 1 && !elementType.IsDynamicType() && elementType.GetFixedSize() == 0 {
+		return fmt.Errorf("%w: %s", ErrUnsupportedArrayShape, arrayName)
+	}
+	return nil
+}
+
+// tailBudget bounds the aggregate size of elements decoded from one tuple.
+// Each dynamic element's offset word is attacker-controlled and only checked
+// individually, so many offsets may alias one tail and amplify the decoded
+// size far beyond the payload (CWE-400). Fixed elements are charged too: a
+// static array of dynamic elements reports a fixed size of zero (it is
+// encoded inline, matching go-zenon's ABI), so the fixed-element loop decodes
+// the same offset for every element and the budget is what bounds that work.
+// A canonical encoding never decodes to more bytes than it occupies after the
+// tuple's origin, so exceeding that total proves the elements overlap.
+type tailBudget struct {
+	remaining int
+}
+
+func newTailBudget(encoded []byte, origOffset int) tailBudget {
+	return tailBudget{remaining: len(encoded) - origOffset}
+}
+
+func (b *tailBudget) consume(decoded interface{}, index int) error {
+	b.remaining -= decodedSize(decoded)
+	if b.remaining < 0 {
+		return fmt.Errorf("element %d: decoded elements exceed the encoded payload (aliased element offsets)", index)
+	}
+	return nil
+}
+
+// decodeDynamicElement decodes element i of a tuple of dynamic elements: it
+// reads the offset word at headOffset, validates it relative to origOffset,
+// decodes the element there, and charges its decoded size to budget.
+func decodeDynamicElement(elementType AbiType, encoded []byte, origOffset, headOffset, i int, budget *tailBudget) (interface{}, error) {
+	offsetBig, err := DecodeInt(encoded, headOffset)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode offset for element %d: %w", i, err)
+	}
+	elemOffset, err := elementDataOffset(encoded, origOffset, offsetBig)
+	if err != nil {
+		return nil, fmt.Errorf("invalid offset for element %d: %w", i, err)
+	}
+	decoded, err := elementType.Decode(encoded, elemOffset)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode element %d: %w", i, err)
+	}
+	if err := budget.consume(decoded, i); err != nil {
+		return nil, err
+	}
+	return decoded, nil
+}
+
 // decodeArrayLength decodes and bounds-checks the length prefix of a dynamic
 // array, returning the element count and the offset where element data begins.
 //
@@ -1455,24 +1544,18 @@ func (dat *DynamicArrayType) DecodeTuple(encoded []byte, origOffset int, length 
 	if err := checkTupleHead(encoded, origOffset, length, tupleHeadSize(dat.elementType)); err != nil {
 		return nil, err
 	}
+	if err := checkArrayStride(dat.GetName(), dat.elementType, length); err != nil {
+		return nil, err
+	}
 	offset := origOffset
 	result := make([]interface{}, length)
+	budget := newTailBudget(encoded, origOffset)
 
 	for i := 0; i < length; i++ {
 		if dat.elementType.IsDynamicType() {
-			// For dynamic types, read offset and decode from there
-			offsetBig, err := DecodeInt(encoded, offset)
+			decoded, err := decodeDynamicElement(dat.elementType, encoded, origOffset, offset, i, &budget)
 			if err != nil {
-				return nil, fmt.Errorf("failed to decode offset for element %d: %w", i, err)
-			}
-			elemOffset, err := elementDataOffset(encoded, origOffset, offsetBig)
-			if err != nil {
-				return nil, fmt.Errorf("invalid offset for element %d: %w", i, err)
-			}
-
-			decoded, err := dat.elementType.Decode(encoded, elemOffset)
-			if err != nil {
-				return nil, fmt.Errorf("failed to decode element %d: %w", i, err)
+				return nil, err
 			}
 			result[i] = decoded
 		} else {
@@ -1480,6 +1563,9 @@ func (dat *DynamicArrayType) DecodeTuple(encoded []byte, origOffset int, length 
 			decoded, err := dat.elementType.Decode(encoded, offset)
 			if err != nil {
 				return nil, fmt.Errorf("failed to decode element %d: %w", i, err)
+			}
+			if err := budget.consume(decoded, i); err != nil {
+				return nil, err
 			}
 			result[i] = decoded
 		}

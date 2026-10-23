@@ -4,6 +4,59 @@ Notable changes to the Zenon Go SDK are documented in this file.
 
 ## Unreleased
 
+Follow-up to the v0.4.0 hardening, from a Codex (GPT-6) re-review of the
+CodeRabbit findings. One additive API change: the `abi.ErrUnsupportedArrayShape`
+sentinel. No signatures change.
+
+### Security
+
+- ABI: array decoders bound the aggregate size of decoded dynamic elements to
+  the encoded payload. Previously many element offset words could alias one
+  `bytes`/`string`/nested-array tail, so roughly 32N+L input bytes decoded to
+  N×L bytes, and nested aliasing of empty values allocated N² result slots
+  (CWE-400). Every element, fixed or dynamic, is charged at least one word,
+  and bytes/strings longer than a word their length word plus content, which
+  never exceeds what a canonical encoding occupies, so the check only rejects
+  overlapping elements. Fixed elements are charged because a static array of
+  dynamic elements is encoded inline with a fixed size of zero (matching
+  go-zenon's ABI), so the fixed-element loop re-decodes one offset for every
+  element. Applies to `StaticArrayType.DecodeTuple` and
+  `DynamicArrayType.DecodeTuple`; `StaticArrayType.Decode` now always goes
+  through `DecodeTuple`. Per-tuple budgets bound the work at each nesting
+  level (at most `MaxArrayNesting` levels), not one global budget.
+- ABI: an array holding more than one static array of dynamic elements (for
+  example `bytes[][1][]` or `string[][2]`, outer dimension first) now fails with the new
+  `abi.ErrUnsupportedArrayShape` before any element is decoded. The wrapper is
+  encoded inline with a fixed size of zero (as in go-zenon's ABI), so the
+  array has no well-defined stride; previously every element decoded the
+  same offset and returned duplicated values. A single wrapper, or a wrapper
+  used directly (`string[2]`), is unaffected. No embedded contract uses this
+  shape.
+- `rpc_client`: an oversized non-2xx HTTP response body now fails with
+  `ErrResponseTooLarge` and releases the connection immediately. go-zenon's
+  HTTP codec buffers error bodies in full, discards the read error, and does
+  not close the body on that path, so the limit failure previously surfaced
+  as a generic HTTP error while the connection lingered until `HTTPTimeout`.
+  Redirects that `net/http` will follow (301/302/303; 307/308 only when the
+  chain's original request has a replayable body, which go-zenon's POSTs
+  lack) are left to it, since it closes their body after draining at most a
+  couple of KiB rather than reading it in full;
+  every other non-2xx response, including an unfollowed 3xx anywhere in a
+  redirect chain, is buffered under the limit. The body limiter
+  also closes the underlying body when it reports the limit.
+- SECURITY.md documents the two trust assumptions behind accepted residual
+  risk: the node URL is trusted unless `ClientOptions.DialPolicy` is set, and
+  the wallet directory ancestry must be private to the owning user.
+
+### Fixed
+
+- `rpc_client`: `MaxHTTPResponseBytes = math.MaxInt64` overflowed the body
+  limiter's read-size arithmetic and panicked with a negative slice bound.
+- Tests: `TestSubscriptionReadLimitEnforced` could fail spuriously when
+  subscription cleanup closed the events channel before the test's select
+  observed the terminal error; `crypto.Digest` now has an explicit test at
+  `MaxDigestSize` and `MaxDigestSize+1`.
+
 ## v0.5.0 - 2026-08-22
 
 Toolchain floor bump. No API changes.

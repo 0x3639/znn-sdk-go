@@ -132,6 +132,48 @@ if result.Error != nil {
 }
 ```
 
+### 3. Network Endpoints
+
+#### ⚠️ Trust Assumption: The Node URL Is Trusted by Default
+
+`rpc_client.NewRpcClient` dials whatever URL it is given. The default
+`ClientOptions.DialPolicy` is nil, which allows every destination, because the
+SDK's canonical endpoint is the loopback node at `ws://127.0.0.1:35998` and a
+default-deny policy would break it. **The SDK therefore does not protect
+against server-side request forgery (CWE-918) on its own.** If the node URL
+comes from an untrusted source (user input, a configuration file an attacker
+can edit, a request parameter), the application must set a policy:
+
+```go
+opts := rpc_client.DefaultClientOptions()
+opts.DialPolicy = rpc_client.RejectNonPublicDestinations // or a stricter policy
+client, err := rpc_client.NewRpcClientWithOptions(untrustedURL, opts)
+```
+
+The policy is applied to every resolved address on the initial dial, each
+reconnect, every subscription socket, and every HTTP redirect; environment
+proxies are disabled while a policy is active so a proxy cannot reach the
+destination on the client's behalf.
+
+The configured node is also trusted to behave: response bodies, subscription
+frames, and requested PoW difficulty are bounded (`MaxHTTPResponseBytes`,
+`MaxSubscriptionMessageBytes`, `zenon.Zenon.MaxDifficulty`), but a hostile
+node can still return wrong data. Verify anything that matters.
+
+### 4. Wallet Directory
+
+#### ⚠️ Trust Assumption: The Wallet Directory and Its Ancestors Are Private
+
+`wallet.KeyStoreManager` writes keystore files through an exclusive temporary
+file and `rename(2)`, so a symlink planted at the keystore path after the
+path check cannot redirect the write (CWE-367). The directory itself, and
+every ancestor, is still addressed by pathname. **If a lower-trust local user
+can replace the wallet directory or one of its ancestors, the write can be
+redirected.** Keep the wallet directory under a path only the owning user can
+modify (the default data directory, or a directory with mode `0700` that the
+process owns). The SDK does not pin a directory descriptor or verify ancestor
+ownership.
+
 ---
 
 ## Cryptographic Implementations

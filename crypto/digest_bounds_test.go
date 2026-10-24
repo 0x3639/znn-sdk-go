@@ -32,3 +32,13 @@ func TestDigestRejectsInvalidSizes(t *testing.T) {
 		t.Error("Digest(data, 32) != DigestDefault(data)")
 	}
 }
+
+// Codex finding: the MaxDigestSize boundary itself was untested.
+func TestDigestMaxSizeBoundary(t *testing.T) {
+	if got := Digest([]byte("test data"), MaxDigestSize); len(got) != MaxDigestSize {
+		t.Errorf("Digest(data, MaxDigestSize) length = %d, want %d", len(got), MaxDigestSize)
+	}
+	if got := Digest([]byte("test data"), MaxDigestSize+1); got != nil {
+		t.Errorf("Digest(data, MaxDigestSize+1) = %d bytes, want nil", len(got))
+	}
+}

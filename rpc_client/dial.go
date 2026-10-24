@@ -1,6 +1,7 @@
 package rpc_client
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -217,9 +218,65 @@ func (t *boundedBodyTransport) RoundTrip(req *http.Request) (*http.Response, err
 			resp.Body.Close() //nolint:errcheck
 			return nil, fmt.Errorf("%w: Content-Length %d > %d", ErrResponseTooLarge, resp.ContentLength, t.limit)
 		}
+		if !followsRedirect(req, resp) {
+			// go-zenon's HTTP codec buffers non-2xx bodies in full, discards
+			// the read error, and does not close the body on that path. An
+			// oversized chunked error response would therefore surface as a
+			// generic HTTP error while the connection lingered until the
+			// timeout. Buffer the body here, bounded, so the size-limit
+			// failure is preserved and the connection is released now.
+			body, err := io.ReadAll(&limitedBody{ReadCloser: resp.Body, remaining: t.limit})
+			// #nosec G104 -- body fully consumed or already failing
+			resp.Body.Close() //nolint:errcheck
+			if err != nil {
+				return nil, fmt.Errorf("reading %s response body: %w", resp.Status, err)
+			}
+			resp.Body = io.NopCloser(bytes.NewReader(body))
+			return resp, nil
+		}
 		resp.Body = &limitedBody{ReadCloser: resp.Body, remaining: t.limit}
 	}
 	return resp, nil
+}
+
+// followsRedirect reports whether net/http will follow resp for req instead
+// of returning it to the caller, mirroring its redirectBehavior: 301/302/303
+// are followed (as GET), 307/308 only when the request body can be replayed,
+// and any other status never. A 2xx is reported as "followed" too, meaning
+// the response is handed on without pre-buffering. net/http closes a
+// followed redirect's body after draining at most a couple of KiB for
+// connection reuse rather than reading it in full, so buffering it here
+// would only delay the redirect, possibly past HTTPTimeout. Everything else is a terminal
+// response that go-zenon turns into an HTTPError.
+func followsRedirect(req *http.Request, resp *http.Response) bool {
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		return true
+	}
+	if resp.Header.Get("Location") == "" {
+		return false
+	}
+	switch resp.StatusCode {
+	case http.StatusMovedPermanently, http.StatusFound, http.StatusSeeOther:
+		return true
+	case http.StatusTemporaryRedirect, http.StatusPermanentRedirect:
+		// net/http decides replayability from the ORIGINAL request of the
+		// chain (reqs[0]), not the current hop: after a 302 turned a POST
+		// into a bodiless GET, a 307 is still returned unfollowed because
+		// the original POST cannot be re-sent. go-zenon's POSTs carry a
+		// body and set no GetBody, so for them this is always false.
+		first := originalRequest(req)
+		return first.GetBody != nil || first.Body == nil || first.Body == http.NoBody
+	}
+	return false
+}
+
+// originalRequest walks a redirect chain back to its first request. net/http
+// links each hop to the previous response via Request.Response.
+func originalRequest(req *http.Request) *http.Request {
+	for req.Response != nil && req.Response.Request != nil && req.Response.Request != req {
+		req = req.Response.Request
+	}
+	return req
 }
 
 type limitedBody struct {
@@ -238,22 +295,34 @@ func (l *limitedBody) Read(p []byte) (int, error) {
 		var probe [1]byte
 		n, err := l.ReadCloser.Read(probe[:])
 		if n > 0 {
-			return 0, ErrResponseTooLarge
+			return 0, l.tooLarge()
 		}
 		if err == nil {
 			err = io.EOF
 		}
 		return 0, err
 	}
-	if int64(len(p)) > l.remaining+1 {
-		// Read one byte past the limit so an exact-limit body still succeeds
-		// while anything longer is detected on the next call.
+	// Read one byte past the limit so an exact-limit body still succeeds
+	// while anything longer is detected on the next call. Compare with
+	// len(p)-1 rather than remaining+1: the latter overflows when the limit
+	// is math.MaxInt64 and produced a negative slice bound.
+	if int64(len(p))-1 > l.remaining {
 		p = p[:l.remaining+1]
 	}
 	n, err := l.ReadCloser.Read(p)
 	l.remaining -= int64(n)
 	if l.remaining < 0 {
-		return n, ErrResponseTooLarge
+		return n, l.tooLarge()
 	}
 	return n, err
+}
+
+// tooLarge closes the underlying body so the connection is released
+// immediately instead of lingering until the HTTP timeout, then returns
+// ErrResponseTooLarge. Closing twice is safe for net/http bodies, so the
+// caller's own deferred Close is unaffected.
+func (l *limitedBody) tooLarge() error {
+	// #nosec G104 -- already failing; nothing to do with a close error
+	l.Close() //nolint:errcheck
+	return ErrResponseTooLarge
 }

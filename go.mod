@@ -2,10 +2,10 @@ module github.com/0x3639/znn-sdk-go
 
 go 1.26.0
 
-toolchain go1.26.7
+toolchain go1.26.10
 
 require (
-	github.com/gorilla/websocket v1.5.0
+	github.com/gorilla/websocket v1.5.3
 	github.com/tyler-smith/go-bip39 v1.1.0
 	github.com/zenon-network/go-zenon v0.0.8-alphanet.0.20250515170359-667a69d9e9a4
 	golang.org/x/crypto v0.44.0

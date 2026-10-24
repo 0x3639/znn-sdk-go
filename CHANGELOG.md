@@ -4,11 +4,14 @@ Notable changes to the Zenon Go SDK are documented in this file.
 
 ## Unreleased
 
-Follow-up to the v0.4.0 hardening, from a Codex (GPT-6) re-review of the
-CodeRabbit findings. One additive API change: the `abi.ErrUnsupportedArrayShape`
-sentinel. No signatures change.
-Also carries the dependency and toolchain patch bumps for two new govulncheck
-advisories (merged from master, PR #12); those bullets are listed last.
+## v0.6.0 - 2026-10-24
+
+Security follow-up to the v0.4.0 hardening, from a Codex (GPT-6) re-review of
+the CodeRabbit findings (PR #11), plus dependency and toolchain patch bumps for
+two new govulncheck advisories (PR #12). One additive API change: the
+`abi.ErrUnsupportedArrayShape` sentinel. No signatures change, but ABI inputs
+of the shape it rejects previously decoded to duplicated values and now return
+an error.
 
 ### Security
 
@@ -27,13 +30,13 @@ advisories (merged from master, PR #12); those bullets are listed last.
   through `DecodeTuple`. Per-tuple budgets bound the work at each nesting
   level (at most `MaxArrayNesting` levels), not one global budget.
 - ABI: an array holding more than one static array of dynamic elements (for
-  example `bytes[][1][]` or `string[][2]`, outer dimension first) now fails with the new
-  `abi.ErrUnsupportedArrayShape` before any element is decoded. The wrapper is
-  encoded inline with a fixed size of zero (as in go-zenon's ABI), so the
-  array has no well-defined stride; previously every element decoded the
-  same offset and returned duplicated values. A single wrapper, or a wrapper
-  used directly (`string[2]`), is unaffected. No embedded contract uses this
-  shape.
+  example `bytes[][1][]` or `string[][2]`, outer dimension first) now fails
+  with the new `abi.ErrUnsupportedArrayShape` before any element is decoded.
+  The wrapper is encoded inline with a fixed size of zero (as in go-zenon's
+  ABI), so the array has no well-defined stride; previously every element
+  decoded the same offset and returned duplicated values. A single wrapper, or
+  a wrapper used directly (`string[2]`), is unaffected. No embedded contract
+  uses this shape.
 - `rpc_client`: an oversized non-2xx HTTP response body now fails with
   `ErrResponseTooLarge` and releases the connection immediately. go-zenon's
   HTTP codec buffers error bodies in full, discards the read error, and does
@@ -49,7 +52,6 @@ advisories (merged from master, PR #12); those bullets are listed last.
 - SECURITY.md documents the two trust assumptions behind accepted residual
   risk: the node URL is trusted unless `ClientOptions.DialPolicy` is set, and
   the wallet directory ancestry must be private to the owning user.
-
 - `github.com/gorilla/websocket` v1.5.0 -> v1.5.3, the latest release, which
   clears the affected version range of GO-2026-6278 (GHSA-w67g-5rqw-f597,
   "cryptographically weak PRNG for the WebSocket mask key"). Note that v1.5.3
@@ -65,9 +67,10 @@ advisories (merged from master, PR #12); those bullets are listed last.
   newer installed Go (1.27.x) keeps running itself, so the gate also depends on
   that release being patched (1.27.3+). The fix: `crypto/x509` now distrusts a
   set of compromised intermediate certificates in `Certificate.Verify`, which
-  the TLS dial path reaches. The `go 1.26.0` floor is unchanged. A dependency's `toolchain`
-  directive does not apply to the applications that import it, so consumers
-  must build with a patched Go (1.26.10+ or 1.27.3+) themselves.
+  the TLS dial path reaches. The `go 1.26.0` floor is unchanged. A
+  dependency's `toolchain` directive does not apply to the applications that
+  import it, so consumers must build with a patched Go (1.26.10+ or 1.27.3+)
+  themselves.
 - CI: `actions/setup-go` steps set `check-latest: true` so the `1.26.x` jobs
   resolve to the newest 1.26 patch release instead of the runner's cached
   toolchain, which is what let the x509 advisory surface as a gate failure.

@@ -7,6 +7,8 @@ Notable changes to the Zenon Go SDK are documented in this file.
 Follow-up to the v0.4.0 hardening, from a Codex (GPT-6) re-review of the
 CodeRabbit findings. One additive API change: the `abi.ErrUnsupportedArrayShape`
 sentinel. No signatures change.
+Also carries the dependency and toolchain patch bumps for two new govulncheck
+advisories (merged from master, PR #12); those bullets are listed last.
 
 ### Security
 
@@ -47,6 +49,28 @@ sentinel. No signatures change.
 - SECURITY.md documents the two trust assumptions behind accepted residual
   risk: the node URL is trusted unless `ClientOptions.DialPolicy` is set, and
   the wallet directory ancestry must be private to the owning user.
+
+- `github.com/gorilla/websocket` v1.5.0 -> v1.5.3, the latest release, which
+  clears the affected version range of GO-2026-6278 (GHSA-w67g-5rqw-f597,
+  "cryptographically weak PRNG for the WebSocket mask key"). Note that v1.5.3
+  still derives the client mask key from `math/rand.Uint32` exactly as v1.5.0
+  did; the bump satisfies the advisory, it does not change the mask generator.
+  On Go 1.20+ the global `math/rand` source is auto-seeded (ChaCha8 since Go
+  1.22), and the mask key is a framing detail rather than a secret, so the
+  practical exposure for this SDK is low. Every `rpc_client` WebSocket path was
+  reported reachable.
+- `toolchain go1.26.10` (was go1.26.7) raises this repository's suggested
+  toolchain to a Go release containing the GO-2026-6809 (CVE-2026-111943) fix.
+  Under `GOTOOLCHAIN=auto` an installed Go older than 1.26.10 switches to it; a
+  newer installed Go (1.27.x) keeps running itself, so the gate also depends on
+  that release being patched (1.27.3+). The fix: `crypto/x509` now distrusts a
+  set of compromised intermediate certificates in `Certificate.Verify`, which
+  the TLS dial path reaches. The `go 1.26.0` floor is unchanged. A dependency's `toolchain`
+  directive does not apply to the applications that import it, so consumers
+  must build with a patched Go (1.26.10+ or 1.27.3+) themselves.
+- CI: `actions/setup-go` steps set `check-latest: true` so the `1.26.x` jobs
+  resolve to the newest 1.26 patch release instead of the runner's cached
+  toolchain, which is what let the x509 advisory surface as a gate failure.
 
 ### Fixed
 
